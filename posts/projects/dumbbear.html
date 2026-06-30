@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="title" content="Dumbbear 短链项目">
+  <meta name="summary" content="dumbbear 是我做的短链服务——纯静态 + JSON 索引，支持 nginx try_files 直接转发。">
+  <meta name="date" content="2026-04-05">
+  <meta name="read-time" content="3 min">
+  <meta name="category" content="Projects">
+</head>
+<body>
+<article>
+  <p><code>dumbbear</code>（和它的兄弟 <code>dumbbear2</code>）是我在 <code>wobok.tech</code> 下跑的两个短链服务。功能很简单——把长 URL 变成短 URL。</p>
+
+  <h2>架构</h2>
+
+  <ul>
+    <li>前端：纯静态 HTML</li>
+    <li>后端：没有后端，纯 nginx <code>rewrite</code></li>
+    <li>存储：JSON 文件，存映射关系</li>
+  </ul>
+
+  <h2>为什么不写后端</h2>
+
+  <p>短链这个场景，90% 是读、10% 是写。读的部分可以直接由 nginx 处理——匹配短路径，返回 302 重定向到长 URL。写的部分很少，可以手动维护 JSON。</p>
+
+  <p>这样省了一个进程、一份部署、一个出 bug 的地方。</p>
+
+  <h2>配置</h2>
+
+  <pre><code>location ~ ^/d/([a-zA-Z0-9]+)$ {
+    # 实际生产中用 lua 查 json
+    # 这里简化：用 try_files + 预生成
+    try_files /d/$1.json =404;
+}
+
+# 或者直接 rewrite
+location ~ ^/d/([a-zA-Z0-9]+)$ {
+    return 302 https://example.com/long/url/$1;
+}</code></pre>
+
+  <h2>怎么加新链接</h2>
+
+  <p>手动加 <code>return 302</code> 那一行，然后 <code>nginx -s reload</code>。</p>
+
+  <p>听起来很土，但一个短链服务一年也加不了 50 个链接，这个效率比写后端高。</p>
+
+  <blockquote>不是所有问题都需要后端。最简单的方案，往往是最耐用的。</blockquote>
+</article>
+</body>
+</html>

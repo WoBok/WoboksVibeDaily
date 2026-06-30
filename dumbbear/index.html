@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dumbbear · Cabinet of Cinematic Curiosities</title>
+<meta name="description" content="A private cabinet of forty-four short films by the auteur known as dumbbear.">
+<link rel="icon" href="avatar/avatar.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Italiana&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ================== Palette ================== */
+  :root {
+    --ivory:        #F4EDDC;
+    --ivory-deep:   #E8DCC0;
+    --parchment:    #EFE3C8;
+    --burgundy:     #6B1F23;        /* deep wine red — the royal line */
+    --burgundy-2:   #4A1316;        /* darker, for shadows */
+    --crimson:      #8B2024;        /* for wax */
+    --gold:         #B08840;        /* antique gold */
+    --gold-light:   #D4B26A;
+    --gold-deep:    #8A6720;
+    --midnight:     #1B2845;        /* deep prussian */
+    --ink:          #2A1F18;        /* warm sepia text */
+    --ink-soft:     #4A3A2E;
+    --ash:          #7A6A55;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: var(--ivory);
+    color: var(--ink);
+    font-family: "Cormorant Garamond", "EB Garamond", "Times New Roman", serif;
+    font-weight: 400; font-size: 18px; line-height: 1.7;
+    overflow-x: hidden;
+  }
+  /* Subtle paper grain */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(176, 136, 64, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(107, 31, 35, 0.05) 0%, transparent 50%);
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.15 0 0 0 0.07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode: multiply;
+  }
+  ::selection { background: var(--gold-light); color: var(--burgundy-2); }
+
+  /* ================== Top Crown Banner ================== */
+  .crown {
+    position: relative; z-index: 3;
+    padding: 50px 20px 20px;
+    text-align: center;
+  }
+  .crown-rule {
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    color: var(--gold-deep); margin-bottom: 26px;
+  }
+  .crown-rule .bar { height: 1px; width: 110px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .crown-rule .fleur {
+    width: 30px; height: 30px; display: inline-block;
+  }
+  .crest-line {
+    font-family: "Cinzel", serif;
+    font-size: 11px; letter-spacing: 8px; color: var(--ash);
+    text-transform: uppercase; margin-bottom: 22px;
+  }
+  .title-main {
+    font-family: "Cinzel", serif;
+    font-weight: 600;
+    font-size: 78px;
+    letter-spacing: 14px;
+    color: var(--burgundy);
+    line-height: 1;
+    margin-bottom: 14px;
+    text-transform: lowercase;
+    background: linear-gradient(180deg, var(--burgundy) 30%, var(--burgundy-2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .title-sub {
+    font-family: "Italiana", "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: var(--ink-soft);
+    margin-bottom: 32px;
+  }
+  .title-sub::before, .title-sub::after {
+    content: "·"; color: var(--gold); margin: 0 14px; font-size: 30px;
+    vertical-align: middle;
+  }
+
+  /* Ornamental arch frame for portrait */
+  .arch-stage {
+    position: relative; display: inline-block; padding: 30px 30px 50px;
+  }
+  .arch-stage::before, .arch-stage::after {
+    content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+    width: 320px; height: 420px;
+    border: 1px solid var(--gold);
+    border-radius: 160px 160px 0 0;
+    pointer-events: none;
+  }
+  .arch-stage::before { top: 0; opacity: 0.55; }
+  .arch-stage::after {
+    top: 4px; left: calc(50% + 0px);
+    border-color: var(--gold-light);
+    width: 308px; height: 408px; opacity: 0.7;
+  }
+  .arch-stage .arch-bg {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: 0; width: 320px; height: 420px; border-radius: 160px 160px 0 0;
+    background:
+      linear-gradient(180deg, rgba(176, 136, 64, 0.10), transparent 30%),
+      radial-gradient(ellipse at top, rgba(176, 136, 64, 0.12), transparent 60%);
+    pointer-events: none;
+  }
+  .portrait {
+    position: relative; width: 240px; height: 320px; overflow: hidden;
+    border-radius: 120px 120px 0 0;
+    border: 6px solid var(--ivory);
+    outline: 1px solid var(--gold);
+    box-shadow:
+      0 0 0 2px var(--ivory),
+      0 0 0 3px var(--gold),
+      0 20px 40px rgba(40, 20, 10, 0.25),
+      inset 0 0 30px rgba(40, 20, 10, 0.10);
+    z-index: 2;
+  }
+  .portrait img {
+    width: 100%; height: 100%; object-fit: cover;
+    filter: sepia(0.15) saturate(0.95) contrast(1.05);
+  }
+  /* Wax seal at bottom of portrait */
+  .wax-seal {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    width: 64px; height: 64px; z-index: 4;
+    background: radial-gradient(circle at 35% 35%, #B83A3E 0%, var(--crimson) 45%, var(--burgundy-2) 100%);
+    border-radius: 50%;
+    box-shadow:
+      inset 0 -3px 8px rgba(0,0,0,0.35),
+      inset 2px 3px 6px rgba(255,220,200,0.18),
+      0 4px 8px rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gold-light);
+    font-family: "Cinzel", serif;
+    font-weight: 700; font-size: 22px; letter-spacing: 1px;
+    border: 1px solid rgba(0,0,0,0.18);
+  }
+  .wax-seal::before {
+    content: ""; position: absolute; inset: 4px; border: 1px dashed rgba(212, 178, 106, 0.6); border-radius: 50%;
+  }
+
+  /* Quotation / personal motto */
+  .motto {
+    margin: 38px auto 0; max-width: 640px; padding: 0 20px;
+    text-align: center; font-style: italic;
+    font-family: "Cormorant Garamond", serif;
+    font-size: 22px; line-height: 1.6; color: var(--ink-soft);
+    position: relative;
+  }
+  .motto::before, .motto::after {
+    content: ""; display: block; width: 60px; height: 1px;
+    background: var(--gold); margin: 14px auto;
+    position: relative;
+  }
+  .motto::after { transform: scaleX(0.6); }
+  .motto .open, .motto .close {
+    color: var(--burgundy); font-size: 36px; font-weight: 700;
+    font-family: "Cinzel", serif; vertical-align: -8px; margin: 0 4px;
+  }
+
+  /* Stats as a banner */
+  .statues {
+    margin: 36px auto 0; max-width: 760px;
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 26px 10px;
+    border-top: 1px solid var(--gold);
+    border-bottom: 1px solid var(--gold);
+    position: relative;
+  }
+  .statues::before, .statues::after {
+    content: ""; position: absolute; top: -3px; height: 6px; width: 60px;
+    background: var(--ivory);
+  }
+  .statues::before { left: 30%; }
+  .statues::after  { right: 30%; }
+  .stat-item { text-align: center; flex: 1; position: relative; }
+  .stat-item + .stat-item::before {
+    content: ""; position: absolute; left: 0; top: 10%; height: 80%;
+    width: 1px; background: var(--gold); opacity: 0.55;
+  }
+  .stat-num {
+    display: block;
+    font-family: "Cinzel", serif;
+    font-size: 38px; font-weight: 600;
+    color: var(--burgundy);
+    line-height: 1; margin-bottom: 6px;
+    letter-spacing: 2px;
+  }
+  .stat-label {
+    font-family: "Cinzel", serif;
+    font-size: 10px; letter-spacing: 5px;
+    color: var(--ash); text-transform: uppercase;
+  }
+
+  .visit-link {
+    display: inline-block; margin-top: 36px; padding: 14px 38px;
+    color: var(--burgundy);
+    background: transparent;
+    border: 1px solid var(--gold);
+    font-family: "Cinzel", serif;
+    font-size: 12px; letter-spacing: 6px; text-transform: uppercase;
+    text-decoration: none;
+    position: relative;
+    transition: all 0.4s ease;
+  }
+  .visit-link::before, .visit-link::after {
+    content: ""; position: absolute;
+    width: 12px; height: 12px;
+    border: 1px solid var(--gold);
+  }
+  .visit-link::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .visit-link::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+  .visit-link:hover {
+    background: var(--burgundy);
+    color: var(--ivory);
+    letter-spacing: 8px;
+  }
+  .visit-link:hover::before, .visit-link:hover::after { border-color: var(--gold-light); }
+
+  /* ================== Decorative Divider ================== */
+  .ornament {
+    width: 100%; margin: 60px 0; text-align: center;
+    position: relative; z-index: 3;
+  }
+  .ornament svg { display: inline-block; height: 28px; }
+  .ornament-row {
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    color: var(--gold-deep);
+  }
+  .ornament-row .bar {
+    width: 220px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  /* ================== Collection ================== */
+  .collection {
+    position: relative; z-index: 3;
+    max-width: 1240px; margin: 0 auto; padding: 0 32px;
+  }
+  .section-heading {
+    text-align: center; margin-bottom: 60px;
+  }
+  .section-heading .rom {
+    font-family: "Cinzel", serif;
+    font-size: 11px; letter-spacing: 8px;
+    color: var(--gold-deep); text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .section-heading h2 {
+    font-family: "Italiana", "Cinzel", serif;
+    font-size: 52px; font-weight: 400;
+    letter-spacing: 8px; color: var(--burgundy);
+    line-height: 1.2; margin-bottom: 8px;
+  }
+  .section-heading .rule {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    margin-top: 18px;
+  }
+  .section-heading .rule .bar {
+    width: 90px; height: 1px; background: var(--gold);
+  }
+  .section-heading .rule .dot {
+    width: 6px; height: 6px; background: var(--burgundy); border-radius: 50%;
+    transform: rotate(45deg);
+  }
+  .section-heading .latin {
+    font-family: "EB Garamond", serif;
+    font-style: italic; font-size: 16px;
+    color: var(--ash); margin-top: 14px; letter-spacing: 2px;
+  }
+  .section-heading .count {
+    font-family: "Cinzel", serif;
+    color: var(--burgundy); font-weight: 600;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 40px 30px;
+  }
+  .card {
+    background: var(--parchment);
+    border: 1px solid rgba(176, 136, 64, 0.35);
+    padding: 14px 14px 18px;
+    text-decoration: none; color: var(--ink);
+    position: relative;
+    transition: all 0.5s ease;
+    box-shadow: 0 2px 10px rgba(60, 40, 20, 0.08);
+  }
+  /* double-line gold frame */
+  .card::before {
+    content: ""; position: absolute; inset: 5px;
+    border: 1px solid rgba(176, 136, 64, 0.35);
+    pointer-events: none;
+  }
+  /* corner ornaments */
+  .card .corner {
+    position: absolute; width: 18px; height: 18px;
+    border: 1px solid var(--gold);
+  }
+  .card .corner.tl { top: -1px; left: -1px;  border-right: 0; border-bottom: 0; }
+  .card .corner.tr { top: -1px; right: -1px; border-left: 0;  border-bottom: 0; }
+  .card .corner.bl { bottom: -1px; left: -1px;  border-right: 0; border-top: 0; }
+  .card .corner.br { bottom: -1px; right: -1px; border-left: 0;  border-top: 0; }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px rgba(40, 20, 10, 0.22);
+    background: #F4E8C9;
+  }
+  .card:hover .corner { border-color: var(--burgundy); }
+
+  .cover {
+    position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+    background: var(--ivory-deep);
+    margin-bottom: 14px;
+    border: 1px solid rgba(176, 136, 64, 0.4);
+  }
+  .cover img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.7s ease, filter 0.5s ease;
+    filter: sepia(0.18) saturate(0.85) contrast(1.08) brightness(0.96);
+  }
+  .card:hover .cover img {
+    transform: scale(1.06);
+    filter: sepia(0.05) saturate(1) contrast(1.1) brightness(1.0);
+  }
+  .duration {
+    position: absolute; bottom: 5px; right: 5px;
+    background: rgba(42, 31, 24, 0.85);
+    color: var(--gold-light);
+    font-family: "Cinzel", serif;
+    font-size: 11px; padding: 2px 8px; letter-spacing: 1px;
+    border: 1px solid var(--gold-deep);
+  }
+  .plate {
+    position: absolute; top: 5px; left: 5px;
+    background: var(--burgundy);
+    color: var(--gold-light);
+    font-family: "Cinzel", serif;
+    font-size: 10px; padding: 3px 7px; letter-spacing: 2px;
+    border: 1px solid var(--gold);
+  }
+  .card-title {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 19px; font-weight: 600; line-height: 1.35;
+    color: var(--burgundy-2);
+    margin: 6px 4px 10px;
+    min-height: 52px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-align: center;
+    font-style: italic;
+  }
+  .meta {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 8px 0;
+    border-top: 1px solid rgba(176, 136, 64, 0.3);
+    font-family: "Cinzel", serif;
+    font-size: 10px; letter-spacing: 2px;
+    color: var(--ash); text-transform: uppercase;
+  }
+  .meta .views { color: var(--burgundy); }
+  .meta .date  { font-style: normal; }
+
+  /* Load More — as a classical button */
+  .reveal {
+    text-align: center; margin: 70px 0 50px;
+  }
+  .reveal-btn {
+    display: inline-block; padding: 16px 60px;
+    background: transparent;
+    color: var(--burgundy);
+    border: 1px solid var(--burgundy);
+    font-family: "Cinzel", serif;
+    font-size: 12px; letter-spacing: 8px; text-transform: uppercase;
+    cursor: pointer; position: relative;
+    transition: all 0.4s ease;
+  }
+  .reveal-btn::before, .reveal-btn::after {
+    content: "❦"; position: absolute; top: 50%;
+    transform: translateY(-50%); color: var(--gold);
+    font-size: 16px; transition: all 0.4s;
+  }
+  .reveal-btn::before { left: 18px; }
+  .reveal-btn::after  { right: 18px; }
+  .reveal-btn:hover {
+    background: var(--burgundy);
+    color: var(--gold-light);
+    letter-spacing: 10px;
+  }
+  .reveal-btn:disabled {
+    opacity: 0.5; cursor: not-allowed;
+    letter-spacing: 6px;
+  }
+  .reveal-btn:disabled::before, .reveal-btn:disabled::after { color: var(--ash); }
+
+  /* ================== Footer ================== */
+  .foot {
+    position: relative; z-index: 3;
+    text-align: center;
+    padding: 50px 20px 60px;
+    color: var(--ash);
+    font-family: "EB Garamond", serif;
+    font-size: 13px; letter-spacing: 3px;
+  }
+  .foot .crest {
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    margin-bottom: 18px; color: var(--gold);
+  }
+  .foot .crest .bar {
+    width: 100px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .foot p { margin: 6px 0; font-style: italic; }
+  .foot a {
+    color: var(--burgundy); text-decoration: none;
+    border-bottom: 1px solid var(--gold);
+  }
+  .foot a:hover { color: var(--gold-deep); }
+
+  /* ================== Mobile ================== */
+  @media (max-width: 768px) {
+    body { font-size: 16px; }
+    .title-main { font-size: 48px; letter-spacing: 8px; }
+    .title-sub { font-size: 20px; }
+    .crown { padding: 30px 16px 10px; }
+    .arch-stage::before, .arch-stage::after, .arch-stage .arch-bg {
+      width: 250px; height: 340px;
+    }
+    .arch-stage::after { width: 240px; height: 332px; }
+    .portrait { width: 180px; height: 250px; border-radius: 90px 90px 0 0; }
+    .statues { padding: 18px 6px; }
+    .stat-num { font-size: 28px; }
+    .stat-label { font-size: 9px; letter-spacing: 3px; }
+    .section-heading h2 { font-size: 36px; letter-spacing: 4px; }
+    .ornament-row .bar { width: 80px; }
+    .grid { gap: 28px 16px; }
+    .collection { padding: 0 16px; }
+  }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .title-main { font-size: 38px; letter-spacing: 5px; }
+  }
+
+  /* ================== Animations ================== */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .rise { animation: rise 1s ease both; }
+  .rise.d1 { animation-delay: 0.15s; }
+  .rise.d2 { animation-delay: 0.35s; }
+  .rise.d3 { animation-delay: 0.55s; }
+  .card.rise { animation-delay: calc(0.04s * var(--i, 0)); }
+</style>
+</head>
+<body>
+
+<!-- ============== Header ============== -->
+<header class="crown rise">
+  <div class="crown-rule">
+    <span class="bar"></span>
+    <svg class="fleur" viewBox="0 0 30 30" fill="currentColor">
+      <path d="M15 4 C12 8, 12 12, 15 14 C18 12, 18 8, 15 4 Z
+               M9 14 C5 14, 3 17, 5 20 C9 19, 11 16, 11 14 Z
+               M21 14 C25 14, 27 17, 25 20 C21 19, 19 16, 19 14 Z
+               M15 14 L13 26 L17 26 Z"/>
+      <circle cx="15" cy="14" r="1.6"/>
+    </svg>
+    <span class="bar"></span>
+  </div>
+
+  <div class="crest-line">Anno · Domini · MMXXVI</div>
+
+  <h1 class="title-main">dumbbear</h1>
+  <div class="title-sub">Cabinet of Cinematic Curiosities</div>
+
+  <!-- Portrait with arch frame -->
+  <div class="arch-stage rise d1">
+    <div class="arch-bg"></div>
+    <div class="portrait">
+      <img src="avatar/avatar.jpg" alt="Portrait of dumbbear"
+           onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 130%22><rect fill=%22%23efe3c8%22 width=%22100%22 height=%22130%22/><text x=%2250%22 y=%2270%22 text-anchor=%22middle%22 fill=%22%236B1F23%22 font-size=%2230%22 font-family=%22serif%22>dB</text></svg>'">
+    </div>
+    <div class="wax-seal">DB</div>
+  </div>
+
+  <p class="motto rise d2">
+    <span class="open">&ldquo;</span>
+    Faire les courts métrages qu&rsquo;il aime faire —
+    <br>
+    frames of light, seconds of reverie.
+    <span class="close">&rdquo;</span>
+  </p>
+
+  <div class="statues rise d2">
+    <div class="stat-item">
+      <span class="stat-num">XLIV</span>
+      <span class="stat-label">Shorts</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">LXIII</span>
+      <span class="stat-label">Admirers</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">LXVII</span>
+      <span class="stat-label">Followed</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">MMXIX</span>
+      <span class="stat-label">Since</span>
+    </div>
+  </div>
+
+  <a href="https://space.bilibili.com/318764209" target="_blank" rel="noopener" class="visit-link rise d3">
+    Visit on Bilibili
+  </a>
+</header>
+
+<!-- ============== Divider ============== -->
+<div class="ornament">
+  <div class="ornament-row">
+    <span class="bar"></span>
+    <svg width="40" height="28" viewBox="0 0 40 28" fill="none">
+      <path d="M2 14 Q10 4 20 14 Q30 24 38 14" stroke="currentColor" stroke-width="1.4" fill="none"/>
+      <circle cx="20" cy="14" r="3" fill="currentColor"/>
+      <path d="M14 14 L20 8 L26 14 L20 20 Z" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6"/>
+    </svg>
+    <span class="bar"></span>
+  </div>
+</div>
+
+<!-- ============== Collection ============== -->
+<section class="collection rise d3">
+  <div class="section-heading">
+    <div class="rom">— Chapter the First —</div>
+    <h2>The Collection</h2>
+    <div class="rule">
+      <span class="bar"></span>
+      <span class="dot"></span>
+      <span class="bar"></span>
+    </div>
+    <div class="latin">
+      a folio of <span class="count" id="videoCount">XLIV</span> pieces &middot; ordonnées par date
+    </div>
+  </div>
+
+  <div class="grid" id="videosGrid"></div>
+
+  <div class="reveal">
+    <button class="reveal-btn" id="revealBtn" onclick="loadMore()">
+      Unfurl More
+    </button>
+  </div>
+</section>
+
+<!-- ============== Footer ============== -->
+<footer class="foot">
+  <div class="crest">
+    <span class="bar"></span>
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor">
+      <path d="M11 3 L13 9 L19 11 L13 13 L11 19 L9 13 L3 11 L9 9 Z"/>
+    </svg>
+    <span class="bar"></span>
+  </div>
+  <p>All films are the property of their auteur &middot; dumbbear</p>
+  <p>This cabinet is a private exhibition &middot; non-commercial</p>
+  <p>
+    <a href="https://space.bilibili.com/318764209" target="_blank">Bilibili &middot; UID 318764209</a>
+  </p>
+</footer>
+
+<script>
+  // ============ Videos (44) ============
+  const videos = [
+    {title:"血色代理 part3",bvid:"BV1VQV965ELd",play:270,pic:"covers/2da02e600ce0bc4224a4e65a21a21ed43ba063e0.jpg",duration:"4:01",date:"2026-06-01"},
+    {title:"血色代理 Part2",bvid:"BV1L6RsBeEJ6",play:49,pic:"covers/8d6e5235692eff9b76967cfd50989815736568ed.jpg",duration:"4:39",date:"2026-05-06"},
+    {title:"《血色代理》 第一部分",bvid:"BV19goXB1EGb",play:148,pic:"covers/dc387efc838c9f44bc0175cee96ec215f7d83c8f.jpg",duration:"4:07",date:"2026-04-25"},
+    {title:"咖啡馆的故事",bvid:"BV1oHcYzgErK",play:174,pic:"covers/94103e4c1e4e7c57454f01866f689ee8db735216.jpg",duration:"3:08",date:"2026-02-12"},
+    {title:"办公室喜剧 第一集 （上）",bvid:"BV1UbBXBoE2P",play:163,pic:"covers/3f138f8a2b7fb91c6091a6a99a4fb187121dff57.jpg",duration:"1:39",date:"2025-12-25"},
+    {title:"黎明猎影 part1",bvid:"BV1dPkzB3EW5",play:96,pic:"covers/cfeb48980f59c4558fb207435ee5b340274c388f.jpg",duration:"1:07",date:"2025-11-11"},
+    {title:"斑马宣传片",bvid:"BV1wG1LB8Esc",play:53,pic:"covers/661bf9f4880c02d491029a57fd426857490b2613.jpg",duration:"0:47",date:"2025-11-01"},
+    {title:"斑马骑行",bvid:"BV1ybn2zrEcF",play:20,pic:"covers/0924fdffcc0c2200f515f26ecf813e34e881e7a4.jpg",duration:"5:31",date:"2025-09-30"},
+    {title:"小怪兽系列新的宣传片",bvid:"BV1hdgUzvEdW",play:57,pic:"covers/e95d28358d26563750e65ac5838f4bdf3ec32d97.jpg",duration:"1:10",date:"2025-07-01"},
+    {title:"刺杀 1",bvid:"BV1j3RwY1EmR",play:128,pic:"covers/856a66f1835bd949fd2f10e4e034091d2bf40a01.jpg",duration:"0:29",date:"2025-03-06"},
+    {title:"小怪兽2025_新宣传片",bvid:"BV1gYFNedEE2",play:137,pic:"covers/58a3724e6eb9973f675f378ba3d6f2a98758b7d2.jpg",duration:"1:08",date:"2025-01-26"},
+    {title:"楼兰古城",bvid:"BV16QCCYuEwH",play:54,pic:"covers/eb25d234cdcfa62f06391fea70460839d528fc6c.jpg",duration:"2:21",date:"2024-12-27"},
+    {title:"新小霸王龙冒险 第二段",bvid:"BV18miLeCEVx",play:1370,pic:"covers/0b601d5b11a6446a73d8ef57ba9d83009c2ae757.jpg",duration:"1:36",date:"2024-08-03"},
+    {title:"小霸王龙冒险——新片段",bvid:"BV1988KerE2u",play:2425,pic:"covers/8b1692713750a6497600a0712aa908b195494550.jpg",duration:"0:42",date:"2024-07-20"},
+    {title:"火星之旅——01",bvid:"BV1e5hfe4Esj",play:116,pic:"covers/91da18f32443a6f4297c761458045ba046102f4c.jpg",duration:"1:19",date:"2024-07-08"},
+    {title:"来日无多第五集",bvid:"BV1ef421277e",play:246,pic:"covers/d2bb744a6076f681afb7b021b55e64060f872c76.jpg",duration:"1:22",date:"2024-05-09"},
+    {title:"来日无多04",bvid:"BV1Gx4y1Y7Q3",play:254,pic:"covers/c82810c8ca46f8a00a2c0eae5a2b146b9d2cc482.jpg",duration:"1:09",date:"2024-04-11"},
+    {title:"翼龙大冒险",bvid:"BV1T1421U7ux",play:884,pic:"covers/068263e7b0392d4d7ec6c3659f94f876ce2c27db.jpg",duration:"3:52",date:"2024-03-28"},
+    {title:"小霸王龙历险",bvid:"BV12F4m1j7mD",play:1570,pic:"covers/0a07673b2360464499e9d9f0a221a019daf2e06d.jpg",duration:"3:52",date:"2024-03-01"},
+    {title:"来日无多03",bvid:"BV1Dm41197mv",play:219,pic:"covers/684c374e814c58e886d78867fc092c6bbddcdc49.jpg",duration:"0:42",date:"2024-02-05"},
+    {title:"翼龙飞行初版",bvid:"BV1Ze411a7Yg",play:249,pic:"covers/67285af22c25a0cd7821c6264f65e805a110b11a.jpg",duration:"0:51",date:"2024-01-23"},
+    {title:"月光的配画",bvid:"BV1WN4y1i7rW",play:117,pic:"covers/97990ed7783c24d99ece4f2849b2d195da6f1075.jpg",duration:"2:03",date:"2024-01-02"},
+    {title:"来日无多02",bvid:"BV12p4y1d7Ze",play:220,pic:"covers/1a140eb6da204b218a353c5e5fa9dbd8d8143cd2.jpg",duration:"0:44",date:"2023-12-25"},
+    {title:"苏杭运河终版",bvid:"BV1tC4y1M7dm",play:135,pic:"covers/07f1b2b6e104585722e916ec1197a4fa1d78944e.jpg",duration:"3:19",date:"2023-12-22"},
+    {title:"五段小视频",bvid:"BV1yC4y1S7mo",play:177,pic:"covers/fc66966ccdddfd7544a6b110f6ed816d06225aa5.jpg",duration:"1:06",date:"2023-12-21"},
+    {title:"来日无多01",bvid:"BV17k4y1w7Ns",play:190,pic:"covers/7fbce062892776449f7b0bff453dae52d560203c.jpg",duration:"0:39",date:"2023-09-12"},
+    {title:"古代苏杭运河",bvid:"BV1NP411a7Nf",play:114,pic:"covers/175a77ec43a43a59f3d49a45ebeb27b6dff15de5.jpg",duration:"3:17",date:"2023-09-02"},
+    {title:"最近做的两个小特笑",bvid:"BV1j44y1F76P",play:107,pic:"covers/3e99e142067459b3a84545a63de667871de8ce12.jpg",duration:"0:16",date:"2023-08-17"},
+    {title:"数字小姐姐",bvid:"BV1D8411d7bA",play:195,pic:"covers/aa48ac3ecb58a2922ec2150234c4c44c7df29480.jpg",duration:"0:36",date:"2023-08-07"},
+    {title:"被吸入手机的女子",bvid:"BV1vp4y157zg",play:172,pic:"covers/29983e4ede16b31ff3296f4104245abe40c98bd0.jpg",duration:"0:40",date:"2023-07-27"},
+    {title:"magic分屏",bvid:"BV1CV411L7g8",play:83,pic:"covers/db437a144a62fc4ee369a7ec737fc593606bbf6a.jpg",duration:"1:11",date:"2023-07-26"},
+    {title:"unity战场模拟 雨林小屋",bvid:"BV1UM4y1s7AN",play:109,pic:"covers/def2585a6ef5474d5c9c927dcd3dcc1f9ef549ca.jpg",duration:"1:09",date:"2023-07-25"},
+    {title:"夜袭日军",bvid:"BV1Pm4y1779z",play:126,pic:"covers/653849b05bb9bc6f90f9e4d7b5730cf152d3a1eb.jpg",duration:"1:06",date:"2023-07-19"},
+    {title:"UE5 悬疑恐怖风格 预告片",bvid:"BV1c14y1R77R",play:249,pic:"covers/6abda633cc2d1a336a097d2e233295280cf43a93.jpg",duration:"1:26",date:"2023-07-18"},
+    {title:"暮江吟",bvid:"BV1aV4y1h7yL",play:913,pic:"covers/85c9a6467b4c462bce17ef9b17161c179f2b222a.jpg",duration:"5:17",date:"2023-07-13"},
+    {title:"DLC人物宣传3",bvid:"BV1mX4y1q7cm",play:218,pic:"covers/b21828fc48b6cf8d17d3478e1402138dde9158c4.jpg",duration:"1:36",date:"2023-06-29"},
+    {title:"游戏人物宣传2",bvid:"BV1EP411z7Y3",play:124,pic:"covers/f322889b6ef107a6bf78e7ce45c91753e5f9daf6.jpg",duration:"0:54",date:"2023-06-14"},
+    {title:"游戏人物宣传01",bvid:"BV1JX4y187pb",play:518,pic:"covers/07fea06e1efb132c1898c922b9ac7027a8b56fb6.jpg",duration:"0:46",date:"2023-06-03"},
+    {title:"BJCJ",bvid:"BV11s4y1i7RL",play:110,pic:"covers/aa9842c942aee4aefacdabcbc0ad11cb159064fe.jpg",duration:"10:28",date:"2023-06-01"},
+    {title:"unity战场模拟",bvid:"BV1uY41167DC",play:212,pic:"covers/4c99fde5a7ec8e7543d8861b04ce4acba1b9e4b8.jpg",duration:"0:59",date:"2023-03-03"},
+    {title:"RichMenVideo",bvid:"BV17A411179v",play:74,pic:"covers/bad817a851ced0b23c2f960257e0954568c93298.jpg",duration:"1:57",date:"2023-02-24"},
+    {title:"雨天的小练习",bvid:"BV1Qv411J7P7",play:66,pic:"covers/c7f65e01c9d8d7e87917083a25f337d73d21080b.jpg",duration:"0:11",date:"2021-07-16"},
+    {title:"静夜思",bvid:"BV15v411b7io",play:74,pic:"covers/09442d8f9cb7852f9f4ec91bdc80ae2073cef68e.jpg",duration:"3:31",date:"2020-12-07"},
+    {title:"短片试水",bvid:"BV1RE411e7Ur",play:239,pic:"covers/383139fd1f03b61a6ee6dac07455ec455a8e5e07.jpg",duration:"2:48",date:"2019-11-08"}
+  ];
+
+  // ============ Pagination ============
+  const PAGE_SIZE = 18;
+  let shown = 0;
+
+  function rom(n) {
+    // simple roman numeral converter for cardinals
+    const map = [
+      [1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],
+      [100,'C'],[90,'XC'],[50,'L'],[40,'XL'],
+      [10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']
+    ];
+    let r = '';
+    for (const [v,s] of map) { while (n >= v) { r += s; n -= v; } }
+    return r;
+  }
+
+  function paint(batch) {
+    const grid = document.getElementById('videosGrid');
+    const html = batch.map((v, i) => `
+      <a class="card rise" style="--i:${(shown+i) % 18}"
+         href="https://www.bilibili.com/video/${v.bvid}"
+         target="_blank" rel="noopener"
+         title="${v.title.replace(/"/g, '&quot;')}">
+        <span class="corner tl"></span>
+        <span class="corner tr"></span>
+        <span class="corner bl"></span>
+        <span class="corner br"></span>
+        <div class="cover">
+          <img src="${v.pic}" alt="${v.title.replace(/"/g, '&quot;')}"
+               onerror="this.style.background='linear-gradient(135deg, #efe3c8, #c8b890)';this.style.opacity=0.5;">
+          <span class="plate">№ ${rom(shown + i + 1)}</span>
+          <span class="duration">${v.duration}</span>
+        </div>
+        <h3 class="card-title">${v.title}</h3>
+        <div class="meta">
+          <span class="views">${v.play} views</span>
+          <span class="date">${v.date}</span>
+        </div>
+      </a>
+    `).join('');
+    grid.insertAdjacentHTML('beforeend', html);
+    shown += batch.length;
+
+    document.getElementById('videoCount').textContent = rom(videos.length);
+    const btn = document.getElementById('revealBtn');
+    if (shown >= videos.length) {
+      btn.textContent = 'All Pieces Displayed';
+      btn.disabled = true;
+    }
+  }
+
+  function loadMore() {
+    paint(videos.slice(shown, shown + PAGE_SIZE));
+  }
+
+  paint(videos.slice(0, PAGE_SIZE));
+</script>
+
+</body>
+</html>

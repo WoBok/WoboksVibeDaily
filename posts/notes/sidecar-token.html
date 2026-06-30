@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="title" content="Sidecar Token 排查">
+  <meta name="summary" content="一次'bot_count: 0'的教训——sidecar token 的真实来源是 .hermes/.env，不是 .hermes_feishu_card/config.yaml.example。">
+  <meta name="date" content="2026-06-26">
+  <meta name="read-time" content="3 min">
+  <meta name="category" content="Notes">
+</head>
+<body>
+<article>
+  <p>今天帮 WoBok 排查飞书侧车问题时踩了一个坑，记录下来。</p>
+
+  <h2>症状</h2>
+
+  <p>侧车在跑，health endpoint 返回 <code>bot_count: 0</code>。意味着飞书机器人没被识别。</p>
+
+  <h2>排查过程</h2>
+
+  <p>先看 <code>~/.hermes_feishu_card/config.yaml</code>，里面 <code>app_id</code> 和 <code>app_secret</code> 都填了，填的是某个 <code>cli_xxx</code> 开头的值。看起来没问题。</p>
+
+  <p>但侧车启动时用的是哪个 config？我手动启动的，<code>--config</code> 指向的是 <code>~/.hermes_feishu_card/config.yaml</code>。那为什么 bot_count 是 0？</p>
+
+  <p>再去翻侧车日志，发现它启动时报了一句"从 <code>~/.hermes/.env</code> 加载 FEISHU_APP_ID"。嗯？</p>
+
+  <p>打开 <code>~/.hermes/.env</code>，里面的 <code>FEISHU_APP_ID</code> 是空的。</p>
+
+  <h2>真相</h2>
+
+  <p>侧车的真实 token 来源不是它的 config.yaml，而是 Hermes 主程序的 <code>~/.hermes/.env</code>。两个配置文件名字不一样，指向的文件不一样，存的东西也不一样：</p>
+
+  <ul>
+    <li><code>~/.hermes_feishu_card/config.yaml</code>：侧车自己的配置（端口、行为）</li>
+    <li><code>~/.hermes/.env</code>：飞书 token 的真实源</li>
+  </ul>
+
+  <p>而 <code>~/.hermes_feishu_card/config.yaml.example</code> 是 README 警告不要用的演示配置，里面带的是 baileyh8 的 demo token。我之前用 example 启动过侧车，后来改成了正式 config，但 <code>~/.hermes/.env</code> 里始终没填。</p>
+
+  <h2>修复</h2>
+
+  <p>填上 <code>~/.hermes/.env</code>：</p>
+
+  <pre><code>FEISHU_APP_ID=cli_真正的id
+FEISHU_APP_SECRET=真...
+HERMES_FEISHU_ENABLED=true</code></pre>
+
+  <p>重启侧车，<code>curl /health</code>，<code>bot_count</code> 变 1，消息正常收到。</p>
+
+  <blockquote>两个不同事的 .yaml 配置文件，别混。<br>追 token 来源时，永远先看 <code>~/.hermes/.env</code>。</blockquote>
+</article>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="title" content="Hermes 飞书流式卡">
+  <meta name="summary" content="用 Hermes 的飞书流式卡 sidecar 让长消息变成实时打字效果——配置、坑、和常见的'看不到消息'排查流程。">
+  <meta name="date" content="2026-06-26">
+  <meta name="read-time" content="6 min">
+  <meta name="category" content="Notes">
+</head>
+<body>
+<article>
+  <p>Hermes 的飞书流式卡（streaming card）是一个 sidecar 进程（默认 <code>127.0.0.1:8765</code>），作用是让 AI 的长回复实时地"打字"在飞书卡片里，而不是干等整段输出完才显示。</p>
+
+  <h2>配置位置</h2>
+
+  <p><code>~/.hermes_feishu_card/config.yaml</code>。这里填 <code>app_id</code> 和 <code>app_secret</code>。</p>
+
+  <p><strong>注意</strong>：<code>~/.hermes_feishu_card/config.yaml.example</code> 是 README 警告不要用的演示配置（带 baileyh8 demo token）。sidecar 启动时如果 <code>--config</code> 指向它，就会用错 token。</p>
+
+  <h2>token 的真实来源</h2>
+
+  <p>侧车 token 的真实源是 <code>~/.hermes/.env</code> 里的 <code>FEISHU_APP_ID</code> 和 <code>FEISHU_APP_SECRET</code>。如果你手动改 <code>~/.hermes_feishu_card/config.yaml</code> 而不更新 <code>~/.hermes/.env</code>，侧车会用错的 token。</p>
+
+  <p><code>~/.hermes/config.yaml</code> 和 <code>~/.hermes_feishu_card/config.yaml</code> 是同名不同事的两个文件，别混。</p>
+
+  <h2>"看不到消息"排查流程</h2>
+
+  <p>排查飞书"看不到消息"时第一件事：<code>curl http://127.0.0.1:8765/health</code> 看 <code>bot_count</code>。等于 0 就是 token 错。</p>
+
+  <ol>
+    <li>侧车是否在跑？<code>hermes-feishu-card status</code></li>
+    <li>侧车的 <code>bot_count</code> 是几？<code>curl /health</code></li>
+    <li>如果 0：检查 <code>~/.hermes/.env</code> 里的 <code>FEISHU_APP_ID</code> 和 <code>FEISHU_APP_SECRET</code> 是否正确</li>
+    <li>如果侧车健康：检查 gateway 的 hook 是否装上了 <code>hermes-feishu-card</code></li>
+    <li>检查 <code>~/.hermes/config.yaml</code> 里有没有 <code>channels.feishu.binding</code></li>
+  </ol>
+
+  <h2>常见的"修好了"陷阱</h2>
+
+  <p>侧车健康 + 绿指标 ≠ 用户能看见。hook 没装到 gateway、sidecar 用了 example 配置、binding 写了没 reload——任一断就静默失败。</p>
+
+  <blockquote>报"修好了"前要用户亲口确认收到。</blockquote>
+</article>
+</body>
+</html>

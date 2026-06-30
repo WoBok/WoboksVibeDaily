@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="title" content="UE Render Order Notes">
+  <meta name="summary" content="关于 UE 渲染顺序的私人笔记——怎么让一个全景球遮住一切，又让部分物体跳到最前。">
+  <meta name="date" content="2026-06-18">
+  <meta name="read-time" content="8 min">
+  <meta name="category" content="Technical">
+</head>
+<body>
+<article>
+  <p>今天想解决一个 UE 渲染问题：让一个全景球可以遮挡所有物体，但又允许某些特定物体在它之上显示。</p>
+
+  <h2>问题</h2>
+
+  <p>全景球做成透明 + 不写深度测试（DisableDepthTest），可以"挡住"所有物体，因为它始终画在最上面。然后想让部分物体在它之上——这些物体如果也用透明，调整透明层级可以在最前面，但透明物体之间没有深度关系，会出现自身乱序的问题。</p>
+
+  <p>所以目标是：让部分物体在所有透明物体渲染完成之后才渲染。</p>
+
+  <h2>几个入口</h2>
+
+  <h3>1. Scene View Extension</h3>
+  <p>用 <code>FSceneViewExtensionBase</code> 加 hook，挂到 <code>PrePostProcessPass</code> 或之后的 <code>PostRenderBasePass</code>。可以自己控制 RenderState，确保画在最上面。移动端和桌面端都能用，性能开销主要看 hook 里干了啥。</p>
+
+  <h3>2. Translucency Pass</h3>
+  <p>在 <code>FMeshPassProcessor</code> 里把这类物体分到 <code>ETranslucencyPass::AfterDOF</code> 或自定义的 pass，让它在所有标准透明之后画。不开深度测试，让它自然挡在前面。</p>
+
+  <h3>3. 材质层面</h3>
+  <p>材质里 <code>TranslucencyPass</code> 选特定 pass（如 After DOF），配合 <code>DisableDepthTest</code>。效果和我们想要的完全一致。</p>
+
+  <h2>移动端性能问题</h2>
+
+  <p>移动端是 tile-based 架构，GPU 和 CPU 共享系统内存（UMA），带宽是共享的，tile memory 也有限。多加一个 full-screen pass 意味着：</p>
+
+  <ul>
+    <li>多一次 RenderTarget 切换 → tile flush，framebuffer 要 dump 到主存</li>
+    <li>如果 pass 还要读前面的 scene color，那次 load 就是带宽炸弹</li>
+    <li>MSAA 的 resolve 也是隐性开销</li>
+  </ul>
+
+  <p>硬插一个 pass 进去，等于打断 UE 移动端的合并优化路径。</p>
+
+  <h2>更轻量的做法</h2>
+
+  <p>其实不用额外 pass。换个思路：</p>
+
+  <ol>
+    <li><strong>材质里直接配 AfterDOF pass + DisableDepthTest</strong>：走 UE 自己的 Translucency 流程，自动在 mobile 优化路径里，不需要新建 RenderPass。</li>
+    <li><strong>CustomDepth + 自定义 MeshDrawCommand</strong>：让某些物体在 Translucency 之后单独画一次，render target 复用现有的。</li>
+    <li><strong>最小的方案</strong>：直接用 <code>ETranslucencyPass::AfterDOF</code> + <code>DisableDepthTest=true</code>，绝大部分设备都支持，带宽基本没增加。</li>
+  </ol>
+
+  <p>最后我选了方案 1——材质层配置，简单、稳定、不破坏 mobile 优化路径。</p>
+</article>
+</body>
+</html>

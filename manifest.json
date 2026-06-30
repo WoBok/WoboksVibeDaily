@@ -1,0 +1,297 @@
+{
+  "name": "posts",
+  "path": "posts",
+  "type": "folder",
+  "children": [
+    {
+      "name": "code-snippets",
+      "path": "posts/code-snippets",
+      "type": "folder",
+      "children": [
+        {
+          "name": "python-tree.html",
+          "path": "posts/code-snippets/python-tree.html",
+          "type": "file",
+          "title": "Python 目录转树",
+          "date": "2026-05-08",
+          "summary": "一行命令把目录结构渲染成 markdown 树形——常用于 README。",
+          "readTime": "2 min",
+          "category": "Snippets"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "name": "diary",
+      "path": "posts/diary",
+      "type": "folder",
+      "children": [
+        {
+          "name": "2025",
+          "path": "posts/diary/2025",
+          "type": "folder",
+          "children": [
+            {
+              "name": "12-31.html",
+              "path": "posts/diary/2025/12-31.html",
+              "type": "file",
+              "title": "2025-12-31",
+              "date": "2025-12-31",
+              "summary": "去年最后一天。在青岛跨年，海边风很大，回来的路上想了些事。",
+              "readTime": "2 min",
+              "category": "Diary"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "name": "2026",
+          "path": "posts/diary/2026",
+          "type": "folder",
+          "children": [
+            {
+              "name": "06-18.html",
+              "path": "posts/diary/2026/06-18.html",
+              "type": "file",
+              "title": "2026-06-18",
+              "date": "2026-06-18",
+              "summary": "一整天看 UE 源码，脑子累得不行，但还是忍不住刷手机。",
+              "readTime": "1 min",
+              "category": "Diary"
+            },
+            {
+              "name": "06-26.html",
+              "path": "posts/diary/2026/06-26.html",
+              "type": "file",
+              "title": "2026-06-26",
+              "date": "2026-06-26",
+              "summary": "权限、token、sidecar——把一屋子的线一根根接对的感觉。",
+              "readTime": "1 min",
+              "category": "Diary"
+            }
+          ],
+          "count": 2
+        }
+      ],
+      "count": 3
+    },
+    {
+      "name": "essays",
+      "path": "posts/essays",
+      "type": "folder",
+      "children": [
+        {
+          "name": "letter-to-future-self.html",
+          "path": "posts/essays/letter-to-future-self.html",
+          "type": "file",
+          "title": "A Letter to Future Self",
+          "date": "2026-05-30",
+          "summary": "写给未来某个还醒着的自己——如果你也在凌晨三点被冷醒，可以看看这一封。",
+          "readTime": "4 min",
+          "category": "Essays"
+        },
+        {
+          "name": "night-walks.html",
+          "path": "posts/essays/night-walks.html",
+          "type": "file",
+          "title": "Night Walks",
+          "date": "2026-06-15",
+          "summary": "下午一点多去走的那一段——不是散步，是给大脑腾出地方装别的东西。",
+          "readTime": "3 min",
+          "category": "Essays"
+        },
+        {
+          "name": "on-quietness.html",
+          "path": "posts/essays/on-quietness.html",
+          "type": "file",
+          "title": "On Quietness",
+          "date": "2026-06-20",
+          "summary": "关于安静的三件事——夜里的海风、读不进去的代码、以及为什么难熬的反而是停下来。",
+          "readTime": "5 min",
+          "category": "Essays"
+        }
+      ],
+      "count": 3
+    },
+    {
+      "name": "fragments",
+      "path": "posts/fragments",
+      "type": "folder",
+      "children": [
+        {
+          "name": "qingdao-summer.html",
+          "path": "posts/fragments/qingdao-summer.html",
+          "type": "file",
+          "title": "Qingdao Summer",
+          "date": "2026-06-20",
+          "summary": "李沧的夏天——下班路上那段路的树荫、海边吹过来的风、和广场上跳舞的人。",
+          "readTime": "2 min",
+          "category": "Fragments"
+        },
+        {
+          "name": "three-am.html",
+          "path": "posts/fragments/three-am.html",
+          "type": "file",
+          "title": "Three AM",
+          "date": "2026-06-26",
+          "summary": "夜里三四点醒来，身体已经进入深睡，被冷一激，整个人会很难受。情绪跟着掉下去。",
+          "readTime": "1 min",
+          "category": "Fragments"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "library",
+      "path": "posts/library",
+      "type": "folder",
+      "children": [
+        {
+          "name": "quotes-and-sources.html",
+          "path": "posts/library/quotes-and-sources.html",
+          "type": "file",
+          "title": "引用与素材",
+          "date": "2026-03-22",
+          "summary": "书单、引语、值得反复看的东西——这个文件夹是素材抽屉，不是作品。",
+          "readTime": "2 min",
+          "category": "Library"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "name": "notes",
+      "path": "posts/notes",
+      "type": "folder",
+      "children": [
+        {
+          "name": "hermes-feishu-card.html",
+          "path": "posts/notes/hermes-feishu-card.html",
+          "type": "file",
+          "title": "Hermes 飞书流式卡",
+          "date": "2026-06-26",
+          "summary": "用 Hermes 的飞书流式卡 sidecar 让长消息变成实时打字效果——配置、坑、和常见的",
+          "readTime": "6 min",
+          "category": "Notes"
+        },
+        {
+          "name": "sidecar-token.html",
+          "path": "posts/notes/sidecar-token.html",
+          "type": "file",
+          "title": "Sidecar Token 排查",
+          "date": "2026-06-26",
+          "summary": "一次",
+          "readTime": "3 min",
+          "category": "Notes"
+        },
+        {
+          "name": "smart-approval.html",
+          "path": "posts/notes/smart-approval.html",
+          "type": "file",
+          "title": "Smart Approval Mode",
+          "date": "2026-06-26",
+          "summary": "Hermes 的 smart approval 模式——自动批准常规命令，危险操作仍弹窗。怎么调、怎么生效。",
+          "readTime": "4 min",
+          "category": "Notes"
+        }
+      ],
+      "count": 3
+    },
+    {
+      "name": "projects",
+      "path": "posts/projects",
+      "type": "folder",
+      "children": [
+        {
+          "name": "dumbbear.html",
+          "path": "posts/projects/dumbbear.html",
+          "type": "file",
+          "title": "Dumbbear 短链项目",
+          "date": "2026-04-05",
+          "summary": "dumbbear 是我做的短链服务——纯静态 + JSON 索引，支持 nginx try_files 直接转发。",
+          "readTime": "3 min",
+          "category": "Projects"
+        }
+      ],
+      "count": 1
+    },
+    {
+      "name": "reading",
+      "path": "posts/reading",
+      "type": "folder",
+      "children": [
+        {
+          "name": "pilgrim-at-tinker-creek.html",
+          "path": "posts/reading/pilgrim-at-tinker-creek.html",
+          "type": "file",
+          "title": "Pilgrim at Tinker Creek",
+          "date": "2026-04-18",
+          "summary": "安妮·迪拉德的《汀克溪畔的朝圣者》——一本关于",
+          "readTime": "6 min",
+          "category": "Reading"
+        },
+        {
+          "name": "the-overstory.html",
+          "path": "posts/reading/the-overstory.html",
+          "type": "file",
+          "title": "The Overstory",
+          "date": "2026-05-12",
+          "summary": "理查德·鲍尔斯的《树梢之上》——九个人，九棵树，一部关于人如何与树共生的史诗。",
+          "readTime": "7 min",
+          "category": "Reading"
+        }
+      ],
+      "count": 2
+    },
+    {
+      "name": "technical",
+      "path": "posts/technical",
+      "type": "folder",
+      "children": [
+        {
+          "name": "mobile-renderer-pitfalls.html",
+          "path": "posts/technical/mobile-renderer-pitfalls.html",
+          "type": "file",
+          "title": "Mobile Renderer Pitfalls",
+          "date": "2026-06-12",
+          "summary": "移动端 UE 渲染的几个隐形坑——tile flush、共享内存带宽、以及为什么多加一个 pass 那么贵。",
+          "readTime": "6 min",
+          "category": "Technical"
+        },
+        {
+          "name": "scene-view-extension.html",
+          "path": "posts/technical/scene-view-extension.html",
+          "type": "file",
+          "title": "Scene View Extension 实战",
+          "date": "2026-06-08",
+          "summary": "用 FSceneViewExtensionBase 在 UE 里插入自定义渲染步骤——从入门到能在移动端跑起来。",
+          "readTime": "7 min",
+          "category": "Technical"
+        },
+        {
+          "name": "translucency-pass.html",
+          "path": "posts/technical/translucency-pass.html",
+          "type": "file",
+          "title": "Translucency Pass 详解",
+          "date": "2026-06-05",
+          "summary": "UE 透明物体是怎么被分到不同 pass 的——为什么 AfterDOF 能让物体",
+          "readTime": "9 min",
+          "category": "Technical"
+        },
+        {
+          "name": "ue-render-order.html",
+          "path": "posts/technical/ue-render-order.html",
+          "type": "file",
+          "title": "UE Render Order Notes",
+          "date": "2026-06-18",
+          "summary": "关于 UE 渲染顺序的私人笔记——怎么让一个全景球遮住一切，又让部分物体跳到最前。",
+          "readTime": "8 min",
+          "category": "Technical"
+        }
+      ],
+      "count": 4
+    }
+  ],
+  "count": 20,
+  "generated": "2026-06-30T13:23:44"
+}
