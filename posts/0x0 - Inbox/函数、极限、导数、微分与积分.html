@@ -1,0 +1,1552 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>函数、极限、导数、微分与积分</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f7f8f5;
+      --panel: #ffffff;
+      --ink: #172026;
+      --muted: #61707c;
+      --line: #dce4e8;
+      --line-strong: #aebcc5;
+      --blue: #1769aa;
+      --cyan: #008e9b;
+      --green: #2c7a51;
+      --orange: #b86514;
+      --red: #b33b43;
+      --violet: #6653a5;
+      --shadow: 0 18px 45px rgba(23, 32, 38, 0.08);
+      --radius: 8px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --serif: "Times New Roman", "Songti SC", SimSun, serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(23, 32, 38, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 32, 38, 0.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 28px 28px;
+      line-height: 1.7;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(18px);
+      background: rgba(247, 248, 245, 0.88);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-inner {
+      width: min(1180px, calc(100% - 32px));
+      min-height: 64px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #fff;
+      font-family: var(--serif);
+      font-size: 21px;
+      color: var(--blue);
+      box-shadow: 0 8px 20px rgba(23, 32, 38, 0.08);
+    }
+
+    .brand-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .nav a {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+
+    .nav a:hover {
+      color: var(--ink);
+      background: #fff;
+      border-color: var(--line);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: clamp(520px, 86vh, 760px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      align-items: center;
+      gap: clamp(28px, 5vw, 72px);
+      padding: clamp(36px, 7vw, 84px) 0 36px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      width: fit-content;
+      max-width: 100%;
+      padding: 4px 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.7);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      letter-spacing: 0;
+      line-height: 1.15;
+    }
+
+    h1 {
+      margin-top: 18px;
+      max-width: 820px;
+      font-size: clamp(40px, 7vw, 82px);
+      font-weight: 850;
+    }
+
+    h2 {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 830;
+    }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    .lead {
+      margin-top: 24px;
+      max-width: 740px;
+      color: #3e4b55;
+      font-size: clamp(17px, 2vw, 21px);
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 28px;
+      max-width: 680px;
+    }
+
+    .metric {
+      min-height: 98px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 10px 30px rgba(23, 32, 38, 0.05);
+    }
+
+    .metric b {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 15px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hero-visual {
+      min-width: 0;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .visual-header {
+      min-height: 48px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot-row {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--line-strong);
+    }
+
+    .math-board {
+      position: relative;
+      min-height: 430px;
+      padding: clamp(18px, 4vw, 32px);
+      background:
+        linear-gradient(rgba(0, 142, 155, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 142, 155, 0.08) 1px, transparent 1px),
+        #fbfcfb;
+      background-size: 22px 22px;
+    }
+
+    .formula-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .formula-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 13px 14px;
+      border-left: 3px solid var(--blue);
+      background: rgba(255, 255, 255, 0.86);
+      box-shadow: 0 1px 0 rgba(23, 32, 38, 0.06);
+    }
+
+    .formula-line:nth-child(2) {
+      border-left-color: var(--orange);
+    }
+
+    .formula-line:nth-child(3) {
+      border-left-color: var(--green);
+    }
+
+    .formula-line:nth-child(4) {
+      border-left-color: var(--red);
+    }
+
+    .formula-line:nth-child(5) {
+      border-left-color: var(--violet);
+    }
+
+    .formula-line .formula {
+      font-family: var(--serif);
+      font-size: clamp(19px, 3vw, 28px);
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .formula-line .formula-caption {
+      color: var(--muted);
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .note-callout {
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fdf8ec;
+      color: #5a3b11;
+      font-size: 15px;
+    }
+
+    .section {
+      padding: clamp(48px, 8vw, 92px) 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(260px, 0.55fr);
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 26px;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .concept-card {
+      min-height: 214px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 10px 25px rgba(23, 32, 38, 0.05);
+    }
+
+    .concept-card:nth-child(2) {
+      border-top-color: var(--orange);
+    }
+
+    .concept-card:nth-child(3) {
+      border-top-color: var(--green);
+    }
+
+    .concept-card:nth-child(4) {
+      border-top-color: var(--red);
+    }
+
+    .concept-card:nth-child(5) {
+      border-top-color: var(--violet);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef3f5;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .concept-card h3 {
+      margin-top: 14px;
+    }
+
+    .one-line {
+      margin-top: 10px;
+      font-weight: 780;
+      font-size: 17px;
+    }
+
+    .explain {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .relation-flow {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(0, auto));
+      gap: 8px;
+      align-items: center;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.9);
+      overflow-x: auto;
+    }
+
+    .flow-node {
+      min-width: 112px;
+      padding: 14px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: #fff;
+      text-align: center;
+    }
+
+    .flow-node strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 16px;
+    }
+
+    .flow-node small {
+      display: block;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .arrow {
+      color: var(--line-strong);
+      font-family: var(--mono);
+      font-size: 22px;
+      text-align: center;
+    }
+
+    .deep-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .concept-section {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.92fr) minmax(320px, 1.08fr);
+      gap: 22px;
+      align-items: start;
+      padding: 22px;
+      scroll-margin-top: 96px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 10px 28px rgba(23, 32, 38, 0.05);
+    }
+
+    .concept-section:nth-child(even) {
+      grid-template-columns: minmax(320px, 1.08fr) minmax(300px, 0.92fr);
+    }
+
+    .concept-section:nth-child(even) .concept-copy {
+      order: 2;
+    }
+
+    .concept-copy {
+      min-width: 0;
+    }
+
+    .concept-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .brief {
+      padding: 13px 14px;
+      border-left: 4px solid var(--blue);
+      background: #f2f7fb;
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    #limit .brief {
+      border-left-color: var(--orange);
+      background: #fff5e9;
+    }
+
+    #derivative .brief {
+      border-left-color: var(--green);
+      background: #eff8f2;
+    }
+
+    #differential .brief {
+      border-left-color: var(--red);
+      background: #fff1f1;
+    }
+
+    #integral .brief {
+      border-left-color: var(--violet);
+      background: #f4f1ff;
+    }
+
+    .copy-block {
+      margin-top: 16px;
+      color: #33424c;
+    }
+
+    .copy-block strong {
+      color: var(--ink);
+    }
+
+    .list {
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 9px;
+    }
+
+    .list li {
+      position: relative;
+      padding-left: 18px;
+      color: #3f4d57;
+    }
+
+    .list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.82em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--line-strong);
+    }
+
+    .math {
+      font-family: var(--serif);
+      font-size: 1.08em;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .figure {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #fbfcfb;
+    }
+
+    .figure-title {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .figure svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background:
+        linear-gradient(rgba(23, 32, 38, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 32, 38, 0.045) 1px, transparent 1px),
+        #fbfcfb;
+      background-size: 22px 22px;
+    }
+
+    .axis {
+      stroke: #6d7a83;
+      stroke-width: 1.5;
+    }
+
+    .grid-line {
+      stroke: #dfe7eb;
+      stroke-width: 1;
+    }
+
+    .curve {
+      fill: none;
+      stroke: var(--blue);
+      stroke-width: 4;
+      stroke-linecap: round;
+    }
+
+    .curve-green {
+      stroke: var(--green);
+    }
+
+    .curve-orange {
+      stroke: var(--orange);
+    }
+
+    .curve-violet {
+      stroke: var(--violet);
+    }
+
+    .area {
+      fill: rgba(102, 83, 165, 0.18);
+      stroke: rgba(102, 83, 165, 0.42);
+      stroke-width: 1;
+    }
+
+    .point {
+      fill: var(--ink);
+      stroke: #fff;
+      stroke-width: 3;
+    }
+
+    .label {
+      fill: #41505a;
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+
+    .label-mono {
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    .callout-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .callout {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    .callout b {
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    .callout .callout-text {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .lab {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(320px, 0.9fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .lab-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 28px rgba(23, 32, 38, 0.05);
+      overflow: hidden;
+    }
+
+    .lab-body {
+      padding: 18px;
+    }
+
+    .control {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .readout-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .readout {
+      min-height: 92px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfb;
+    }
+
+    .readout span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .readout strong {
+      display: block;
+      margin-top: 5px;
+      font-family: var(--serif);
+      font-size: 25px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 10px 28px rgba(23, 32, 38, 0.05);
+    }
+
+    .summary-table th,
+    .summary-table td {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .summary-table th {
+      background: #eef3f5;
+      font-size: 13px;
+      color: #40505a;
+      white-space: nowrap;
+    }
+
+    .summary-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .summary-table td:first-child {
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .apps {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .app-card {
+      min-height: 160px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 28px rgba(23, 32, 38, 0.05);
+    }
+
+    .app-card b {
+      display: block;
+      margin: 10px 0 7px;
+      font-size: 17px;
+    }
+
+    .app-card p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .app-icon {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      font-family: var(--serif);
+      font-size: 18px;
+      background: #fbfcfb;
+      color: var(--blue);
+    }
+
+    footer {
+      padding: 30px 0 46px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 980px) {
+      .concept-section {
+        scroll-margin-top: 150px;
+      }
+
+      .topbar-inner {
+        min-height: auto;
+        padding: 12px 0;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav {
+        justify-content: flex-start;
+      }
+
+      .hero,
+      .section-head,
+      .concept-section,
+      .concept-section:nth-child(even),
+      .lab {
+        grid-template-columns: 1fr;
+      }
+
+      .concept-section:nth-child(even) .concept-copy {
+        order: 0;
+      }
+
+      .concept-grid,
+      .apps {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .callout-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      main,
+      .topbar-inner {
+        width: min(100% - 24px, 1180px);
+      }
+
+      .hero {
+        min-height: auto;
+        padding-top: 28px;
+      }
+
+      .hero-metrics,
+      .concept-grid,
+      .apps,
+      .readout-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .math-board {
+        min-height: 360px;
+      }
+
+      .formula-line {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .formula-line .formula-caption {
+        text-align: left;
+      }
+
+      .concept-section,
+      .lab-body {
+        padding: 16px;
+      }
+
+      .summary-table {
+        display: block;
+        overflow-x: auto;
+      }
+
+      .summary-table th,
+      .summary-table td {
+        min-width: 130px;
+      }
+    }
+  </style>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["\\(", "\\)"]],
+        displayMath: [["\\[", "\\]"]]
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="回到顶部">
+        <span class="brand-mark">∫</span>
+        <span class="brand-text">函数、极限、导数、微分与积分</span>
+      </a>
+      <nav class="nav" aria-label="页面导航">
+        <a href="#map">总览</a>
+        <a href="#function">函数</a>
+        <a href="#limit">极限</a>
+        <a href="#derivative">导数</a>
+        <a href="#differential">微分</a>
+        <a href="#integral">积分</a>
+        <a href="#lab">小实验</a>
+        <a href="#applications">应用</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <div class="eyebrow">calculus notes / engineering view</div>
+        <h1 id="hero-title">用一条主线看懂微积分</h1>
+        <p class="lead">
+          函数描述“谁影响谁”，极限描述“逼近到哪里”，导数描述“变化有多快”，微分描述“这一小步变化了多少”，积分描述“把无数小变化合起来是多少”。
+        </p>
+        <div class="hero-metrics" aria-label="核心对照">
+          <div class="metric">
+            <b>导数是率</b>
+            <span>斜率、速度、边际成本，回答：变化有多快。</span>
+          </div>
+          <div class="metric">
+            <b>微分是量</b>
+            <span>小位移、小误差、小增量，回答：这一小步变化了多少。</span>
+          </div>
+          <div class="metric">
+            <b>积分是总量</b>
+            <span>面积、路程、累计收入，回答：很多小量加起来是多少。</span>
+          </div>
+          <div class="metric">
+            <b>极限是桥</b>
+            <span>从“有限近似”走到“无限精确”的数学工具。</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="hero-visual" aria-label="微积分公式板">
+        <div class="visual-header">
+          <span><span class="math">\(f(x)=x^2\)</span> 这一个例子串起全部概念</span>
+          <span class="dot-row" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+        </div>
+        <div class="math-board">
+          <div class="formula-stack">
+            <div class="formula-line">
+              <span class="formula">\(y=f(x)\)</span>
+              <span class="formula-caption">函数：输入 x，输出 y</span>
+            </div>
+            <div class="formula-line">
+              <span class="formula">\(\displaystyle \lim_{x\to a} f(x)=L\)</span>
+              <span class="formula-caption">极限：x 靠近时 y 靠近哪里</span>
+            </div>
+            <div class="formula-line">
+              <span class="formula">\(f'(x)=\frac{dy}{dx}\)</span>
+              <span class="formula-caption">导数：单位 x 变化带来多少 y 变化</span>
+            </div>
+            <div class="formula-line">
+              <span class="formula">\(dy=f'(x)\,dx\)</span>
+              <span class="formula-caption">微分：很小一步 dx 引起的 y 变化</span>
+            </div>
+            <div class="formula-line">
+              <span class="formula">\(\int f(x)\,dx\)</span>
+              <span class="formula-caption">积分：把许多小矩形面积加起来</span>
+            </div>
+          </div>
+          <div class="note-callout">
+            最重要的区别：<strong>导数不是变化量本身，而是变化率</strong>；<strong>微分才是某一步的近似变化量</strong>。速度 <span class="math">\(60\,\mathrm{km/h}\)</span> 是导数，<span class="math">\(0.5\)</span> 小时走了约 <span class="math">\(30\,\mathrm{km}\)</span> 是微分思想。
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" aria-labelledby="deep-title">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">concept by concept</div>
+          <h2 id="deep-title">逐个讲清楚</h2>
+        </div>
+        <p>下面都用尽量工程化的语言解释：它代表什么、问的是什么问题、怎么用一个例子落地。</p>
+      </div>
+
+      <div class="deep-grid">
+        <article id="function" class="concept-section">
+          <div class="concept-copy">
+            <div class="concept-title-row">
+              <span class="tag">01</span>
+              <h3>函数：一个量如何决定另一个量</h3>
+            </div>
+            <p class="brief">核心刻画：函数建立输入量与输出量之间的确定映射。</p>
+            <p class="copy-block">
+              函数不只是公式，它更像一台机器：你放入 <span class="math">\(x\)</span>，机器按规则吐出 <span class="math">\(y\)</span>。比如 <span class="math">\(f(x)=x^2\)</span> 表示“输出等于输入的平方”。
+            </p>
+            <ul class="list">
+              <li><strong>它代表什么：</strong>变量之间的关系。</li>
+              <li><strong>它回答什么：</strong>给定一个输入，会得到什么输出。</li>
+              <li><strong>例子：</strong>圆面积 <span class="math">\(A(r)=\pi r^2\)</span>，半径 r 决定面积 A。</li>
+            </ul>
+          </div>
+          <figure class="figure">
+            <figcaption class="figure-title"><span>函数机器</span><span>input → rule → output</span></figcaption>
+            <svg viewBox="0 0 560 340" role="img" aria-label="函数把输入 x 转换为输出 y 的示意图">
+              <defs>
+                <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+                  <path d="M0,0 L7,3 L0,6 Z" fill="#1769aa"></path>
+                </marker>
+              </defs>
+              <line x1="60" y1="170" x2="180" y2="170" stroke="#1769aa" stroke-width="4" marker-end="url(#arrowBlue)"></line>
+              <line x1="380" y1="170" x2="500" y2="170" stroke="#1769aa" stroke-width="4" marker-end="url(#arrowBlue)"></line>
+              <rect x="190" y="92" width="180" height="156" rx="8" fill="#ffffff" stroke="#aebcc5" stroke-width="2"></rect>
+              <text x="280" y="136" text-anchor="middle" class="label" style="font-weight: 800;">规则</text>
+              <text x="280" y="178" text-anchor="middle" class="label" style="font-size: 28px; font-family: var(--serif);">f(x)=x²</text>
+              <text x="280" y="215" text-anchor="middle" class="label label-mono">function</text>
+              <circle cx="62" cy="170" r="34" fill="#f2f7fb" stroke="#1769aa" stroke-width="2"></circle>
+              <text x="62" y="178" text-anchor="middle" style="font-size: 28px; font-family: var(--serif); fill: #172026;">x</text>
+              <circle cx="502" cy="170" r="34" fill="#f2f7fb" stroke="#1769aa" stroke-width="2"></circle>
+              <text x="502" y="178" text-anchor="middle" style="font-size: 28px; font-family: var(--serif); fill: #172026;">y</text>
+              <text x="62" y="232" text-anchor="middle" class="label">输入</text>
+              <text x="502" y="232" text-anchor="middle" class="label">输出</text>
+            </svg>
+          </figure>
+        </article>
+
+        <article id="limit" class="concept-section">
+          <div class="concept-copy">
+            <div class="concept-title-row">
+              <span class="tag">02</span>
+              <h3>极限：看无限靠近时会怎样</h3>
+            </div>
+            <p class="brief">核心刻画：极限描述变量无限逼近时函数值的稳定趋向。</p>
+            <p class="copy-block">
+              很多时候，直接代入会出问题，或者我们关心的是“越来越接近某点时的趋势”。极限让我们用靠近来定义精确结果。
+            </p>
+            <ul class="list">
+              <li><strong>它代表什么：</strong>一个过程的最终趋向。</li>
+              <li><strong>它回答什么：</strong>当输入越来越接近某个值，输出越来越接近什么。</li>
+              <li><strong>例子：</strong><span class="math">\((x^2-1)/(x-1)\)</span> 在 <span class="math">\(x=1\)</span> 不能直接算，但约分后接近 <span class="math">\(2\)</span>。</li>
+            </ul>
+          </div>
+          <figure class="figure">
+            <figcaption class="figure-title"><span>左右逼近</span><span class="math">\(x\to a,\ f(x)\to L\)</span></figcaption>
+            <svg viewBox="0 0 560 340" role="img" aria-label="极限左右逼近示意图">
+              <line x1="70" y1="270" x2="500" y2="270" class="axis"></line>
+              <line x1="100" y1="295" x2="100" y2="50" class="axis"></line>
+              <path d="M115 250 C180 208, 235 168, 275 118" class="curve curve-orange"></path>
+              <path d="M285 118 C330 162, 400 210, 480 250" class="curve curve-orange"></path>
+              <line x1="280" y1="270" x2="280" y2="96" stroke="#b86514" stroke-width="2" stroke-dasharray="7 7"></line>
+              <line x1="100" y1="116" x2="280" y2="116" stroke="#b86514" stroke-width="2" stroke-dasharray="7 7"></line>
+              <circle cx="280" cy="116" r="8" fill="#fbfcfb" stroke="#b86514" stroke-width="3"></circle>
+              <line x1="190" y1="286" x2="255" y2="286" stroke="#b86514" stroke-width="4" marker-end="url(#arrowBlue)"></line>
+              <line x1="370" y1="286" x2="305" y2="286" stroke="#b86514" stroke-width="4" marker-end="url(#arrowBlue)"></line>
+              <text x="280" y="308" text-anchor="middle" class="label">a</text>
+              <text x="85" y="121" text-anchor="end" class="label">L</text>
+              <text x="280" y="78" text-anchor="middle" class="label">越来越靠近同一个高度</text>
+              <text x="195" y="318" text-anchor="middle" class="label label-mono">x → a⁻</text>
+              <text x="365" y="318" text-anchor="middle" class="label label-mono">x → a⁺</text>
+            </svg>
+          </figure>
+        </article>
+
+        <article id="derivative" class="concept-section">
+          <div class="concept-copy">
+            <div class="concept-title-row">
+              <span class="tag">03</span>
+              <h3>导数：瞬间的变化有多快</h3>
+            </div>
+            <p class="brief">核心刻画：导数是“率”，描述变化有多快，是曲线在某点的斜率。</p>
+            <p class="copy-block">
+              平均速度是 <span class="math">\(\Delta s/\Delta t\)</span>，瞬时速度就是时间间隔 <span class="math">\(\Delta t\)</span> 趋近 0 时的极限。函数里也一样：导数是“这一点附近，输出对输入有多敏感”。
+            </p>
+            <ul class="list">
+              <li><strong>它代表什么：</strong>局部变化率、斜率、速度、敏感度。</li>
+              <li><strong>它回答什么：</strong>变化有多快。</li>
+              <li><strong>例子：</strong><span class="math">\(f(x)=x^2\)</span>，<span class="math">\(f'(x)=2x\)</span>。在 <span class="math">\(x=3\)</span>，导数是 <span class="math">\(6\)</span>，意思是 x 附近每增加 1，y 大约增加 6。</li>
+            </ul>
+          </div>
+          <figure class="figure">
+            <figcaption class="figure-title"><span>切线斜率</span><span>derivative = slope</span></figcaption>
+            <svg viewBox="0 0 560 340" role="img" aria-label="导数是曲线切线斜率示意图">
+              <line x1="70" y1="270" x2="500" y2="270" class="axis"></line>
+              <line x1="100" y1="295" x2="100" y2="50" class="axis"></line>
+              <path d="M105 252 C175 246, 230 218, 280 170 C330 122, 385 83, 485 72" class="curve curve-green"></path>
+              <line x1="198" y1="238" x2="420" y2="80" stroke="#2c7a51" stroke-width="3"></line>
+              <circle cx="292" cy="162" r="8" class="point"></circle>
+              <path d="M300 210 L370 210 L370 160" fill="none" stroke="#b33b43" stroke-width="2"></path>
+              <text x="335" y="231" text-anchor="middle" class="label label-mono">dx</text>
+              <text x="386" y="188" class="label label-mono">dy</text>
+              <text x="324" y="139" class="label">切线</text>
+              <text x="295" y="288" text-anchor="middle" class="label">x</text>
+              <line x1="292" y1="270" x2="292" y2="162" stroke="#6d7a83" stroke-dasharray="6 6"></line>
+              <text x="408" y="286" text-anchor="middle" class="label label-mono">斜率 = dy/dx</text>
+            </svg>
+          </figure>
+        </article>
+
+        <article id="differential" class="concept-section">
+          <div class="concept-copy">
+            <div class="concept-title-row">
+              <span class="tag">04</span>
+              <h3>微分：沿着当前斜率走一小步</h3>
+            </div>
+            <p class="brief">核心刻画：微分用线性近似刻画自变量微小变化引起的函数变化量。</p>
+            <p class="copy-block">
+              导数给的是“每单位变化多少”，微分给的是“这一小步实际约变多少”。所以导数像速度表，微分像这一小段路程。
+            </p>
+            <ul class="list">
+              <li><strong>它代表什么：</strong>输入小变化 <span class="math">\(dx\)</span> 引起的输出小变化 <span class="math">\(dy\)</span>。</li>
+              <li><strong>它回答什么：</strong>变化了多少。</li>
+              <li><strong>例子：</strong><span class="math">\(s(t)\)</span> 表示位置，速度 <span class="math">\(v=s'(t)\)</span>。若此刻 <span class="math">\(v=60\,\mathrm{km/h}\)</span>，<span class="math">\(dt=0.5\,\mathrm{h}\)</span>，则 <span class="math">\(ds\approx30\,\mathrm{km}\)</span>。</li>
+            </ul>
+          </div>
+          <figure class="figure">
+            <figcaption class="figure-title"><span>微小增量</span><span class="math">\(dy=f'(x)\,dx\)</span></figcaption>
+            <svg viewBox="0 0 560 340" role="img" aria-label="微分表示小变化量示意图">
+              <line x1="70" y1="270" x2="500" y2="270" class="axis"></line>
+              <line x1="100" y1="295" x2="100" y2="50" class="axis"></line>
+              <path d="M110 250 C170 238, 235 208, 290 157 C345 106, 405 78, 485 70" class="curve"></path>
+              <line x1="248" y1="196" x2="386" y2="98" stroke="#b33b43" stroke-width="3"></line>
+              <circle cx="285" cy="163" r="8" class="point"></circle>
+              <circle cx="340" cy="124" r="6" fill="#b33b43"></circle>
+              <line x1="285" y1="270" x2="285" y2="163" stroke="#6d7a83" stroke-dasharray="6 6"></line>
+              <line x1="340" y1="270" x2="340" y2="124" stroke="#6d7a83" stroke-dasharray="6 6"></line>
+              <line x1="285" y1="286" x2="340" y2="286" stroke="#b33b43" stroke-width="3"></line>
+              <line x1="356" y1="163" x2="356" y2="124" stroke="#b33b43" stroke-width="3"></line>
+              <text x="312" y="309" text-anchor="middle" class="label label-mono">dx</text>
+              <text x="372" y="148" class="label label-mono">dy</text>
+              <text x="250" y="142" text-anchor="end" class="label">当前点</text>
+              <text x="382" y="92" class="label">按切线估计</text>
+            </svg>
+          </figure>
+        </article>
+
+        <article id="integral" class="concept-section">
+          <div class="concept-copy">
+            <div class="concept-title-row">
+              <span class="tag">05</span>
+              <h3>积分：把许多小量加成一个总量</h3>
+            </div>
+            <p class="brief">核心刻画：积分描述连续小量在区间上的累积总效应。</p>
+            <p class="copy-block">
+              积分可以看成很多小矩形的面积相加：每个小矩形是 <span class="math">\(f(x)\,dx\)</span>。当小矩形无限窄，累加结果就变成精确面积。
+            </p>
+            <ul class="list">
+              <li><strong>它代表什么：</strong>面积、路程、总收入、总消耗、总概率等累计量。</li>
+              <li><strong>它回答什么：</strong>从一段区间整体看，总共积累了多少。</li>
+              <li><strong>例子：</strong>速度 <span class="math">\(v(t)\)</span> 对时间积分，得到路程 <span class="math">\(s=\int v(t)\,dt\)</span>。</li>
+            </ul>
+          </div>
+          <figure class="figure">
+            <figcaption class="figure-title"><span>面积累加</span><span>integral = sum</span></figcaption>
+            <svg viewBox="0 0 560 340" role="img" aria-label="积分是曲线下面积示意图">
+              <line x1="70" y1="270" x2="500" y2="270" class="axis"></line>
+              <line x1="100" y1="295" x2="100" y2="50" class="axis"></line>
+              <rect x="140" y="230" width="36" height="40" class="area"></rect>
+              <rect x="176" y="214" width="36" height="56" class="area"></rect>
+              <rect x="212" y="193" width="36" height="77" class="area"></rect>
+              <rect x="248" y="170" width="36" height="100" class="area"></rect>
+              <rect x="284" y="145" width="36" height="125" class="area"></rect>
+              <rect x="320" y="121" width="36" height="149" class="area"></rect>
+              <rect x="356" y="98" width="36" height="172" class="area"></rect>
+              <rect x="392" y="80" width="36" height="190" class="area"></rect>
+              <path d="M120 252 C188 230, 240 185, 290 145 C340 105, 385 76, 455 68" class="curve curve-violet"></path>
+              <text x="287" y="55" text-anchor="middle" class="label">曲线下方的总面积</text>
+              <text x="286" y="309" text-anchor="middle" class="label label-mono">∫ f(x) dx</text>
+              <text x="438" y="92" class="label">f(x)</text>
+            </svg>
+          </figure>
+        </article>
+      </div>
+    </section>
+
+    <section id="map" class="section" aria-labelledby="map-title">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">core formulations</div>
+          <h2 id="map-title">每个概念的核心刻画</h2>
+        </div>
+        <p>先把核心语义钉住，再看公式。公式只是把这些朴素问题写得更精确。</p>
+      </div>
+
+      <div class="concept-grid">
+        <article class="concept-card">
+          <span class="tag">function</span>
+          <h3>函数</h3>
+          <p class="one-line">函数刻画变量之间的映射关系。</p>
+          <p class="explain">输入一个量，按规则得到另一个量：<span class="math">\(x\mapsto f(x)\)</span>。</p>
+        </article>
+        <article class="concept-card">
+          <span class="tag">limit</span>
+          <h3>极限</h3>
+          <p class="one-line">极限刻画逼近过程中的稳定趋向。</p>
+          <p class="explain">不一定到达，但越靠越近时，看结果趋向哪个值。</p>
+        </article>
+        <article class="concept-card">
+          <span class="tag">derivative</span>
+          <h3>导数</h3>
+          <p class="one-line">导数刻画函数在一点的瞬时变化率。</p>
+          <p class="explain">斜率、速度、敏感度，回答“变化有多快”。</p>
+        </article>
+        <article class="concept-card">
+          <span class="tag">differential</span>
+          <h3>微分</h3>
+          <p class="one-line">微分刻画自变量微小变化引起的函数变化量。</p>
+          <p class="explain">用当前切线的线性近似，估计这一小步大约变了多少。</p>
+        </article>
+        <article class="concept-card">
+          <span class="tag">integral</span>
+          <h3>积分</h3>
+          <p class="one-line">积分刻画连续小量的累计结果。</p>
+          <p class="explain">把无数个很小的量加起来，得到面积、路程或总量。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="relation-title">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">how they connect</div>
+          <h2 id="relation-title">它们之间的关系</h2>
+        </div>
+        <p>微积分的核心不是一堆孤立公式，而是“从关系到局部变化，再从局部变化回到整体”的闭环。</p>
+      </div>
+
+      <div class="relation-flow" aria-label="概念关系链">
+        <div class="flow-node"><strong>函数</strong><small>描述整体关系</small></div>
+        <div class="arrow">→</div>
+        <div class="flow-node"><strong>极限</strong><small>让近似变精确</small></div>
+        <div class="arrow">→</div>
+        <div class="flow-node"><strong>导数</strong><small>得到瞬时变化率</small></div>
+        <div class="arrow">→</div>
+        <div class="flow-node"><strong>微分</strong><small>估计一小步变化</small></div>
+        <div class="arrow">→</div>
+        <div class="flow-node"><strong>积分</strong><small>累加小量成总量</small></div>
+      </div>
+
+      <div class="callout-grid">
+        <div class="callout">
+          <b>导数来自极限</b>
+          <span class="callout-text">平均变化率<span class="math">\(\Delta y/\Delta x\)</span>在<span class="math">\(\Delta x\to0\)</span>时的极限，就是瞬时变化率。</span>
+        </div>
+        <div class="callout">
+          <b>微分来自导数</b>
+          <span class="callout-text">已知当前的率<span class="math">\(f'(x)\)</span>，走一小步<span class="math">\(dx\)</span>，变化量约为<span class="math">\(dy=f'(x)\,dx\)</span>。</span>
+        </div>
+        <div class="callout">
+          <b>积分反过来累加</b>
+          <span class="callout-text">如果知道每一小步的量<span class="math">\(f(x)\,dx\)</span>，把它们加起来就是<span class="math">\(\int f(x)\,dx\)</span>。</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="lab" class="section" aria-labelledby="lab-title">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">interactive example</div>
+          <h2 id="lab-title">用 <span class="math">\(f(x)=x^2\)</span> 做一个小实验</h2>
+        </div>
+        <p>拖动 x，观察函数值、导数、微分和积分如何同时变化。这个例子足够简单，但能把五个概念全部串起来。</p>
+      </div>
+
+      <div class="lab">
+        <div class="lab-panel">
+          <div class="figure-title"><span>曲线与切线</span><span id="labFormula" class="math">\(f(x)=x^2\)</span></div>
+          <svg id="labSvg" viewBox="0 0 660 420" role="img" aria-label="可交互曲线图">
+            <line x1="70" y1="340" x2="610" y2="340" class="axis"></line>
+            <line x1="95" y1="365" x2="95" y2="45" class="axis"></line>
+            <g id="rectGroup"></g>
+            <path id="labCurve" d="" class="curve"></path>
+            <line id="tangentLine" x1="0" y1="0" x2="0" y2="0" stroke="#2c7a51" stroke-width="3"></line>
+            <line id="dxLine" x1="0" y1="0" x2="0" y2="0" stroke="#b33b43" stroke-width="3"></line>
+            <line id="dyLine" x1="0" y1="0" x2="0" y2="0" stroke="#b33b43" stroke-width="3"></line>
+            <circle id="labPoint" cx="0" cy="0" r="8" class="point"></circle>
+            <text x="608" y="363" text-anchor="end" class="label label-mono">x</text>
+            <text x="78" y="58" text-anchor="end" class="label label-mono">y</text>
+            <text id="pointLabel" x="0" y="0" class="label"></text>
+          </svg>
+        </div>
+
+        <div class="lab-panel">
+          <div class="figure-title"><span>读数</span><span class="math">\(dx=0.1\)</span></div>
+          <div class="lab-body">
+            <div class="control">
+              <div class="control-row">
+                <label for="xRange">x 的位置</label>
+                <strong id="xText">2.00</strong>
+              </div>
+              <input id="xRange" type="range" min="0.2" max="4.6" step="0.01" value="2" />
+            </div>
+            <div class="readout-grid">
+              <div class="readout">
+                <span>函数值：现在在哪里</span>
+                <strong id="fxRead">\(f(x)=4.00\)</strong>
+              </div>
+              <div class="readout">
+                <span>导数：变化有多快</span>
+                <strong id="derRead">\(f'(x)=4.00\)</strong>
+              </div>
+              <div class="readout">
+                <span>微分：这一小步约变多少</span>
+                <strong id="dyRead">\(dy\approx0.40\)</strong>
+              </div>
+              <div class="readout">
+                <span>积分：0 到 x 的累计面积</span>
+                <strong id="intRead">\(\int_0^x t^2\,dt=2.67\)</strong>
+              </div>
+            </div>
+            <p class="copy-block">
+              这里固定 <span class="math">\(dx=0.1\)</span>。导数 <span class="math">\(2x\)</span> 是率；微分 <span class="math">\(dy\approx2x\cdot0.1\)</span> 是这一小步的变化量；积分 <span class="math">\(\int_0^x t^2\,dt=x^3/3\)</span> 是从 0 到 x 的累计面积。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="table-title">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">comparison</div>
+          <h2 id="table-title">一张表区分它们</h2>
+        </div>
+        <p>遇到题目时，先判断它在问“关系、趋势、率、小量、总量”中的哪一个。</p>
+      </div>
+
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>概念</th>
+            <th>核心刻画</th>
+            <th>典型问题</th>
+            <th>常见形式</th>
+            <th>直觉图像</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>函数</td>
+            <td>对应关系</td>
+            <td>输入 x，输出是多少？</td>
+            <td><span class="math">\(y=f(x)\)</span></td>
+            <td>一台规则机器或一条曲线</td>
+          </tr>
+          <tr>
+            <td>极限</td>
+            <td>无限靠近</td>
+            <td>靠近某点时趋向哪里？</td>
+            <td><span class="math">\(\displaystyle \lim_{x\to a} f(x)=L\)</span></td>
+            <td>左右逼近同一个值</td>
+          </tr>
+          <tr>
+            <td>导数</td>
+            <td>变化率</td>
+            <td>变化有多快？</td>
+            <td><span class="math">\(f'(x)=dy/dx\)</span></td>
+            <td>曲线某点的切线斜率</td>
+          </tr>
+          <tr>
+            <td>微分</td>
+            <td>小变化量</td>
+            <td>这一小步变了多少？</td>
+            <td><span class="math">\(dy=f'(x)\,dx\)</span></td>
+            <td>沿切线走一小段</td>
+          </tr>
+          <tr>
+            <td>积分</td>
+            <td>连续累加</td>
+            <td>总共积累了多少？</td>
+            <td><span class="math">\(\int f(x)\,dx\)</span></td>
+            <td>曲线下方面积</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="applications" class="section" aria-labelledby="apps-title">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">applications</div>
+          <h2 id="apps-title">它们有什么用</h2>
+        </div>
+        <p>只要有“变化”和“累计”，微积分就会出现。理工科里它通常是建模、优化和估计的底层语言。</p>
+      </div>
+
+      <div class="apps">
+        <article class="app-card">
+          <div class="app-icon">v</div>
+          <b>物理运动</b>
+          <p>位置对时间求导得到速度，速度对时间积分得到路程。自由落体、汽车制动、轨道计算都靠它。</p>
+        </article>
+        <article class="app-card">
+          <div class="app-icon">∂</div>
+          <b>工程误差</b>
+          <p>测量半径有小误差 <span class="math">\(dr\)</span> 时，面积误差约为 <span class="math">\(dA=2\pi r\,dr\)</span>，这就是微分估计。</p>
+        </article>
+        <article class="app-card">
+          <div class="app-icon">min</div>
+          <b>优化问题</b>
+          <p>利润最大、成本最小、机器学习训练模型，本质上都在找导数为 0 或梯度下降的方向。</p>
+        </article>
+        <article class="app-card">
+          <div class="app-icon">Σ</div>
+          <b>总量计算</b>
+          <p>水流量随时间变化，总用水量就是对流量积分；功率随时间变化，总耗电量也是积分。</p>
+        </article>
+      </div>
+    </section>
+
+    <footer>
+      记忆线索：函数看关系，极限看逼近，导数看快慢，微分看小步，积分看总和。
+    </footer>
+  </main>
+
+  <script>
+    const range = document.getElementById("xRange");
+    const xText = document.getElementById("xText");
+    const fxRead = document.getElementById("fxRead");
+    const derRead = document.getElementById("derRead");
+    const dyRead = document.getElementById("dyRead");
+    const intRead = document.getElementById("intRead");
+    const labCurve = document.getElementById("labCurve");
+    const tangentLine = document.getElementById("tangentLine");
+    const labPoint = document.getElementById("labPoint");
+    const dxLine = document.getElementById("dxLine");
+    const dyLine = document.getElementById("dyLine");
+    const pointLabel = document.getElementById("pointLabel");
+    const rectGroup = document.getElementById("rectGroup");
+
+    const plot = {
+      left: 95,
+      bottom: 340,
+      width: 490,
+      height: 270,
+      xMax: 5,
+      yMax: 25
+    };
+    const labDx = 0.1;
+
+    function sx(x) {
+      return plot.left + (x / plot.xMax) * plot.width;
+    }
+
+    function sy(y) {
+      return plot.bottom - (y / plot.yMax) * plot.height;
+    }
+
+    function f(x) {
+      return x * x;
+    }
+
+    let mathRenderPending = false;
+
+    function queueMathRender() {
+      if (!window.MathJax || typeof window.MathJax.typesetPromise !== "function" || mathRenderPending) {
+        return;
+      }
+
+      mathRenderPending = true;
+      requestAnimationFrame(() => {
+        mathRenderPending = false;
+        window.MathJax.typesetClear?.([fxRead, derRead, dyRead, intRead]);
+        window.MathJax.typesetPromise([fxRead, derRead, dyRead, intRead]);
+      });
+    }
+
+    function buildCurve() {
+      const parts = [];
+      for (let i = 0; i <= 120; i += 1) {
+        const x = (i / 120) * 4.9;
+        const cmd = i === 0 ? "M" : "L";
+        parts.push(`${cmd}${sx(x).toFixed(2)} ${sy(f(x)).toFixed(2)}`);
+      }
+      labCurve.setAttribute("d", parts.join(" "));
+    }
+
+    function buildAreaRects(x) {
+      rectGroup.innerHTML = "";
+      for (let rx = 0; rx < x - Number.EPSILON; rx += labDx) {
+        const nextX = Math.min(rx + labDx, x);
+        const h = f(nextX);
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", sx(rx));
+        rect.setAttribute("y", sy(h));
+        rect.setAttribute("width", Math.max(1, sx(nextX) - sx(rx)));
+        rect.setAttribute("height", plot.bottom - sy(h));
+        rect.setAttribute("class", "area");
+        rectGroup.appendChild(rect);
+      }
+    }
+
+    function updateLab() {
+      const x = Number(range.value);
+      const y = f(x);
+      const slope = 2 * x;
+      const dx = labDx;
+      const dy = slope * dx;
+      const integral = (x * x * x) / 3;
+
+      const px = sx(x);
+      const py = sy(y);
+      const t1 = Math.max(0, x - 1.25);
+      const t2 = Math.min(plot.xMax, x + 1.25);
+      const y1 = y + slope * (t1 - x);
+      const y2 = y + slope * (t2 - x);
+      const px2 = sx(x + dx);
+      const py2 = sy(y + dy);
+
+      xText.textContent = x.toFixed(2);
+      fxRead.innerHTML = `\\(f(x)=${y.toFixed(2)}\\)`;
+      derRead.innerHTML = `\\(f'(x)=${slope.toFixed(2)}\\)`;
+      dyRead.innerHTML = `\\(dy\\approx${dy.toFixed(2)}\\)`;
+      intRead.innerHTML = `\\(\\int_0^x t^2\\,dt=${integral.toFixed(2)}\\)`;
+
+      labPoint.setAttribute("cx", px);
+      labPoint.setAttribute("cy", py);
+      tangentLine.setAttribute("x1", sx(t1));
+      tangentLine.setAttribute("y1", sy(y1));
+      tangentLine.setAttribute("x2", sx(t2));
+      tangentLine.setAttribute("y2", sy(y2));
+      dxLine.setAttribute("x1", px);
+      dxLine.setAttribute("y1", plot.bottom + 15);
+      dxLine.setAttribute("x2", px2);
+      dxLine.setAttribute("y2", plot.bottom + 15);
+      dyLine.setAttribute("x1", px2 + 12);
+      dyLine.setAttribute("y1", py);
+      dyLine.setAttribute("x2", px2 + 12);
+      dyLine.setAttribute("y2", py2);
+      pointLabel.setAttribute("x", Math.min(px + 14, 530));
+      pointLabel.setAttribute("y", Math.max(py - 14, 55));
+      pointLabel.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)})`;
+
+      buildAreaRects(x);
+      queueMathRender();
+    }
+
+    buildCurve();
+    updateLab();
+    range.addEventListener("input", updateLab);
+  </script>
+</body>
+</html>

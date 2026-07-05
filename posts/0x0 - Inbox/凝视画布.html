@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>凝视画布：油画欣赏入门笔记</title>
+  <style>
+    :root{
+      --paper:#f4efe6;
+      --paper-deep:#e7dccb;
+      --ink:#211b17;
+      --muted:#6d6257;
+      --line:#d2c4b2;
+      --umber:#7a4b2e;
+      --ochre:#b98235;
+      --wine:#6b2e2f;
+      --olive:#59614a;
+      --blue:#273f54;
+      --shadow: 0 24px 70px rgba(32, 23, 14, .12);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html{
+      scroll-behavior:smooth;
+    }
+
+    body{
+      margin:0;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 18% 8%, rgba(185,130,53,.20), transparent 30%),
+        radial-gradient(circle at 87% 16%, rgba(39,63,84,.16), transparent 35%),
+        linear-gradient(135deg, #f7f2e9, var(--paper) 42%, #eee4d6);
+      font-family: "Noto Serif SC", "Songti SC", "STSong", "SimSun", Georgia, serif;
+      line-height:1.75;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.28;
+      background-image:
+        linear-gradient(rgba(35,25,17,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(35,25,17,.025) 1px, transparent 1px);
+      background-size:42px 42px;
+      mix-blend-mode:multiply;
+    }
+
+    .shell{
+      max-width:1180px;
+      margin:0 auto;
+      padding:42px 24px 72px;
+    }
+
+    .hero{
+      position:relative;
+      overflow:hidden;
+      min-height:520px;
+      display:grid;
+      grid-template-columns: 1.08fr .92fr;
+      gap:36px;
+      align-items:center;
+      padding:58px;
+      border:1px solid rgba(122,75,46,.20);
+      border-radius:34px;
+      background:
+        linear-gradient(135deg, rgba(255,251,243,.88), rgba(238,226,209,.86)),
+        var(--paper);
+      box-shadow:var(--shadow);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      width:410px;
+      height:410px;
+      right:-120px;
+      top:-110px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(185,130,53,.28), transparent 64%);
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      color:var(--umber);
+      font-size:14px;
+      letter-spacing:.24em;
+      text-transform:uppercase;
+      margin-bottom:18px;
+    }
+
+    .kicker::before{
+      content:"";
+      width:46px;
+      height:1px;
+      background:var(--umber);
+      opacity:.75;
+    }
+
+    h1{
+      margin:0;
+      font-size: clamp(40px, 6.2vw, 82px);
+      line-height:1.06;
+      letter-spacing:-.06em;
+      font-weight:600;
+    }
+
+    .subtitle{
+      max-width:660px;
+      margin:26px 0 0;
+      color:var(--muted);
+      font-size:18px;
+    }
+
+    .hero-note{
+      margin-top:34px;
+      padding:20px 22px;
+      max-width:620px;
+      border-left:3px solid var(--ochre);
+      background:rgba(255,255,255,.34);
+      color:#4d4238;
+      border-radius:0 18px 18px 0;
+    }
+
+    .painting-card{
+      position:relative;
+      z-index:1;
+      height:430px;
+      border-radius:24px;
+      border:12px solid #2b2119;
+      background:#1e1713;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.08),
+        0 34px 80px rgba(33,27,23,.22);
+      overflow:hidden;
+    }
+
+    .painting-card svg{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
+    .caption{
+      position:absolute;
+      left:22px;
+      bottom:18px;
+      padding:10px 14px;
+      color:#f6eadb;
+      background:rgba(20,14,10,.54);
+      backdrop-filter: blur(6px);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      font-size:13px;
+      letter-spacing:.08em;
+    }
+
+    .nav{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:26px 0 36px;
+      padding:0;
+      list-style:none;
+    }
+
+    .nav a{
+      display:inline-block;
+      text-decoration:none;
+      color:#382c23;
+      padding:9px 14px;
+      border:1px solid rgba(122,75,46,.24);
+      border-radius:999px;
+      background:rgba(255,255,255,.33);
+      font-size:14px;
+    }
+
+    .nav a:hover{
+      background:#fff8ec;
+      border-color:rgba(122,75,46,.42);
+    }
+
+    .section{
+      margin-top:34px;
+      padding:38px;
+      border-radius:28px;
+      background:rgba(255,251,243,.72);
+      border:1px solid rgba(122,75,46,.16);
+      box-shadow:0 16px 44px rgba(32,23,14,.07);
+    }
+
+    .section-title{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:18px;
+      margin-bottom:22px;
+      border-bottom:1px solid var(--line);
+      padding-bottom:18px;
+    }
+
+    .section-title h2{
+      margin:0;
+      font-size:32px;
+      line-height:1.2;
+      letter-spacing:-.03em;
+      font-weight:600;
+    }
+
+    .section-title span{
+      color:var(--muted);
+      font-size:14px;
+      white-space:nowrap;
+      letter-spacing:.12em;
+    }
+
+    .lead{
+      color:#40362e;
+      font-size:18px;
+      margin:0 0 26px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:18px;
+    }
+
+    .card{
+      position:relative;
+      overflow:hidden;
+      padding:26px;
+      border-radius:24px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,.18));
+      border:1px solid rgba(122,75,46,.16);
+    }
+
+    .card::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:5px;
+      background:var(--accent, var(--umber));
+      opacity:.78;
+    }
+
+    .card h3{
+      margin:0 0 12px;
+      font-size:22px;
+      line-height:1.32;
+      font-weight:600;
+    }
+
+    .card p{
+      margin:0 0 12px;
+      color:#463b32;
+    }
+
+    .card p:last-child{ margin-bottom:0; }
+
+    .tag{
+      display:inline-block;
+      margin-bottom:14px;
+      padding:4px 9px;
+      border-radius:999px;
+      background:rgba(122,75,46,.10);
+      color:var(--umber);
+      font-size:13px;
+    }
+
+    .example{
+      margin-top:14px;
+      padding:14px 16px;
+      border-radius:16px;
+      background:rgba(244,239,230,.70);
+      color:#4d4036;
+      border:1px solid rgba(122,75,46,.12);
+    }
+
+    .example strong{
+      color:#201711;
+      font-weight:600;
+    }
+
+    .composition{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:14px;
+      margin-top:20px;
+    }
+
+    .mini{
+      padding:16px;
+      border:1px solid rgba(122,75,46,.16);
+      border-radius:18px;
+      background:rgba(255,255,255,.28);
+      min-height:150px;
+    }
+
+    .mini-visual{
+      height:68px;
+      margin-bottom:12px;
+      border-radius:12px;
+      background:#efe4d6;
+      border:1px solid rgba(33,27,23,.10);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .dot, .line, .curve, .frame, .tri{
+      position:absolute;
+      display:block;
+    }
+
+    .dot{
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      background:var(--blue);
+    }
+
+    .line{
+      height:3px;
+      background:var(--wine);
+      transform-origin:left center;
+      border-radius:999px;
+    }
+
+    .curve{
+      width:44px;
+      height:58px;
+      border:3px solid var(--olive);
+      border-left:none;
+      border-radius:0 50% 50% 0;
+      transform:rotate(16deg);
+      left:36px;
+      top:3px;
+    }
+
+    .tri{
+      width:0;
+      height:0;
+      border-left:32px solid transparent;
+      border-right:32px solid transparent;
+      border-bottom:56px solid rgba(185,130,53,.72);
+      left:50%;
+      top:8px;
+      transform:translateX(-50%);
+    }
+
+    .frame{
+      inset:12px;
+      border:4px solid rgba(39,63,84,.72);
+      border-radius:10px;
+    }
+
+    .mini h4{
+      margin:0 0 6px;
+      font-size:17px;
+    }
+
+    .mini p{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .flow{
+      counter-reset:item;
+      display:grid;
+      gap:14px;
+      margin-top:22px;
+    }
+
+    .flow li{
+      counter-increment:item;
+      list-style:none;
+      display:grid;
+      grid-template-columns:54px 1fr;
+      gap:16px;
+      align-items:start;
+      padding:20px;
+      border-radius:20px;
+      background:rgba(255,255,255,.28);
+      border:1px solid rgba(122,75,46,.14);
+    }
+
+    .flow li::before{
+      content:counter(item, decimal-leading-zero);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:54px;
+      height:54px;
+      border-radius:50%;
+      color:#fff7ec;
+      background:#2a211b;
+      font-size:15px;
+      letter-spacing:.05em;
+    }
+
+    .flow strong{
+      display:block;
+      margin-bottom:3px;
+      font-size:18px;
+    }
+
+    .flow span{
+      color:var(--muted);
+    }
+
+    .quote{
+      margin:38px 0 0;
+      padding:34px;
+      border-radius:28px;
+      color:#f9efe1;
+      background:
+        linear-gradient(135deg, rgba(33,27,23,.95), rgba(78,46,34,.94)),
+        #211b17;
+      box-shadow:var(--shadow);
+    }
+
+    .quote p{
+      margin:0;
+      font-size:26px;
+      line-height:1.55;
+      letter-spacing:-.02em;
+    }
+
+    .quote small{
+      display:block;
+      margin-top:18px;
+      color:#d8c8b4;
+    }
+
+    .footer{
+      margin-top:34px;
+      padding:26px 6px 0;
+      color:var(--muted);
+      font-size:14px;
+      text-align:center;
+    }
+
+    @media (max-width: 900px){
+      .hero{
+        grid-template-columns:1fr;
+        padding:34px;
+      }
+
+      .painting-card{
+        height:320px;
+      }
+
+      .grid{
+        grid-template-columns:1fr;
+      }
+
+      .composition{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+
+      .section{
+        padding:26px;
+      }
+    }
+
+    @media (max-width: 560px){
+      .shell{
+        padding:20px 14px 50px;
+      }
+
+      .hero{
+        border-radius:24px;
+        padding:28px 22px;
+      }
+
+      .section-title{
+        display:block;
+      }
+
+      .section-title span{
+        display:block;
+        margin-top:8px;
+      }
+
+      .composition{
+        grid-template-columns:1fr;
+      }
+
+      .flow li{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media print{
+      body{ background:#fff; }
+      body::before, .nav, .painting-card{ display:none; }
+      .shell{ max-width:none; padding:0; }
+      .hero, .section, .quote{
+        box-shadow:none;
+        break-inside:avoid;
+      }
+      a{ color:inherit; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="kicker">Oil Painting Notes</div>
+        <h1>凝视画布</h1>
+        <p class="subtitle">一份给油画初学者的观画笔记：从“我觉得好看”走向“我知道它为什么成立”。</p>
+        <div class="hero-note">
+          看一幅油画，不必急着背术语。先看它给你的整体感受，再看画家如何通过构图、光影、色彩、笔触和取舍，把这种感受建立起来。
+        </div>
+      </div>
+
+      <div class="painting-card" aria-label="抽象油画风格装饰">
+        <svg viewBox="0 0 520 620" role="img" aria-label="抽象油画笔触">
+          <defs>
+            <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stop-color="#213244"/>
+              <stop offset=".44" stop-color="#38261f"/>
+              <stop offset="1" stop-color="#8a5a2d"/>
+            </linearGradient>
+            <filter id="rough">
+              <feTurbulence type="fractalNoise" baseFrequency=".018" numOctaves="4" seed="7"/>
+              <feDisplacementMap in="SourceGraphic" scale="11"/>
+            </filter>
+          </defs>
+          <rect width="520" height="620" fill="url(#bg)"/>
+          <path d="M-60 448 C90 346 116 515 263 393 C379 298 426 275 584 323 L584 664 L-60 664 Z" fill="#c09045" opacity=".75" filter="url(#rough)"/>
+          <path d="M-40 160 C120 88 204 161 331 94 C433 40 506 73 570 125 L570 284 C415 225 353 282 233 239 C104 194 44 235 -40 283 Z" fill="#5d6a52" opacity=".55" filter="url(#rough)"/>
+          <path d="M73 355 C157 220 283 217 347 323 C407 424 320 526 202 508 C95 492 20 440 73 355Z" fill="#ead7b8" opacity=".86" filter="url(#rough)"/>
+          <path d="M131 380 C187 309 260 304 303 358 C345 410 302 464 230 465 C159 466 96 424 131 380Z" fill="#7b3432" opacity=".72"/>
+          <path d="M330 90 C386 150 376 209 320 253" stroke="#e7bd73" stroke-width="19" stroke-linecap="round" opacity=".82" filter="url(#rough)"/>
+          <path d="M107 107 C194 119 220 190 244 271" stroke="#d8c9aa" stroke-width="7" stroke-linecap="round" opacity=".63"/>
+          <path d="M394 398 C326 416 300 480 293 570" stroke="#1f2d36" stroke-width="15" stroke-linecap="round" opacity=".7"/>
+          <circle cx="246" cy="377" r="32" fill="#f0d7a7" opacity=".92"/>
+          <circle cx="262" cy="366" r="7" fill="#2a211b" opacity=".72"/>
+          <path d="M218 417 C247 434 272 428 293 407" stroke="#36231d" stroke-width="6" fill="none" opacity=".65"/>
+          <rect x="36" y="42" width="448" height="536" rx="7" fill="none" stroke="rgba(255,239,211,.28)" stroke-width="2"/>
+        </svg>
+        <div class="caption">光 · 色 · 笔触 · 结构</div>
+      </div>
+    </section>
+
+    <ul class="nav">
+      <li><a href="#principles">评价维度</a></li>
+      <li><a href="#composition">构图方式</a></li>
+      <li><a href="#process">看画流程</a></li>
+      <li><a href="#example">完整示例</a></li>
+    </ul>
+
+    <section class="section" id="principles">
+      <div class="section-title">
+        <h2>画家如何评价一幅油画</h2>
+        <span>九个核心维度</span>
+      </div>
+      <p class="lead">专业评价不是简单说“像不像”“好不好看”，而是看画面是否成立：整体是否统一，技术是否服务表达，画家是否有取舍和判断。</p>
+
+      <div class="grid">
+        <article class="card" style="--accent:#7a4b2e">
+          <span class="tag">01 / 整体</span>
+          <h3>整体是否统一</h3>
+          <p>整体统一，是指画面里的颜色、光线、人物、背景、笔触都在服务同一种气氛或主题，而不是互相打架。</p>
+          <p>判断时先远看：这幅画给你的第一感觉是否明确？有没有某些地方突兀到破坏气氛？</p>
+          <div class="example"><strong>例子：</strong>老人坐在窗边读书，整体灰蓝、暖光柔和、姿态安静，背景简洁，就会形成安静统一的气氛。</div>
+        </article>
+
+        <article class="card" style="--accent:#273f54">
+          <span class="tag">02 / 重点</span>
+          <h3>主次是否清楚</h3>
+          <p>“主”是画家最想让你看的地方；“次”是辅助主体的部分。主体不一定是人，也可能是脸、手、一束光、一朵花或某种情绪。</p>
+          <p>画家会用亮度、颜色、细节、边缘、位置和人物视线来安排主次。</p>
+          <div class="example"><strong>例子：</strong>肖像画中，脸部最亮最清楚，背景较暗较虚，观众第一眼自然看脸，这就是主次清楚。</div>
+        </article>
+
+        <article class="card" style="--accent:#b98235">
+          <span class="tag">03 / 安排</span>
+          <h3>构图是否有设计</h3>
+          <p>构图就是画家如何安排画面：主体放哪里，哪里空、哪里满，视线从哪里开始，又被引向哪里。</p>
+          <p>好的构图不是把东西摆满，而是设计观众的观看路线，并让画面形成稳定、动感、庄重或紧张等效果。</p>
+          <div class="example"><strong>例子：</strong>人物偏左，右侧用窗光和空间平衡，视线被光线带到人物脸上，这就是有设计的构图。</div>
+        </article>
+
+        <article class="card" style="--accent:#59614a">
+          <span class="tag">04 / 骨架</span>
+          <h3>造型结构是否扎实</h3>
+          <p>造型看外形、比例、体积是否舒服；结构看物体内部的骨架和重量是否可信。</p>
+          <p>画人时，不只是五官像，还要看头、脖子、肩膀、身体重心是否自然。</p>
+          <div class="example"><strong>例子：</strong>坐着的人如果真的像“坐”在椅子上，有重量、有重心，而不是贴在椅子前面，结构就比较扎实。</div>
+        </article>
+
+        <article class="card" style="--accent:#6b2e2f">
+          <span class="tag">05 / 关系</span>
+          <h3>明暗色彩关系是否协调</h3>
+          <p>明暗看亮、中、暗是否有秩序，光源是否统一；色彩看冷暖、纯灰、主色调是否互相配合。</p>
+          <p>协调不等于颜色都一样，而是颜色之间有关系、有主调、有对比但不混乱。</p>
+          <div class="example"><strong>例子：</strong>室内人物画整体偏深棕和灰绿，脸部有暖光，暗部偏冷，画面不花但有变化，色彩就协调。</div>
+        </article>
+
+        <article class="card" style="--accent:#8d6a3f">
+          <span class="tag">06 / 痕迹</span>
+          <h3>笔触和材料是否有表现力</h3>
+          <p>笔触是画笔留下的痕迹，材料表现力是油画颜料厚涂、薄涂、刮擦、罩染等特性是否被用出来。</p>
+          <p>好的笔触不只是“涂颜色”，还会表现质感、速度、情绪和空间。</p>
+          <div class="example"><strong>例子：</strong>脸部笔触细腻，背景笔触松动，树皮用干擦，丝绸用流畅笔触，不同对象有不同语言。</div>
+        </article>
+
+        <article class="card" style="--accent:#3f5061">
+          <span class="tag">07 / 深度</span>
+          <h3>空间层次是否合理</h3>
+          <p>空间层次是画面有没有前后远近：前景、中景、背景是否拉开，画面能不能让人“走进去”。</p>
+          <p>画家常用大小、清晰度、冷暖、明暗、透视和遮挡来制造空间。</p>
+          <div class="example"><strong>例子：</strong>小路近处宽、清楚、颜色重，远处窄、模糊、偏灰，就会产生深度。</div>
+        </article>
+
+        <article class="card" style="--accent:#9a6245">
+          <span class="tag">08 / 取舍</span>
+          <h3>完成度是否到位</h3>
+          <p>完成度不是画得越细越好，而是该清楚的地方清楚，该省略的地方省略，画面停在合适的位置。</p>
+          <p>主体可以充分，次要部分可以概括；背景不一定要细，但不能草率到破坏整体。</p>
+          <div class="example"><strong>例子：</strong>肖像中脸和眼神处理充分，衣服概括但有体积，背景简洁不抢戏，完成度就比较到位。</div>
+        </article>
+
+        <article class="card" style="--accent:#2f2a24">
+          <span class="tag">09 / 内在</span>
+          <h3>表达是否真诚</h3>
+          <p>表达是作品传递出的感受、态度或思考。真诚是你能感觉画家真的在观察、感受和选择，而不是只在炫技。</p>
+          <p>技术强不是问题，关键是技术有没有服务主题和情绪。</p>
+          <div class="example"><strong>例子：</strong>母亲抱孩子，若眼神、手势、身体倾斜和光线都传递保护与温柔，即使不极端写实，也可能很打动人。</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="composition">
+      <div class="section-title">
+        <h2>常见构图方式</h2>
+        <span>观看路线的设计</span>
+      </div>
+      <p class="lead">构图不是规则清单，而是画家安排画面力量的方法。下面这些方式可以帮助你快速识别画面的秩序。</p>
+
+      <div class="composition">
+        <div class="mini">
+          <div class="mini-visual"><span class="dot" style="left:50%;top:50%;transform:translate(-50%,-50%)"></span></div>
+          <h4>中心构图</h4>
+          <p>主体居中，稳定、庄重、明确，适合正式肖像和宗教画。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="tri"></span></div>
+          <h4>三角形构图</h4>
+          <p>画面稳定、有秩序，常见于古典人物群像与静物。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="line" style="width:100px;left:23px;top:50px;transform:rotate(-28deg)"></span></div>
+          <h4>对角线构图</h4>
+          <p>制造运动感、戏剧性和紧张感，适合冲突或动作场面。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="curve"></span></div>
+          <h4>S 形构图</h4>
+          <p>柔和、流动、优雅，常用于风景道路、河流和人体姿态。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="dot" style="left:30%;top:50%;transform:translate(-50%,-50%)"></span><span class="dot" style="left:70%;top:50%;transform:translate(-50%,-50%);background:#7a4b2e"></span></div>
+          <h4>对称构图</h4>
+          <p>左右均衡，庄重、神圣，但处理不好会显得呆板。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="dot" style="left:28%;top:36%"></span><span class="line" style="width:54px;right:18px;bottom:18px;background:#b98235"></span></div>
+          <h4>不对称构图</h4>
+          <p>主体偏一侧，用色块、光线或空间保持平衡，更自然生动。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="line" style="width:100%;left:0;top:33%;background:rgba(33,27,23,.18)"></span><span class="line" style="width:100%;left:0;top:66%;background:rgba(33,27,23,.18)"></span><span class="line" style="height:100%;width:2px;left:33%;top:0;background:rgba(33,27,23,.18)"></span><span class="line" style="height:100%;width:2px;left:66%;top:0;background:rgba(33,27,23,.18)"></span><span class="dot" style="left:66%;top:33%;transform:translate(-50%,-50%)"></span></div>
+          <h4>三分法构图</h4>
+          <p>主体靠近三分线交点，舒服自然，常见于风景与肖像。</p>
+        </div>
+
+        <div class="mini">
+          <div class="mini-visual"><span class="frame"></span><span class="dot" style="left:50%;top:50%;transform:translate(-50%,-50%);background:#b98235"></span></div>
+          <h4>框式构图</h4>
+          <p>用门窗、树枝、建筑等形成框，聚焦主体并增强空间感。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="process">
+      <div class="section-title">
+        <h2>一套实用看画流程</h2>
+        <span>从远看到近看</span>
+      </div>
+
+      <ol class="flow">
+        <li>
+          <div>
+            <strong>远看整体</strong>
+            <span>先判断第一感受：安静、紧张、温暖、沉重、神秘？画面是否统一？</span>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>找主体</strong>
+            <span>问自己第一眼看哪里，那里为什么会吸引你：亮、鲜艳、清楚、居中，还是被人物视线引导？</span>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>看构图</strong>
+            <span>观察画面是中心、三角形、斜线、S 形、对称，还是不对称平衡。</span>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>看明暗和色彩</strong>
+            <span>光源是否统一？亮暗层次是否清楚？整体有没有主色调？冷暖是否有关系？</span>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>近看笔触</strong>
+            <span>看颜料厚薄、笔触方向、边缘虚实。不同对象是否有不同的处理方式？</span>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>回到表达</strong>
+            <span>最后问：这幅画想让我感受到什么？技术是否帮助了这种感受？有没有地方削弱表达？</span>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="section" id="example">
+      <div class="section-title">
+        <h2>一个完整评价示例</h2>
+        <span>人物油画</span>
+      </div>
+
+      <p class="lead">假设画面是一个男人坐在暗房间里，脸被窗外光照亮，背景很暗。可以这样评价：</p>
+
+      <div class="grid">
+        <article class="card" style="--accent:#7a4b2e">
+          <h3>整体与主次</h3>
+          <p>画面整体偏暗，气氛安静、沉重，光线和色调都服务于人物的孤独感。人物的脸最亮、最清楚，背景暗而虚，所以主次明确。</p>
+        </article>
+
+        <article class="card" style="--accent:#b98235">
+          <h3>构图与结构</h3>
+          <p>人物偏在画面一侧，窗光从另一侧进入，形成平衡。头、脖子、肩膀和坐姿关系自然，身体有重量感，结构可信。</p>
+        </article>
+
+        <article class="card" style="--accent:#273f54">
+          <h3>明暗与空间</h3>
+          <p>光源明确，亮部偏暖，暗部偏冷，色彩不花。人物在中景，桌子在前景，背景退后，前中后层次清楚。</p>
+        </article>
+
+        <article class="card" style="--accent:#59614a">
+          <h3>笔触与表达</h3>
+          <p>脸部笔触较细，背景笔触较松，形成虚实变化。整幅画不是单纯追求画得像，而是在表现人物的沉思和孤独。</p>
+        </article>
+      </div>
+
+      <div class="quote">
+        <p>好的油画，不只是“画得像”，而是整体关系成立，技术服务表达，画面有清楚的取舍和判断。</p>
+        <small>记住三个问题：我先看哪里？为什么看那里？这是否帮助作品表达情绪？</small>
+      </div>
+    </section>
+
+    <footer class="footer">
+      凝视画布 · 油画欣赏入门笔记
+    </footer>
+  </main>
+</body>
+</html>
