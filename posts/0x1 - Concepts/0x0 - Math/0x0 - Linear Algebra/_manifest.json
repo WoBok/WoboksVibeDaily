@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "type": "leaf",
+  "folderName": "0x0 - Linear Algebra",
+  "folderPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+  "displayName": "Linear Algebra",
+  "marker": {
+    "articleCount": 4,
+    "signature": "sha1:8d44647fbc0d1a5eee0687ec69ac0ee1c351c077",
+    "generatedAt": "2026-07-06T09:40:04.651Z"
+  },
+  "articles": [
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
+      "name": "向量投影.md",
+      "format": "markdown",
+      "title": "向量投影",
+      "date": "2026-07-06",
+      "summary": "从向量分解与夹角余弦出发推导向量在另一向量方向上的投影公式，并说明如何求平行分量、垂直分量与投影长度。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783323581303.8887,
+      "size": 1610
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交.md",
+      "name": "正交.md",
+      "format": "markdown",
+      "title": "正交",
+      "date": "2026-07-06",
+      "summary": "用距离相等和勾股定理推导两个向量正交的充分必要条件，强调点积为 0 与几何垂直之间的等价关系。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783323579552.9517,
+      "size": 1542
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "name": "正交矩阵.md",
+      "format": "markdown",
+      "title": "正交矩阵",
+      "date": "2026-07-06",
+      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783323577814.2605,
+      "size": 2288
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
+      "name": "正弦定理和余弦定理.md",
+      "format": "markdown",
+      "title": "正弦定理和余弦定理",
+      "date": "2026-07-06",
+      "summary": "通过三角形高线拆分与勾股关系推导正弦定理和余弦定理，说明边长、角度与投影长度之间的对应关系。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783323576052.2815,
+      "size": 1763
+    }
+  ]
+}

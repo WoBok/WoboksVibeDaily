@@ -4,51 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WoBok's Vibe Daily</title>
-  <meta name="description" content="WoBok 的个人博客——代码、生活与阅读的笔记。">
-
-  <!-- Fonts: Fraunces (有机衬线大标题) + Newsreader (正衬线) + DM Mono (极小辅助) -->
+  <meta name="description" content="WoBok 的个人笔记主页。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap"
-    rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <!-- 顶栏：标题 -->
   <header class="topbar">
-    <a href="#/" class="brand">
+    <a href="#/" class="brand" aria-label="WoBok's Vibe Daily">
       <span class="brand__name">WoBok's Vibe Daily</span>
     </a>
-    <span class="topbar__date" id="topDate"></span>
+    <div class="topbar__actions">
+      <span class="topbar__date" id="topDate"></span>
+      <button class="topbar__button topbar__button--mobile" id="indexBtn" type="button">Index</button>
+      <button class="topbar__button" id="backBtn" type="button" hidden>Back</button>
+    </div>
   </header>
 
-  <!-- 主容器：左侧目录 + 右侧内容 -->
-  <main class="layout">
-
-    <!-- 左侧：目录大纲（仅文件夹） -->
+  <main class="layout" id="layout">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__inner">
         <div class="sidebar__header">
           <h2 class="sidebar__title">Index</h2>
         </div>
         <nav class="tree" id="tree" aria-label="文章目录">
-          <!-- 由 app.js 渲染 -->
           <div class="tree__loading">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span></span><span></span><span></span>
           </div>
         </nav>
       </div>
     </aside>
 
-    <!-- 右侧：内容区（列表 / 文章） -->
-    <section class="content" id="content">
-      <!-- 由 app.js 渲染 -->
-    </section>
-
+    <section class="content" id="content" tabindex="-1"></section>
   </main>
+
+  <div class="mobile-rail-actions" id="mobileRailActions" hidden>
+    <button type="button" data-rail="outline">Outline</button>
+    <button type="button" data-rail="refs">Refs</button>
+  </div>
 
   <script src="app.js"></script>
 </body>

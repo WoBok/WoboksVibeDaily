@@ -1,0 +1,14 @@
+{
+  "name": "woboks-vibe-daily",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build:content": "node scripts/build-content.js",
+    "start": "node server/index.js",
+    "dev": "node server/index.js --watch"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

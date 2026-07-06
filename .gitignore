@@ -1,0 +1,7 @@
+node_modules/
+.agents/
+server.log
+server.err
+npm-debug.log*
+.DS_Store
+posts/**/_manifest.json.*.tmp
