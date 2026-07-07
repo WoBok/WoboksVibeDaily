@@ -1,0 +1,17 @@
+{
+  "name": "woboks-vibe-daily",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WoBok's Vibe Daily — personal note site (nginx + Node API + static front-end).",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0"
+  }
+}

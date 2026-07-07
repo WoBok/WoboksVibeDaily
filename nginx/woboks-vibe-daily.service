@@ -1,0 +1,46 @@
+# =========================================================
+# WoBok's Vibe Daily — systemd 服务单元模板（Linux）
+# 部署位置：/etc/systemd/system/woboks-vibe-daily.service
+# 启用：    sudo systemctl daemon-reload
+#           sudo systemctl enable --now woboks-vibe-daily
+# 查看日志：sudo journalctl -u woboks-vibe-daily -f
+#
+# 部署前请替换：
+#   wvd            → 运行用户（建议新建非 root 用户）
+#   /var/www/woboks-vibe-daily → 项目实际部署路径
+#   /usr/bin/node  → node 实际路径（which node）
+# =========================================================
+
+[Unit]
+Description=WoBok's Vibe Daily Node API
+After=network.target
+
+[Service]
+Type=simple
+User=wvd
+Group=wvd
+WorkingDirectory=/var/www/woboks-vibe-daily
+
+# 端口与主机：仅监听 127.0.0.1，由 nginx 反代对外
+Environment=WVD_HOST=127.0.0.1
+Environment=WVD_PORT=17321
+# 如需时区一致
+Environment=TZ=Asia/Shanghai
+
+ExecStart=/usr/bin/node server/index.js
+
+Restart=on-failure
+RestartSec=3
+
+# 输出到 journald
+StandardOutput=journal
+StandardError=journal
+
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/www/woboks-vibe-daily/posts
+
+[Install]
+WantedBy=multi-user.target

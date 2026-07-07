@@ -16,7 +16,11 @@
       "Bash(command -v chrome)",
       "Read(//c/Program Files/Google/Chrome/Application/**)",
       "Read(//c/Program Files \\(x86\\)/Microsoft/Edge/Application/**)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(curl -s -o /dev/null -w \"首页 HTTP %{http_code}\\\\n\" http://127.0.0.1:17321/)",
+      "Bash(curl -s -o /dev/null -w \"目录树 HTTP %{http_code}\\\\n\" http://127.0.0.1:17321/api/tree)",
+      "Bash(git checkout *)",
+      "Bash(git add *)"
     ]
   }
 }

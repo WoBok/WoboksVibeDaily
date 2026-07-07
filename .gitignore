@@ -1,0 +1,15 @@
+# 依赖
+node_modules/
+
+# nginx 运行时产物（日志 / PID / 临时文件）
+nginx/logs/
+nginx/temp/
+nginx/run/
+
+# 自动生成的 manifest（由 Node 启动时构建，不入库）
+posts/**/_manifest.json
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+*.log
