@@ -3,9 +3,9 @@
   "type": "root",
   "rootPath": "posts",
   "marker": {
-    "articleCount": 10,
-    "signature": "sha1:9ca21fa9f8d4b49d521ddc67002c1051dfb368e8",
-    "generatedAt": "2026-07-06T09:40:04.655Z"
+    "articleCount": 12,
+    "signature": "sha1:608923204f31684acaf5b08ac59fc29dfe22ff6a",
+    "generatedAt": "2026-07-07T07:55:20.312Z"
   },
   "tree": [
     {
@@ -23,7 +23,7 @@
       "displayName": "Concepts",
       "type": "folder",
       "isLeaf": false,
-      "articleCount": 6,
+      "articleCount": 8,
       "children": [
         {
           "name": "0x0 - Math",
@@ -31,7 +31,7 @@
           "displayName": "Math",
           "type": "folder",
           "isLeaf": false,
-          "articleCount": 4,
+          "articleCount": 6,
           "children": [
             {
               "name": "0x0 - Linear Algebra",
@@ -39,7 +39,7 @@
               "displayName": "Linear Algebra",
               "type": "folder",
               "isLeaf": true,
-              "articleCount": 4,
+              "articleCount": 6,
               "children": []
             }
           ]
@@ -54,9 +54,128 @@
           "children": []
         }
       ]
+    },
+    {
+      "name": "0x2 - Books",
+      "path": "posts/0x2 - Books",
+      "displayName": "Books",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x3 - Films",
+      "path": "posts/0x3 - Films",
+      "displayName": "Films",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x4 - Skills",
+      "path": "posts/0x4 - Skills",
+      "displayName": "Skills",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x5 - Learning",
+      "path": "posts/0x5 - Learning",
+      "displayName": "Learning",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x6 - Ideas",
+      "path": "posts/0x6 - Ideas",
+      "displayName": "Ideas",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0xF - Archives",
+      "path": "posts/0xF - Archives",
+      "displayName": "Archives",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
     }
   ],
   "latest": [
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "name": "叉积.md",
+      "format": "markdown",
+      "title": "叉积",
+      "date": "2026-07-07",
+      "summary": "叉积的模长，就是三个面投影行列式值平方和的开方，几何上代表空间平行四边形的面积。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783410053636.6406,
+      "size": 2153
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "name": "点积.md",
+      "format": "markdown",
+      "title": "点积",
+      "date": "2026-07-07",
+      "summary": "点积代数上是对应分量乘积和，几何上是投影与模长的乘积，核心用于通过正负号判定向量的夹角趋向。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783410004187.897,
+      "size": 3420
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x1 - Computer Graphics/传统光照模型.md",
+      "path": "posts/0x1 - Concepts/0x1 - Computer Graphics/传统光照模型.md",
+      "name": "传统光照模型.md",
+      "format": "markdown",
+      "title": "传统光照模型",
+      "date": "2026-07-06",
+      "summary": "从点光、方向光、环境光出发，推导漫反射、镜面反射与 Phong、Blinn、Half Lambert 等传统光照模型，并记录一个可调背光的 Half Lambert 变体。",
+      "categoryPath": "posts/0x1 - Concepts/0x1 - Computer Graphics",
+      "categoryName": "Computer Graphics",
+      "mtimeMs": 1783410919788.108,
+      "size": 8771
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "name": "正交矩阵.md",
+      "format": "markdown",
+      "title": "正交矩阵",
+      "date": "2026-07-06",
+      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783408488706.2932,
+      "size": 2278
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
+      "path": "posts/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
+      "name": "法线纹理.md",
+      "format": "markdown",
+      "title": "法线纹理",
+      "date": "2026-07-06",
+      "summary": "梳理法线贴图的切线空间定义、TBN 推导、纹理采样映射、非统一缩放下法线矩阵使用，以及 Unity 中世界空间法线采样和 MikkTSpace 切线设置。",
+      "categoryPath": "posts/0x1 - Concepts/0x1 - Computer Graphics",
+      "categoryName": "Computer Graphics",
+      "mtimeMs": 1783408408148.0925,
+      "size": 5931
+    },
     {
       "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
       "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
@@ -84,19 +203,6 @@
       "size": 1542
     },
     {
-      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
-      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
-      "name": "正交矩阵.md",
-      "format": "markdown",
-      "title": "正交矩阵",
-      "date": "2026-07-06",
-      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
-      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
-      "categoryName": "Linear Algebra",
-      "mtimeMs": 1783323577814.2605,
-      "size": 2288
-    },
-    {
       "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
       "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
       "name": "正弦定理和余弦定理.md",
@@ -108,32 +214,6 @@
       "categoryName": "Linear Algebra",
       "mtimeMs": 1783323576052.2815,
       "size": 1763
-    },
-    {
-      "id": "posts/0x1 - Concepts/0x1 - Computer Graphics/传统光照模型.md",
-      "path": "posts/0x1 - Concepts/0x1 - Computer Graphics/传统光照模型.md",
-      "name": "传统光照模型.md",
-      "format": "markdown",
-      "title": "传统光照模型",
-      "date": "2026-07-06",
-      "summary": "从点光、方向光、环境光出发，推导漫反射、镜面反射与 Phong、Blinn、Half Lambert 等传统光照模型，并记录一个可调背光的 Half Lambert 变体。",
-      "categoryPath": "posts/0x1 - Concepts/0x1 - Computer Graphics",
-      "categoryName": "Computer Graphics",
-      "mtimeMs": 1783323574307.276,
-      "size": 8773
-    },
-    {
-      "id": "posts/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
-      "path": "posts/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
-      "name": "法线纹理.md",
-      "format": "markdown",
-      "title": "法线纹理",
-      "date": "2026-07-06",
-      "summary": "梳理法线贴图的切线空间定义、TBN 推导、纹理采样映射、非统一缩放下法线矩阵使用，以及 Unity 中世界空间法线采样和 MikkTSpace 切线设置。",
-      "categoryPath": "posts/0x1 - Concepts/0x1 - Computer Graphics",
-      "categoryName": "Computer Graphics",
-      "mtimeMs": 1783323572590.1497,
-      "size": 6938
     },
     {
       "id": "posts/0x0 - Inbox/鲜与灰.html",

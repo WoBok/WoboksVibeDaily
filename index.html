@@ -8,17 +8,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260707-list-scroll-3">
 </head>
 <body>
   <header class="topbar">
-    <a href="#/" class="brand" aria-label="WoBok's Vibe Daily">
+    <a href="#/" class="brand" id="brandLink" aria-label="WoBok's Vibe Daily">
       <span class="brand__name">WoBok's Vibe Daily</span>
     </a>
-    <div class="topbar__actions">
-      <span class="topbar__date" id="topDate"></span>
-      <button class="topbar__button topbar__button--mobile" id="indexBtn" type="button">Index</button>
-      <button class="topbar__button" id="backBtn" type="button" hidden>Back</button>
+    <div class="topbar__right">
+      <div class="topbar__actions">
+        <button class="topbar__button topbar__button--mobile" id="indexBtn" type="button">Index</button>
+        <button class="topbar__button" id="backBtn" type="button" hidden>Back</button>
+      </div>
+      <div
+        class="topbar__tagline"
+        data-hover-text="Simplicity is the ultimate sophistication."
+      >Just trying to make notes simpler with AI.</div>
     </div>
   </header>
 
@@ -44,6 +49,6 @@
     <button type="button" data-rail="refs">Refs</button>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260707-list-scroll-3"></script>
 </body>
 </html>

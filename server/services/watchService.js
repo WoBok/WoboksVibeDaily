@@ -14,7 +14,10 @@ function createWatchService(manifestService) {
   function shouldIgnore(fileName) {
     if (!fileName) return false;
     const name = path.basename(String(fileName));
-    return name === '_manifest.json' || name.startsWith('.');
+    return name === '_manifest.json'
+      || name.startsWith('_manifest.json.')
+      || name.endsWith('.tmp')
+      || name.startsWith('.');
   }
 
   async function refreshWatchers() {

@@ -12,15 +12,25 @@
     currentArticle: '',
     openFolders: new Set(),
     lastListRoute: { type: 'latest' },
+    listCacheByRoute: new Map(),
+    listScrollByRoute: new Map(),
+    listScrollLockKey: '',
+    listScrollSaveFrame: 0,
     route: { type: 'latest' },
-    reloadTimer: 0
+    renderId: 0,
+    scrollIntentRenderId: 0,
+    articleCleanup: null
   };
+
+  const MATHJAX_SRC = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+  let mathJaxPromise = null;
 
   const els = {
     body: document.body,
     tree: $('#tree'),
     content: $('#content'),
     sidebar: $('#sidebar'),
+    brandLink: $('#brandLink'),
     backBtn: $('#backBtn'),
     indexBtn: $('#indexBtn'),
     mobileRailActions: $('#mobileRailActions')
@@ -39,20 +49,194 @@
     return escapeHtml(value).replace(/`/g, '&#96;');
   }
 
+  function decodeHtmlEntities(value) {
+    return String(value ?? '')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#96;/g, '`')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+  }
+
   function normalizePath(value) {
     return String(value || '').replace(/\\/g, '/');
   }
 
-  function displayPath(path) {
+  function displayName(name) {
+    return String(name || '').replace(/^0x[0-9a-f]+\s*-\s*/i, '').trim() || String(name || '');
+  }
+
+  function displayPathSegments(path, options = {}) {
     return normalizePath(path)
       .split('/')
       .filter(Boolean)
-      .join(' · ');
+      .map((part, index) => {
+        if (index === 0 && options.rootLabel && part.toLowerCase() === 'posts') return options.rootLabel;
+        return displayName(part);
+      });
+  }
+
+  function displayPath(path, options = {}) {
+    return displayPathSegments(path, options).join(' · ');
+  }
+
+  function renderDisplayPath(path, options = {}) {
+    const segments = displayPathSegments(path, options);
+    return segments
+      .map(segment => escapeHtml(segment))
+      .join('<span class="path-separator" aria-hidden="true">·</span>');
   }
 
   function pathBasename(path) {
     const parts = normalizePath(path).split('/').filter(Boolean);
-    return parts[parts.length - 1] || 'Latest';
+    return displayName(parts[parts.length - 1]) || 'Latest';
+  }
+
+  function normalizeRelativeSegments(value) {
+    const segments = [];
+    for (const segment of normalizePath(value).split('/')) {
+      if (!segment || segment === '.') continue;
+      if (segment === '..') {
+        if (!segments.length) return '';
+        segments.pop();
+        continue;
+      }
+      segments.push(segment);
+    }
+    return segments.join('/');
+  }
+
+  function splitResourceUrl(value) {
+    const match = String(value || '').match(/^([^?#]*)([?#][\s\S]*)?$/);
+    return {
+      path: match ? match[1] : String(value || ''),
+      suffix: match?.[2] || ''
+    };
+  }
+
+  function encodeContentAssetUrl(relativePath) {
+    const body = normalizePath(relativePath).replace(/^posts\//, '');
+    return `/content/posts/${body.split('/').map(encodeURIComponent).join('/')}`;
+  }
+
+  function resolveMarkdownResourceUrl(value, articlePath) {
+    const raw = String(value || '').trim().replace(/^<([\s\S]+)>$/, '$1');
+    if (!raw) return '';
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return raw;
+    if (raw.startsWith('/content/posts/')) return raw;
+
+    const parts = splitResourceUrl(raw);
+    if (!parts.path) return raw;
+
+    let contentPath = '';
+    if (parts.path.startsWith('/posts/')) {
+      contentPath = normalizeRelativeSegments(parts.path.slice(1));
+    } else if (parts.path.startsWith('posts/')) {
+      contentPath = normalizeRelativeSegments(parts.path);
+    } else if (parts.path.startsWith('/')) {
+      return raw;
+    } else {
+      const baseDir = normalizePath(articlePath).split('/').slice(0, -1).join('/');
+      if (!baseDir) return raw;
+      contentPath = normalizeRelativeSegments(`${baseDir}/${parts.path}`);
+    }
+
+    if (!contentPath.startsWith('posts/')) return raw;
+    return `${encodeContentAssetUrl(contentPath)}${parts.suffix}`;
+  }
+
+  function resolveHtmlResourceUrl(value, articlePath) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return raw;
+    if (raw.startsWith('/content/posts/')) return raw;
+
+    const parts = splitResourceUrl(raw);
+    if (!parts.path) return raw;
+
+    let contentPath = '';
+    if (parts.path.startsWith('/posts/')) {
+      contentPath = normalizeRelativeSegments(parts.path.slice(1));
+    } else if (parts.path.startsWith('posts/')) {
+      contentPath = normalizeRelativeSegments(parts.path);
+    } else if (parts.path.startsWith('/')) {
+      return raw;
+    } else {
+      const baseDir = normalizePath(articlePath).split('/').slice(0, -1).join('/');
+      if (!baseDir) return raw;
+      contentPath = normalizeRelativeSegments(`${baseDir}/${parts.path}`);
+    }
+
+    if (!contentPath.startsWith('posts/')) return raw;
+    return `${encodeContentAssetUrl(contentPath)}${parts.suffix}`;
+  }
+
+  function rewriteSrcset(value, articlePath) {
+    return String(value || '')
+      .split(',')
+      .map(item => {
+        const trimmed = item.trim();
+        if (!trimmed) return '';
+        const [url, ...descriptors] = trimmed.split(/\s+/);
+        return [resolveHtmlResourceUrl(url, articlePath), ...descriptors].join(' ');
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  function htmlFrameViewportHeight() {
+    const topbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) || 0;
+    return Math.max(0, window.innerHeight - topbarHeight);
+  }
+
+  function rewriteHtmlCss(value, articlePath) {
+    return String(value || '')
+      .replace(/url\((['"]?)([^'")]+)\1\)/gi, (_match, quote, url) => {
+        return `url(${quote}${resolveHtmlResourceUrl(url, articlePath)}${quote})`;
+      })
+      .replace(/(-?\d*\.?\d+)vh\b/g, (_match, amount) => {
+        const ratio = Number(amount) / 100;
+        return `calc(var(--wvd-vh, 1vh) * ${ratio})`;
+      });
+  }
+
+  function buildHtmlSrcdoc(html, article) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(String(html || ''), 'text/html');
+    const articlePath = article.path;
+    doc.documentElement.style.setProperty('--wvd-vh', `${htmlFrameViewportHeight()}px`);
+
+    [
+      ['img', 'src'],
+      ['script', 'src'],
+      ['link', 'href'],
+      ['source', 'src'],
+      ['video', 'src'],
+      ['audio', 'src'],
+      ['iframe', 'src'],
+      ['embed', 'src'],
+      ['object', 'data'],
+      ['a', 'href']
+    ].forEach(([selector, attribute]) => {
+      $$(`${selector}[${attribute}]`, doc).forEach(element => {
+        element.setAttribute(attribute, resolveHtmlResourceUrl(element.getAttribute(attribute), articlePath));
+      });
+    });
+
+    $$('img[srcset], source[srcset]', doc).forEach(element => {
+      element.setAttribute('srcset', rewriteSrcset(element.getAttribute('srcset'), articlePath));
+    });
+
+    $$('[style]', doc).forEach(element => {
+      element.setAttribute('style', rewriteHtmlCss(element.getAttribute('style'), articlePath));
+    });
+
+    $$('style', doc).forEach(style => {
+      style.textContent = rewriteHtmlCss(style.textContent, articlePath);
+    });
+
+    return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
   }
 
   function apiUrl(path, params = {}) {
@@ -72,6 +256,12 @@
       throw error;
     }
     return data;
+  }
+
+  async function fetchText(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP_${response.status}`);
+    return response.text();
   }
 
   function parseHash() {
@@ -94,19 +284,307 @@
     return `#/${type}/${encodeURIComponent(path)}`;
   }
 
+  function isListRoute(route) {
+    return route?.type === 'latest' || route?.type === 'folder';
+  }
+
+  function listRouteKey(route) {
+    if (!route || route.type === 'latest') return 'latest';
+    return `folder:${normalizePath(route.path)}`;
+  }
+
+  function listRouteFromFolder(path) {
+    return { type: 'folder', path: normalizePath(path) };
+  }
+
+  function clearContentViewState() {
+    delete els.content.dataset.listKey;
+    delete els.content.dataset.listSignature;
+  }
+
   function setRoute(type, path) {
     const next = routeHash(type, path);
     if (location.hash === next) render();
     else location.hash = next;
   }
 
+  function isActiveRender(renderId) {
+    return renderId === state.renderId;
+  }
+
+  function hasScrollIntent(renderId) {
+    return Boolean(renderId) && state.scrollIntentRenderId === renderId;
+  }
+
+  function markScrollIntent() {
+    state.scrollIntentRenderId = state.renderId;
+    scheduleListScrollSave();
+  }
+
+  function delay(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function cleanupArticleFrame() {
+    if (state.articleCleanup) {
+      state.articleCleanup();
+      state.articleCleanup = null;
+    }
+  }
+
+  function revealArticleView(renderId, view) {
+    if (!view || !isActiveRender(renderId)) return;
+
+    window.requestAnimationFrame(() => {
+      if (!view.isConnected || !isActiveRender(renderId)) return;
+      view.classList.remove('article-view--loading', 'article-view--preparing');
+      view.classList.add('article-view--ready');
+    });
+  }
+
+  function revealArticleWhenReady(renderId, view, readyPromise, options = {}) {
+    const ready = Promise.resolve(readyPromise).catch(() => {});
+    Promise.race([ready, delay(options.timeout ?? 520)]).then(() => {
+      revealArticleView(renderId, view);
+    });
+  }
+
+  function isScrollKey(key) {
+    return ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(key);
+  }
+
+  function withInstantPageScroll(callback) {
+    const root = document.documentElement;
+    const scrollRoot = document.scrollingElement || root;
+    const previousBehavior = root.style.scrollBehavior;
+
+    root.style.scrollBehavior = 'auto';
+    try {
+      callback(scrollRoot);
+    } finally {
+      root.style.scrollBehavior = previousBehavior;
+    }
+  }
+
+  function scrollPageToTop(renderId) {
+    if (hasScrollIntent(renderId)) return;
+
+    withInstantPageScroll(scrollRoot => {
+      scrollRoot.scrollLeft = 0;
+      scrollRoot.scrollTop = 0;
+      document.body.scrollLeft = 0;
+      document.body.scrollTop = 0;
+      window.scrollTo(0, 0);
+    });
+  }
+
+  function pageScrollPosition() {
+    const scrollRoot = document.scrollingElement || document.documentElement;
+    return {
+      left: scrollRoot.scrollLeft || window.scrollX || 0,
+      top: scrollRoot.scrollTop || window.scrollY || 0
+    };
+  }
+
+  function saveListScroll(route = state.route) {
+    if (!isListRoute(route)) return;
+    state.listScrollByRoute.set(listRouteKey(route), pageScrollPosition());
+  }
+
+  function scheduleListScrollSave() {
+    if (!isListRoute(state.route) || state.listScrollSaveFrame) return;
+
+    state.listScrollSaveFrame = window.requestAnimationFrame(() => {
+      state.listScrollSaveFrame = 0;
+      if (isListRoute(state.route)) saveListScroll(state.route);
+    });
+  }
+
+  function captureListScrollBeforeArticleNavigation(event) {
+    if (!isListRoute(state.route)) return;
+
+    const link = event.target?.closest?.('a.post-card[href]');
+    if (!link) return;
+
+    const href = link.getAttribute('href') || '';
+    if (!href.startsWith('#/article/')) return;
+
+    const key = listRouteKey(state.route);
+    saveListScroll(state.route);
+    state.listScrollLockKey = key;
+  }
+
+  function listScrollTarget(route) {
+    return state.listScrollByRoute.get(listRouteKey(route)) || { left: 0, top: 0 };
+  }
+
+  function restoreListScroll(renderId, route, options = {}) {
+    if (!isActiveRender(renderId) || !isListRoute(route)) return;
+    if (!options.force && hasScrollIntent(renderId)) return;
+
+    const target = listScrollTarget(route);
+    withInstantPageScroll(scrollRoot => {
+      scrollRoot.scrollLeft = Math.max(0, target.left || 0);
+      scrollRoot.scrollTop = Math.max(0, target.top || 0);
+      document.body.scrollLeft = Math.max(0, target.left || 0);
+      document.body.scrollTop = Math.max(0, target.top || 0);
+      window.scrollTo(Math.max(0, target.left || 0), Math.max(0, target.top || 0));
+    });
+  }
+
+  function scrollPageBy(deltaX, deltaY) {
+    withInstantPageScroll(() => {
+      window.scrollBy(deltaX, deltaY);
+    });
+  }
+
+  function topbarScrollOffset() {
+    const topbar = $('.topbar');
+    const measured = topbar?.getBoundingClientRect().height || 0;
+    const declared = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) || 0;
+    return Math.ceil(Math.max(measured, declared));
+  }
+
+  function scrollToPageY(top, options = {}) {
+    markScrollIntent();
+    window.scrollTo({
+      left: window.scrollX,
+      top: Math.max(0, Math.round(top)),
+      behavior: options.behavior || 'auto'
+    });
+  }
+
+  function scrollElementBelowTopbar(element, options = {}) {
+    if (!element) return;
+    const gap = options.gap ?? 14;
+    const rect = element.getBoundingClientRect();
+    scrollToPageY(window.scrollY + rect.top - topbarScrollOffset() - gap, options);
+  }
+
+  function scrollFrameElementBelowTopbar(frame, element, options = {}) {
+    if (!frame || !element) return;
+
+    const gap = options.gap ?? 14;
+    const frameRect = frame.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const frameWindow = frame.contentWindow;
+    const frameScrollY = frameWindow?.scrollY
+      || element.ownerDocument?.documentElement?.scrollTop
+      || element.ownerDocument?.body?.scrollTop
+      || 0;
+    const frameTop = window.scrollY + frameRect.top;
+    const elementTop = elementRect.top + frameScrollY;
+
+    scrollToPageY(frameTop + elementTop - topbarScrollOffset() - gap, options);
+  }
+
+  function hashTarget(root, hash) {
+    const raw = String(hash || '').replace(/^#/, '');
+    let id = raw;
+    try {
+      id = decodeURIComponent(raw);
+    } catch {
+      id = raw;
+    }
+
+    if (!id) return root.body || root.documentElement;
+    return root.getElementById(id)
+      || $$('[name]', root).find(element => element.getAttribute('name') === id);
+  }
+
+  function articleHashFromHref(href, articleUrl) {
+    const raw = String(href || '').trim();
+    if (!raw) return null;
+    if (raw === '#') return '';
+    if (raw.startsWith('#')) return raw.slice(1);
+
+    try {
+      const targetUrl = new URL(raw, window.location.origin);
+      const currentUrl = new URL(articleUrl, window.location.origin);
+      if (
+        targetUrl.origin === currentUrl.origin
+        && targetUrl.pathname === currentUrl.pathname
+        && targetUrl.search === currentUrl.search
+        && targetUrl.hash
+      ) {
+        return targetUrl.hash.slice(1);
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  function isCurrentFolder(path) {
+    return state.route.type === 'folder' && normalizePath(state.route.path) === normalizePath(path);
+  }
+
+  function parentFolderPath(path) {
+    const parts = normalizePath(path).split('/').filter(Boolean);
+    return parts.slice(0, -1).join('/');
+  }
+
+  function isSameOrDescendantPath(path, root) {
+    const normalizedPath = normalizePath(path);
+    const normalizedRoot = normalizePath(root);
+    return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+  }
+
+  function closeFolderBranch(path) {
+    const normalizedPath = normalizePath(path);
+    for (const folder of Array.from(state.openFolders)) {
+      if (isSameOrDescendantPath(folder, normalizedPath)) state.openFolders.delete(folder);
+    }
+
+    if (state.activeFolder && isSameOrDescendantPath(state.activeFolder, normalizedPath)) {
+      state.activeFolder = '';
+    }
+  }
+
+  function closeAllFolders() {
+    state.openFolders.clear();
+    state.currentFolder = '';
+    state.activeFolder = '';
+  }
+
+  function closeSiblingFolders(path) {
+    const normalizedPath = normalizePath(path);
+    const parentPath = parentFolderPath(normalizedPath);
+    for (const folder of Array.from(state.openFolders)) {
+      if (folder !== normalizedPath && parentFolderPath(folder) === parentPath) {
+        closeFolderBranch(folder);
+      }
+    }
+  }
+
+  function findTreeNode(path, nodes = state.tree) {
+    const normalizedPath = normalizePath(path);
+    for (const node of nodes || []) {
+      if (normalizePath(node.path) === normalizedPath) return node;
+      if (node.children?.length) {
+        const match = findTreeNode(normalizedPath, node.children);
+        if (match) return match;
+      }
+    }
+    return null;
+  }
+
+  function folderHasChildren(path) {
+    const node = findTreeNode(path);
+    return Boolean(node?.children?.length);
+  }
+
   function expandFolderPath(path) {
     const parts = normalizePath(path).split('/').filter(Boolean);
     let acc = '';
-    for (const part of parts) {
+    parts.forEach((part, index) => {
       acc = acc ? `${acc}/${part}` : part;
-      if (acc !== 'posts') state.openFolders.add(acc);
-    }
+      if (acc !== 'posts' && (index < parts.length - 1 || folderHasChildren(acc))) {
+        closeSiblingFolders(acc);
+        state.openFolders.add(acc);
+      }
+    });
   }
 
   function setViewMode(mode) {
@@ -138,8 +616,8 @@
     const wrap = document.createElement('div');
     const hasChildren = node.children && node.children.length > 0;
     const isOpen = state.openFolders.has(node.path);
-    const isActive = state.activeFolder === node.path;
-    const isSelectedPath = state.activeFolder
+    const isActive = node.isLeaf && state.activeFolder === node.path;
+    const isSelectedPath = node.isLeaf && state.activeFolder
       && (state.activeFolder === node.path || state.activeFolder.startsWith(`${node.path}/`));
     const isClickableLeaf = node.isLeaf && node.articleCount > 0;
 
@@ -163,17 +641,35 @@
     `;
 
     row.addEventListener('click', () => {
-      state.activeFolder = node.path;
-
       if (hasChildren) {
-        if (isOpen) state.openFolders.delete(node.path);
-        else state.openFolders.add(node.path);
+        if (isOpen) {
+          closeFolderBranch(node.path);
+        } else {
+          closeSiblingFolders(node.path);
+          state.openFolders.add(node.path);
+        }
+        renderTree();
+        return;
+      }
+
+      if (!isClickableLeaf) {
+        closeSiblingFolders(node.path);
         renderTree();
         return;
       }
 
       if (isClickableLeaf) {
+        if (isCurrentFolder(node.path)) {
+          state.currentFolder = node.path;
+          state.activeFolder = node.path;
+          els.body.classList.remove('is-index-open');
+          renderTree();
+          return;
+        }
+
+        closeSiblingFolders(node.path);
         state.currentFolder = node.path;
+        state.activeFolder = node.path;
         els.body.classList.remove('is-index-open');
         setRoute('folder', node.path);
       }
@@ -193,12 +689,61 @@
     return wrap;
   }
 
-  function renderListShell(title, eyebrow, articles) {
+  function listSignature(title, eyebrow, articles) {
+    return JSON.stringify([
+      title,
+      eyebrow,
+      (articles || []).map(article => [
+        article.path,
+        article.title,
+        article.date,
+        article.categoryName,
+        article.summary
+      ])
+    ]);
+  }
+
+  function cacheList(route, entry) {
+    if (!isListRoute(route)) return;
+    state.listCacheByRoute.set(listRouteKey(route), entry);
+  }
+
+  function renderCachedList(route, renderId) {
+    const cached = state.listCacheByRoute.get(listRouteKey(route));
+    if (!cached) return false;
+
+    renderListShell(cached.title, cached.eyebrow, cached.articles, {
+      route,
+      cache: false,
+      steady: true
+    });
+    restoreListScroll(renderId, route, { force: true });
+    return true;
+  }
+
+  function renderListShell(title, eyebrow, articles, options = {}) {
+    cleanupArticleFrame();
+    const route = options.route || state.route;
+    const routeKey = isListRoute(route) ? listRouteKey(route) : '';
+    const signature = listSignature(title, eyebrow, articles);
+    if (
+      options.skipIfUnchanged !== false
+      && routeKey
+      && els.content.dataset.listKey === routeKey
+      && els.content.dataset.listSignature === signature
+    ) {
+      if (options.cache !== false) {
+        cacheList(route, { title, eyebrow, articles: articles.slice(), signature });
+      }
+      return;
+    }
+
     const summary = articles.length === 1 ? '1 note' : `${articles.length} notes`;
+    const viewClass = ['list-view', options.steady ? 'list-view--steady' : ''].filter(Boolean).join(' ');
     els.content.innerHTML = `
-      <div class="list-view">
+      <div class="${viewClass}">
         <header class="list-view__header">
-          <div class="list-view__eyebrow">${escapeHtml(eyebrow)}</div>
+          <div class="list-view__eyebrow">${eyebrow}</div>
           <h1 class="list-view__title">${escapeHtml(title)}</h1>
           <div class="list-view__count">${summary}</div>
         </header>
@@ -211,6 +756,16 @@
         </div>
       </div>
     `;
+    if (routeKey) {
+      els.content.dataset.listKey = routeKey;
+      els.content.dataset.listSignature = signature;
+    } else {
+      clearContentViewState();
+    }
+
+    if (options.cache !== false) {
+      cacheList(route, { title, eyebrow, articles: articles.slice(), signature });
+    }
   }
 
   function renderArticleCard(article, index) {
@@ -218,6 +773,7 @@
       <a class="post-card" href="${routeHash('article', article.path)}" style="animation-delay:${index * 45}ms">
         <div class="post-card__meta">
           <span>${escapeHtml(article.date || '—')}</span>
+          <span class="meta-separator" aria-hidden="true">·</span>
           <span>${escapeHtml(article.categoryName || '')}</span>
         </div>
         <h2 class="post-card__title">${escapeHtml(article.title)}</h2>
@@ -226,26 +782,45 @@
     `;
   }
 
-  async function renderLatest() {
+  async function renderLatest(renderId, options = {}) {
     setViewMode('list');
     state.currentFolder = '';
     state.activeFolder = '';
     state.currentArticle = '';
-    state.lastListRoute = { type: 'latest' };
+    const route = { type: 'latest' };
+    state.lastListRoute = route;
+    if (options.restoreScroll) renderCachedList(route, renderId);
+
     const data = await fetchJson('/api/latest');
-    renderListShell('Latest', 'HOME', data.articles || []);
+    if (!isActiveRender(renderId)) return false;
+    renderListShell('Latest', escapeHtml('HOME'), data.articles || [], {
+      route,
+      steady: options.restoreScroll
+    });
+    if (options.restoreScroll) restoreListScroll(renderId, route);
+    else scrollPageToTop(renderId);
+    return true;
   }
 
-  async function renderFolder(path) {
+  async function renderFolder(path, renderId, options = {}) {
     setViewMode('list');
     state.currentFolder = normalizePath(path);
     state.activeFolder = state.currentFolder;
     state.currentArticle = '';
-    state.lastListRoute = { type: 'folder', path: state.currentFolder };
+    const route = listRouteFromFolder(state.currentFolder);
+    state.lastListRoute = route;
     expandFolderPath(state.currentFolder);
+    if (options.restoreScroll) renderCachedList(route, renderId);
 
     const data = await fetchJson('/api/folder', { path: state.currentFolder });
-    renderListShell(pathBasename(state.currentFolder), displayPath(state.currentFolder), data.articles || []);
+    if (!isActiveRender(renderId)) return false;
+    renderListShell(pathBasename(state.currentFolder), renderDisplayPath(state.currentFolder), data.articles || [], {
+      route,
+      steady: options.restoreScroll
+    });
+    if (options.restoreScroll) restoreListScroll(renderId, route);
+    else scrollPageToTop(renderId);
+    return true;
   }
 
   function parseFrontmatter(markdown) {
@@ -270,7 +845,7 @@
     return slug || fallback;
   }
 
-  function renderInlineMarkdown(value) {
+  function renderInlineMarkdown(value, context = {}) {
     const inlineMath = [];
     let html = String(value || '').replace(/\$([^$\n]+?)\$/g, (_match, body) => {
       const token = `@@MATH_${inlineMath.length}@@`;
@@ -288,11 +863,13 @@
     });
 
     html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, src) => {
-      return `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" loading="lazy">`;
+      const resolvedSrc = resolveMarkdownResourceUrl(decodeHtmlEntities(src), context.articlePath);
+      return `<img src="${escapeAttr(resolvedSrc)}" alt="${escapeAttr(decodeHtmlEntities(alt))}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
     });
 
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => {
-      return `<a href="${escapeAttr(href)}">${label}</a>`;
+      const resolvedHref = resolveMarkdownResourceUrl(decodeHtmlEntities(href), context.articlePath);
+      return `<a href="${escapeAttr(resolvedHref)}">${label}</a>`;
     });
 
     html = html
@@ -310,7 +887,81 @@
     return html;
   }
 
-  function renderMarkdown(markdown) {
+  function findClosingDollar(value, fromIndex) {
+    const text = String(value || '');
+    for (let index = fromIndex; index < text.length; index += 1) {
+      if (text[index] === '$' && text[index - 1] !== '\\') return index;
+    }
+    return -1;
+  }
+
+  function isEquationLabel(value) {
+    const text = String(value || '').trim();
+    return !text || /^[（(]\s*[\w\d一二三四五六七八九十IVXLCDMivxlcdm.-]+\s*[）)]$/.test(text);
+  }
+
+  function readDisplayMath(lines, startIndex) {
+    const firstLine = lines[startIndex] || '';
+    const firstTrimmed = firstLine.trimStart();
+    if (!firstTrimmed.startsWith('$')) return null;
+
+    const delimiter = firstTrimmed.startsWith('$$') ? '$$' : '$';
+    const delimiterLength = delimiter.length;
+    const contentStart = firstLine.length - firstTrimmed.length + delimiterLength;
+    const firstClosing = delimiter === '$$'
+      ? firstLine.indexOf('$$', contentStart)
+      : findClosingDollar(firstLine, contentStart);
+
+    if (firstClosing !== -1) {
+      const suffix = firstLine.slice(firstClosing + delimiterLength).trim();
+      if (delimiter === '$' && !isEquationLabel(suffix)) return null;
+
+      return {
+        math: firstLine.slice(contentStart, firstClosing).trim(),
+        suffix,
+        nextIndex: startIndex
+      };
+    }
+
+    const mathLines = [firstLine.slice(contentStart)];
+    for (let index = startIndex + 1; index < lines.length; index += 1) {
+      const line = lines[index];
+      const closing = delimiter === '$$'
+        ? line.indexOf('$$')
+        : findClosingDollar(line, 0);
+
+      if (closing !== -1) {
+        mathLines.push(line.slice(0, closing));
+        return {
+          math: mathLines.join('\n').trim(),
+          suffix: line.slice(closing + delimiterLength).trim(),
+          nextIndex: index
+        };
+      }
+
+      mathLines.push(line);
+    }
+
+    return null;
+  }
+
+  function renderMathBlock(source, suffix = '', context = {}) {
+    const trimmed = String(source || '').trim();
+    let math = trimmed;
+
+    if (trimmed.startsWith('$$') || (trimmed.startsWith('\\[') && trimmed.endsWith('\\]'))) {
+      math = trimmed;
+    } else if (trimmed.startsWith('$') && trimmed.endsWith('$')) {
+      math = `$$\n${trimmed.slice(1, -1).trim()}\n$$`;
+    } else {
+      math = `$$\n${trimmed}\n$$`;
+    }
+
+    const suffixHtml = suffix ? `<span class="math-block__suffix">${renderInlineMarkdown(suffix, context)}</span>` : '';
+    return `<div class="math-block">${escapeHtml(math)}${suffixHtml}</div>`;
+  }
+
+  function renderMarkdown(markdown, context = {}) {
     const { body } = parseFrontmatter(markdown);
     const lines = body.replace(/\r\n/g, '\n').split('\n');
     const html = [];
@@ -319,13 +970,13 @@
 
     const flushParagraph = () => {
       if (!paragraph.length) return;
-      html.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+      html.push(`<p>${renderInlineMarkdown(paragraph.join(' '), context)}</p>`);
       paragraph = [];
     };
 
     const flushList = () => {
       if (!list) return;
-      html.push(`<${list.type}>${list.items.map(item => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</${list.type}>`);
+      html.push(`<${list.type}>${list.items.map(item => `<li>${renderInlineMarkdown(item, context)}</li>`).join('')}</${list.type}>`);
       list = null;
     };
 
@@ -339,24 +990,12 @@
         continue;
       }
 
-      if (trimmed.startsWith('$') && !trimmed.endsWith('$')) {
+      const displayMath = readDisplayMath(lines, i);
+      if (displayMath) {
         flushParagraph();
         flushList();
-        const math = [line];
-        i += 1;
-        while (i < lines.length) {
-          math.push(lines[i]);
-          if (lines[i].trim().endsWith('$')) break;
-          i += 1;
-        }
-        html.push(`<div class="math-block">${escapeHtml(math.join('\n'))}</div>`);
-        continue;
-      }
-
-      if (trimmed.startsWith('$') && trimmed.endsWith('$') && trimmed.length > 1) {
-        flushParagraph();
-        flushList();
-        html.push(`<div class="math-block">${escapeHtml(line)}</div>`);
+        html.push(renderMathBlock(displayMath.math, displayMath.suffix, context));
+        i = displayMath.nextIndex;
         continue;
       }
 
@@ -380,7 +1019,7 @@
         flushParagraph();
         flushList();
         const level = heading[1].length;
-        html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+        html.push(`<h${level}>${renderInlineMarkdown(heading[2], context)}</h${level}>`);
         continue;
       }
 
@@ -417,7 +1056,7 @@
       if (quote) {
         flushParagraph();
         flushList();
-        html.push(`<blockquote><p>${renderInlineMarkdown(quote[1])}</p></blockquote>`);
+        html.push(`<blockquote><p>${renderInlineMarkdown(quote[1], context)}</p></blockquote>`);
         continue;
       }
 
@@ -427,6 +1066,77 @@
     flushParagraph();
     flushList();
     return html.join('\n');
+  }
+
+  function containsMath(root) {
+    const text = root?.textContent || '';
+    return /(?:\$\$|\$[^$\n]+?\$|\\\(|\\\[|\\begin\{)/.test(text);
+  }
+
+  function ensureMathJax() {
+    if (window.MathJax?.typesetPromise) return Promise.resolve(window.MathJax);
+
+    if (!mathJaxPromise) {
+      window.MathJax = {
+        ...(window.MathJax || {}),
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+          processEnvironments: true,
+          ...(window.MathJax?.tex || {})
+        },
+        options: {
+          skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+          ...(window.MathJax?.options || {})
+        },
+        svg: {
+          fontCache: 'global',
+          ...(window.MathJax?.svg || {})
+        },
+        startup: {
+          typeset: false,
+          ...(window.MathJax?.startup || {})
+        }
+      };
+
+      mathJaxPromise = new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-mathjax]');
+
+        const resolveWhenReady = () => {
+          const ready = window.MathJax?.startup?.promise || Promise.resolve();
+          ready.then(() => resolve(window.MathJax), reject);
+        };
+
+        if (existing) {
+          existing.addEventListener('load', resolveWhenReady, { once: true });
+          existing.addEventListener('error', reject, { once: true });
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = MATHJAX_SRC;
+        script.async = true;
+        script.dataset.mathjax = 'true';
+        script.addEventListener('load', resolveWhenReady, { once: true });
+        script.addEventListener('error', reject, { once: true });
+        document.head.appendChild(script);
+      });
+    }
+
+    return mathJaxPromise;
+  }
+
+  async function typesetMath(root) {
+    if (!containsMath(root)) return;
+
+    try {
+      const mathJax = await ensureMathJax();
+      mathJax.typesetClear?.([root]);
+      await mathJax.typesetPromise([root]);
+    } catch (error) {
+      console.warn('[math] MathJax failed:', error);
+    }
   }
 
   function isExternalLink(link, baseUrl) {
@@ -462,12 +1172,103 @@
     }).filter(item => item.text);
   }
 
+  function prepareMarkdownImages(root) {
+    $$('img', root).forEach(image => {
+      image.tabIndex = 0;
+      image.setAttribute('role', 'button');
+      image.setAttribute('aria-label', image.alt ? `Open image: ${image.alt}` : 'Open image');
+
+      const openImage = () => openImageLightbox(image);
+      image.addEventListener('click', openImage);
+      image.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        openImage();
+      });
+
+      const setLoaded = () => {
+        image.classList.remove('is-error');
+        image.classList.add('is-loaded');
+      };
+      const setError = () => {
+        image.classList.remove('is-loaded');
+        image.classList.add('is-error');
+        image.title = image.alt || 'Image failed to load';
+      };
+
+      if (image.complete) {
+        if (image.naturalWidth > 0) setLoaded();
+        else setError();
+        return;
+      }
+
+      image.addEventListener('load', setLoaded, { once: true });
+      image.addEventListener('error', setError, { once: true });
+    });
+  }
+
+  function openImageLightbox(sourceImage) {
+    if (!sourceImage?.src || sourceImage.classList.contains('is-error')) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const overlay = document.createElement('div');
+    overlay.className = 'image-lightbox';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+
+    const closeButton = document.createElement('button');
+    closeButton.className = 'image-lightbox__close';
+    closeButton.type = 'button';
+    closeButton.setAttribute('aria-label', 'Close image');
+    closeButton.textContent = '×';
+
+    const figure = document.createElement('figure');
+    figure.className = 'image-lightbox__figure';
+
+    const image = document.createElement('img');
+    image.className = 'image-lightbox__image';
+    image.src = sourceImage.currentSrc || sourceImage.src;
+    image.alt = sourceImage.alt || '';
+    image.decoding = 'async';
+
+    figure.appendChild(image);
+
+    if (sourceImage.alt) {
+      const caption = document.createElement('figcaption');
+      caption.className = 'image-lightbox__caption';
+      caption.textContent = sourceImage.alt;
+      figure.appendChild(caption);
+    }
+
+    const close = () => {
+      document.removeEventListener('keydown', onKeydown);
+      document.body.style.overflow = previousOverflow;
+      overlay.remove();
+    };
+
+    function onKeydown(event) {
+      if (event.key === 'Escape') close();
+    }
+
+    closeButton.addEventListener('click', close);
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) close();
+    });
+    document.addEventListener('keydown', onKeydown);
+
+    overlay.append(closeButton, figure);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+    closeButton.focus({ preventScroll: true });
+  }
+
   function prepareReferences(root, baseUrl, mode) {
     const refs = [];
     $$('a[href]', root).forEach(link => {
       if (link.querySelector('img')) return;
       if (!isExternalLink(link, baseUrl)) return;
       const index = refs.length + 1;
+      const text = linkLabel(link);
       link.dataset.wvdRef = String(index);
 
       if (mode === 'markdown') {
@@ -479,7 +1280,7 @@
 
       refs.push({
         index,
-        text: linkLabel(link),
+        text,
         href: new URL(link.getAttribute('href'), baseUrl).href,
         element: link
       });
@@ -518,7 +1319,7 @@
           ${items.length ? items.map((item, index) => `
             <button class="rail-item rail-item--level-${item.level || 1}" type="button" data-index="${index}">
               <span class="rail-item__line" aria-hidden="true"></span>
-              <span class="rail-item__text">${type === 'refs' ? `${item.index}. ` : ''}${escapeHtml(item.text)}</span>
+              <span class="rail-item__text">${escapeHtml(type === 'refs' && item.index ? `${item.index}. ${item.text}` : item.text)}</span>
             </button>
           `).join('') : `<div class="rail-empty">${emptyText}</div>`}
         </div>
@@ -564,66 +1365,269 @@
     bindRailDock(refsRail);
   }
 
-  async function renderArticle(path) {
+  async function renderArticle(path, renderId) {
     setViewMode('article');
-    state.currentArticle = normalizePath(path);
+    const articlePath = normalizePath(path);
+    state.currentArticle = articlePath;
+    renderArticleLoadingShell();
+    scrollPageToTop(renderId);
 
-    const data = await fetchJson('/api/article', { path: state.currentArticle });
+    const data = await fetchJson('/api/article', { path: articlePath });
+    if (!isActiveRender(renderId) || state.currentArticle !== articlePath) return false;
     const { article, content } = data;
     state.currentFolder = article.categoryPath || '';
     state.activeFolder = state.currentFolder;
     expandFolderPath(state.currentFolder);
 
     if (article.format === 'markdown') {
-      renderMarkdownArticle(article, content.markdown || '');
-      return;
+      renderMarkdownArticle(article, content.markdown || '', renderId);
+      return true;
     }
 
-    renderHtmlArticle(article, content.url);
+    return renderHtmlArticle(article, content.url, renderId);
   }
 
-  function renderArticleFrameSlots(inner) {
+  function renderArticleLoadingShell() {
+    renderArticleFrameSlots('', { loading: true });
+    mountRails([], [], {
+      onOutline() {},
+      onReference() {}
+    });
+  }
+
+  function renderArticleFrameSlots(inner, options = {}) {
+    cleanupArticleFrame();
+    clearContentViewState();
+
+    const viewClasses = ['article-view'];
+    if (options.loading) viewClasses.push('article-view--loading');
+    if (options.preparing) viewClasses.push('article-view--preparing');
+    const loadingAttrs = options.loading
+      ? 'role="status" aria-label="Loading article"'
+      : 'aria-hidden="true"';
+
     els.content.innerHTML = `
-      <div class="article-view">
+      <div class="${viewClasses.join(' ')}">
         <div id="outlineRailSlot"></div>
         <div class="article-stage">
-          ${inner}
+          <div class="article-loading" ${loadingAttrs}>
+            <span class="article-loading__line article-loading__line--meta"></span>
+            <span class="article-loading__line article-loading__line--title"></span>
+            <span class="article-loading__line"></span>
+            <span class="article-loading__line article-loading__line--short"></span>
+          </div>
+          <div class="article-stage__content">
+            ${inner}
+          </div>
         </div>
         <div id="refsRailSlot"></div>
       </div>
     `;
+
+    return $('.article-view');
   }
 
-  function renderMarkdownArticle(article, markdown) {
-    renderArticleFrameSlots(`
+  function renderMarkdownArticle(article, markdown, renderId) {
+    const view = renderArticleFrameSlots(`
       <article class="markdown-article">
         <header class="article-heading">
-          <div class="article-heading__meta">${escapeHtml(displayPath(article.categoryPath))} · ${escapeHtml(article.date || '—')}</div>
+          <div class="article-heading__meta">${renderDisplayPath(article.categoryPath, { rootLabel: 'NOTES' })}<span class="path-separator" aria-hidden="true">·</span>${escapeHtml(article.date || '—')}</div>
           <h1>${escapeHtml(article.title)}</h1>
         </header>
-        <div class="markdown-body" id="articleBody">${renderMarkdown(markdown)}</div>
+        <div class="markdown-body" id="articleBody">${renderMarkdown(markdown, { articlePath: article.path })}</div>
       </article>
-    `);
+    `, { preparing: true });
 
     const body = $('#articleBody');
+    prepareMarkdownImages(body);
+    const mathReady = typesetMath(body);
     const outline = prepareHeadings(body);
     const refs = prepareReferences(body, window.location.href, 'markdown');
     mountRails(outline, refs, {
       onOutline(item) {
-        item?.element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollElementBelowTopbar(item?.element, { behavior: 'smooth' });
       },
       onReference(item) {
         if (item?.href) window.open(item.href, '_blank', 'noopener,noreferrer');
       }
     });
+    revealArticleWhenReady(renderId, view, mathReady);
   }
 
-  function renderHtmlArticle(article, url) {
-    renderArticleFrameSlots(`
+  function resizeHtmlFrame(frame, options = {}) {
+    const applySize = () => {
+      const shouldRestoreScroll = Boolean(options.preserveScroll);
+      const scrollX = shouldRestoreScroll ? window.scrollX : 0;
+      const scrollY = shouldRestoreScroll ? window.scrollY : 0;
+
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+
+        doc.documentElement.style.overflow = 'hidden';
+        if (doc.body) doc.body.style.overflow = 'hidden';
+
+        const minHeight = htmlFrameViewportHeight();
+        doc.documentElement.style.setProperty('--wvd-vh', `${minHeight}px`);
+        frame.style.minHeight = `${minHeight}px`;
+        const currentHeight = parseFloat(frame.style.height) || frame.getBoundingClientRect().height || 0;
+        if (!currentHeight || currentHeight < minHeight) frame.style.height = `${minHeight}px`;
+
+        const bodyRect = doc.body?.getBoundingClientRect();
+        const contentHeight = Math.max(
+          doc.documentElement.scrollHeight,
+          doc.body?.scrollHeight || 0,
+          doc.body?.offsetHeight || 0,
+          bodyRect ? Math.ceil(bodyRect.height) : 0,
+          minHeight
+        );
+
+        const nextHeight = `${Math.ceil(contentHeight)}px`;
+        if (frame.style.height !== nextHeight) frame.style.height = nextHeight;
+        if (shouldRestoreScroll) {
+          window.requestAnimationFrame(() => {
+            window.scrollTo({ left: scrollX, top: scrollY, behavior: 'auto' });
+          });
+        }
+      } catch {
+        frame.style.minHeight = `${htmlFrameViewportHeight()}px`;
+      }
+    };
+
+    if (options.sync) {
+      applySize();
+      return;
+    }
+
+    window.requestAnimationFrame(applySize);
+  }
+
+  function bindHtmlAnchorNavigation(frame, doc, articleUrl, signal) {
+    doc.addEventListener('click', event => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      const clicked = event.target?.closest ? event.target : event.target?.parentElement;
+      const link = clicked?.closest?.('a[href]');
+      if (!link) return;
+
+      const targetAttr = String(link.getAttribute('target') || '').trim().toLowerCase();
+      if (targetAttr && targetAttr !== '_self') return;
+
+      const hash = articleHashFromHref(link.getAttribute('href'), articleUrl);
+      if (hash === null) return;
+
+      event.preventDefault();
+      const target = hashTarget(doc, hash);
+      if (target) scrollFrameElementBelowTopbar(frame, target, { behavior: 'smooth' });
+    }, { capture: true, signal });
+  }
+
+  function prepareHtmlFrameSizing(frame, options = {}) {
+    const controller = new AbortController();
+    const timers = new Set();
+    const scrollIdleMs = 320;
+    let resizeFrame = 0;
+    let lastUserScrollAt = Number.NEGATIVE_INFINITY;
+    let hasAppliedInitialSize = false;
+    let hasSignaledReady = false;
+    let pendingPreserveScroll = false;
+
+    const noteUserScroll = () => {
+      lastUserScrollAt = performance.now();
+    };
+    const resize = preserveScroll => {
+      resizeFrame = 0;
+      resizeHtmlFrame(frame, { preserveScroll, sync: true });
+      hasAppliedInitialSize = true;
+      if (!hasSignaledReady) {
+        hasSignaledReady = true;
+        options.onReady?.();
+      }
+    };
+    const scheduleResize = (delay, options = {}) => {
+      const respectScroll = options.respectScroll !== false;
+      const preserveScroll = options.preserveScroll ?? hasAppliedInitialSize;
+      const timer = window.setTimeout(() => {
+        timers.delete(timer);
+        if (controller.signal.aborted) return;
+
+        const scrollElapsed = performance.now() - lastUserScrollAt;
+        if (respectScroll && scrollElapsed < scrollIdleMs) {
+          scheduleResize(scrollIdleMs - scrollElapsed, options);
+          return;
+        }
+
+        pendingPreserveScroll = pendingPreserveScroll || preserveScroll;
+        if (resizeFrame) return;
+        resizeFrame = window.requestAnimationFrame(() => {
+          const shouldPreserveScroll = pendingPreserveScroll;
+          pendingPreserveScroll = false;
+          resize(shouldPreserveScroll);
+        });
+      }, delay);
+      timers.add(timer);
+    };
+
+    const bindDocument = () => {
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+
+        bindHtmlAnchorNavigation(frame, doc, options.articleUrl, controller.signal);
+
+        doc.addEventListener('wheel', event => {
+          if (event.ctrlKey || event.metaKey) return;
+
+          const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+          const deltaX = event.deltaX * unit;
+          const deltaY = event.deltaY * unit;
+          if (!deltaX && !deltaY) return;
+
+          event.preventDefault();
+          markScrollIntent();
+          noteUserScroll();
+          scrollPageBy(deltaX, deltaY);
+        }, { passive: false, signal: controller.signal });
+
+        scheduleResize(0, { respectScroll: false, preserveScroll: false });
+        scheduleResize(360);
+        scheduleResize(1200);
+
+        Array.from(doc.images || []).forEach(image => {
+          if (image.complete) return;
+          image.addEventListener('load', () => scheduleResize(0), { once: true, signal: controller.signal });
+          image.addEventListener('error', () => scheduleResize(0), { once: true, signal: controller.signal });
+        });
+      } catch {
+        scheduleResize(0, { respectScroll: false, preserveScroll: false });
+      }
+    };
+
+    frame.addEventListener('load', bindDocument, { signal: controller.signal });
+    window.addEventListener('resize', () => scheduleResize(80, { respectScroll: false }), { signal: controller.signal });
+    window.addEventListener('scroll', noteUserScroll, { passive: true, signal: controller.signal });
+    window.addEventListener('wheel', noteUserScroll, { passive: true, signal: controller.signal });
+    window.addEventListener('touchmove', noteUserScroll, { passive: true, signal: controller.signal });
+    window.addEventListener('keydown', event => {
+      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key)) noteUserScroll();
+    }, { signal: controller.signal });
+
+    return () => {
+      controller.abort();
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      timers.forEach(timer => window.clearTimeout(timer));
+      timers.clear();
+    };
+  }
+
+  async function renderHtmlArticle(article, url, renderId) {
+    const view = renderArticleFrameSlots(`
       <div class="html-article">
-        <iframe class="html-article-frame" id="htmlFrame" src="${escapeAttr(url)}" title="${escapeAttr(article.title)}"></iframe>
+        <iframe class="html-article-frame" id="htmlFrame" title="${escapeAttr(article.title)}" scrolling="no"></iframe>
       </div>
-    `);
+    `, { preparing: true });
+    scrollPageToTop(renderId);
 
     mountRails([], [], {
       onOutline() {},
@@ -631,17 +1635,24 @@
     });
 
     const frame = $('#htmlFrame');
+    state.articleCleanup = prepareHtmlFrameSizing(frame, {
+      articleUrl: url,
+      onReady() {
+        revealArticleView(renderId, view);
+      }
+    });
     frame.addEventListener('load', () => {
+      if (!isActiveRender(renderId) || state.currentArticle !== normalizePath(article.path)) return;
       try {
         const doc = frame.contentDocument;
         if (!doc) return;
         injectHtmlReferenceStyle(doc);
         const outline = prepareHeadings(doc.body);
-        const refs = prepareReferences(doc.body, frame.src, 'html');
+        const refs = prepareReferences(doc.body, url, 'html');
 
         mountRails(outline, refs, {
           onOutline(item) {
-            item?.element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollFrameElementBelowTopbar(frame, item?.element, { behavior: 'smooth' });
           },
           onReference(item) {
             if (item?.href) window.open(item.href, '_blank', 'noopener,noreferrer');
@@ -654,9 +1665,25 @@
         });
       }
     });
+
+    try {
+      const html = await fetchText(url);
+      if (!isActiveRender(renderId) || state.currentArticle !== normalizePath(article.path)) return false;
+      scrollPageToTop(renderId);
+      frame.srcdoc = buildHtmlSrcdoc(html, article);
+      return true;
+    } catch (error) {
+      if (!isActiveRender(renderId) || state.currentArticle !== normalizePath(article.path)) return false;
+      console.warn('[html] srcdoc load failed, falling back to iframe src:', error);
+      scrollPageToTop(renderId);
+      frame.src = url;
+      return true;
+    }
   }
 
   function renderError(message) {
+    cleanupArticleFrame();
+    clearContentViewState();
     els.content.innerHTML = `
       <div class="empty">
         <p>${escapeHtml(message)}</p>
@@ -665,19 +1692,33 @@
   }
 
   async function render() {
-    state.route = parseHash();
+    const renderId = state.renderId + 1;
+    const previousRoute = state.route;
+    const nextRoute = parseHash();
+    const previousListKey = isListRoute(previousRoute) ? listRouteKey(previousRoute) : '';
+    const isLeavingListForArticle = previousListKey && nextRoute.type === 'article';
+    if (previousListKey && !isLeavingListForArticle && state.listScrollLockKey !== previousListKey) {
+      saveListScroll(previousRoute);
+    }
+    state.listScrollLockKey = '';
+    state.renderId = renderId;
+    state.scrollIntentRenderId = 0;
+    const shouldRestoreListScroll = previousRoute?.type === 'article' && isListRoute(nextRoute);
+    state.route = nextRoute;
 
     try {
+      let didRender = false;
       if (state.route.type === 'latest') {
-        await renderLatest();
+        didRender = await renderLatest(renderId, { restoreScroll: shouldRestoreListScroll });
       } else if (state.route.type === 'folder') {
-        await renderFolder(state.route.path);
+        didRender = await renderFolder(state.route.path, renderId, { restoreScroll: shouldRestoreListScroll });
       } else if (state.route.type === 'article') {
-        await renderArticle(state.route.path);
+        didRender = await renderArticle(state.route.path, renderId);
       }
+      if (!didRender || !isActiveRender(renderId)) return;
       renderTree();
-      window.scrollTo({ top: 0, behavior: 'auto' });
     } catch (error) {
+      if (!isActiveRender(renderId)) return;
       console.error(error);
       renderError(error.data?.error || error.message || '加载失败。');
     }
@@ -685,6 +1726,19 @@
 
   function bindGlobalEvents() {
     window.addEventListener('hashchange', render);
+    document.addEventListener('pointerdown', captureListScrollBeforeArticleNavigation, { capture: true });
+    window.addEventListener('wheel', markScrollIntent, { passive: true });
+    window.addEventListener('touchmove', markScrollIntent, { passive: true });
+    window.addEventListener('keydown', event => {
+      if (isScrollKey(event.key)) markScrollIntent();
+    });
+
+    els.brandLink.addEventListener('click', event => {
+      event.preventDefault();
+      closeAllFolders();
+      els.body.classList.remove('is-index-open', 'is-outline-open', 'is-refs-open');
+      setRoute('latest');
+    });
 
     els.backBtn.addEventListener('click', () => {
       if (state.lastListRoute.type === 'folder') {
@@ -712,27 +1766,10 @@
       }
     });
 
-    window.addEventListener('focus', () => {
-      clearTimeout(state.reloadTimer);
-      state.reloadTimer = setTimeout(async () => {
-        await loadTree();
-        await render();
-      }, 120);
-    });
-  }
-
-  function renderDate() {
-    const target = $('#topDate');
-    if (!target) return;
-    target.textContent = new Date().toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
   }
 
   async function boot() {
-    renderDate();
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     bindGlobalEvents();
     await loadTree();
     await render();

@@ -5,11 +5,50 @@
   "folderPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
   "displayName": "Linear Algebra",
   "marker": {
-    "articleCount": 4,
-    "signature": "sha1:8d44647fbc0d1a5eee0687ec69ac0ee1c351c077",
-    "generatedAt": "2026-07-06T09:40:04.651Z"
+    "articleCount": 6,
+    "signature": "sha1:a9aed27a30440dda499bc2a98bb8089efe700e67",
+    "generatedAt": "2026-07-07T07:40:54.156Z"
   },
   "articles": [
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "name": "叉积.md",
+      "format": "markdown",
+      "title": "叉积",
+      "date": "2026-07-07",
+      "summary": "叉积的模长，就是三个面投影行列式值平方和的开方，几何上代表空间平行四边形的面积。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783410053636.6406,
+      "size": 2153
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "name": "点积.md",
+      "format": "markdown",
+      "title": "点积",
+      "date": "2026-07-07",
+      "summary": "点积代数上是对应分量乘积和，几何上是投影与模长的乘积，核心用于通过正负号判定向量的夹角趋向。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783410004187.897,
+      "size": 3420
+    },
+    {
+      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "name": "正交矩阵.md",
+      "format": "markdown",
+      "title": "正交矩阵",
+      "date": "2026-07-06",
+      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
+      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783408488706.2932,
+      "size": 2278
+    },
     {
       "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
       "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
@@ -35,19 +74,6 @@
       "categoryName": "Linear Algebra",
       "mtimeMs": 1783323579552.9517,
       "size": 1542
-    },
-    {
-      "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
-      "path": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
-      "name": "正交矩阵.md",
-      "format": "markdown",
-      "title": "正交矩阵",
-      "date": "2026-07-06",
-      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
-      "categoryPath": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
-      "categoryName": "Linear Algebra",
-      "mtimeMs": 1783323577814.2605,
-      "size": 2288
     },
     {
       "id": "posts/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",

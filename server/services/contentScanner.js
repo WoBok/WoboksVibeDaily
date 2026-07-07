@@ -21,9 +21,64 @@ async function readSortedDir(absPath) {
 }
 
 async function atomicWriteJson(absPath, data) {
+  const serialized = `${JSON.stringify(data, null, 2)}\n`;
+
+  try {
+    const current = await fs.readFile(absPath, 'utf8');
+    if (current === serialized) return false;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
   const tmpPath = `${absPath}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-  await fs.rename(tmpPath, absPath);
+  await fs.writeFile(tmpPath, serialized, 'utf8');
+
+  try {
+    await renameWithRetry(tmpPath, absPath);
+    return true;
+  } catch (error) {
+    await fs.rm(tmpPath, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function renameWithRetry(tmpPath, absPath) {
+  const retryable = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await fs.rename(tmpPath, absPath);
+      return;
+    } catch (error) {
+      if (!retryable.has(error.code) || attempt === 5) throw error;
+      await wait(60 * (attempt + 1));
+    }
+  }
+}
+
+async function readManifestJson(absPath) {
+  try {
+    return JSON.parse(await fs.readFile(absPath, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT' || error instanceof SyntaxError) return null;
+    throw error;
+  }
+}
+
+async function preserveGeneratedAt(absPath, manifest) {
+  const current = await readManifestJson(absPath);
+  if (!current?.marker || !manifest?.marker) return;
+
+  if (
+    current.marker.signature === manifest.marker.signature
+    && current.marker.articleCount === manifest.marker.articleCount
+  ) {
+    manifest.marker.generatedAt = current.marker.generatedAt || manifest.marker.generatedAt;
+  }
 }
 
 async function cleanupInvalidContent() {
@@ -121,7 +176,9 @@ async function scanContent(options = {}) {
         articles
       };
 
-      await atomicWriteJson(path.join(absDir, '_manifest.json'), leafManifest);
+      const leafManifestPath = path.join(absDir, '_manifest.json');
+      await preserveGeneratedAt(leafManifestPath, leafManifest);
+      await atomicWriteJson(leafManifestPath, leafManifest);
       leafManifests.push(leafManifest);
     }
 
@@ -159,7 +216,9 @@ async function scanContent(options = {}) {
     latest
   };
 
-  await atomicWriteJson(path.join(POSTS_DIR, '_manifest.json'), rootManifest);
+  const rootManifestPath = path.join(POSTS_DIR, '_manifest.json');
+  await preserveGeneratedAt(rootManifestPath, rootManifest);
+  await atomicWriteJson(rootManifestPath, rootManifest);
 
   return {
     rootManifest,

@@ -6,8 +6,8 @@
   "displayName": "Computer Graphics",
   "marker": {
     "articleCount": 2,
-    "signature": "sha1:d98911bfaff283f83544c2e2d9192f5463a4fa93",
-    "generatedAt": "2026-07-06T09:40:04.653Z"
+    "signature": "sha1:f8053f0288c39a705dbc20ee308d46f8ad223035",
+    "generatedAt": "2026-07-07T07:55:20.308Z"
   },
   "articles": [
     {
@@ -20,8 +20,8 @@
       "summary": "从点光、方向光、环境光出发，推导漫反射、镜面反射与 Phong、Blinn、Half Lambert 等传统光照模型，并记录一个可调背光的 Half Lambert 变体。",
       "categoryPath": "posts/0x1 - Concepts/0x1 - Computer Graphics",
       "categoryName": "Computer Graphics",
-      "mtimeMs": 1783323574307.276,
-      "size": 8773
+      "mtimeMs": 1783410919788.108,
+      "size": 8771
     },
     {
       "id": "posts/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
@@ -33,8 +33,8 @@
       "summary": "梳理法线贴图的切线空间定义、TBN 推导、纹理采样映射、非统一缩放下法线矩阵使用，以及 Unity 中世界空间法线采样和 MikkTSpace 切线设置。",
       "categoryPath": "posts/0x1 - Concepts/0x1 - Computer Graphics",
       "categoryName": "Computer Graphics",
-      "mtimeMs": 1783323572590.1497,
-      "size": 6938
+      "mtimeMs": 1783408408148.0925,
+      "size": 5931
     }
   ]
 }
