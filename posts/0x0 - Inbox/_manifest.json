@@ -6,22 +6,22 @@
   "displayName": "Inbox",
   "marker": {
     "articleCount": 4,
-    "signature": "sha1:cf6f9553663822b56883192d1d4eeaa95533a0f2",
-    "generatedAt": "2026-07-07T01:38:26.248Z"
+    "signature": "sha1:d77188d0a4f5b5f774d65512bbde47c4239758a5",
+    "generatedAt": "2026-07-07T12:46:38.660Z"
   },
   "articles": [
     {
-      "id": "posts/0x0 - Inbox/鲜与灰.html",
-      "path": "posts/0x0 - Inbox/鲜与灰.html",
-      "name": "鲜与灰.html",
+      "id": "posts/0x0 - Inbox/函数、极限、导数、微分与积分.html",
+      "path": "posts/0x0 - Inbox/函数、极限、导数、微分与积分.html",
+      "name": "函数、极限、导数、微分与积分.html",
       "format": "html",
-      "title": "鲜与灰 · 色彩纯度、彩度与饱和度笔记",
+      "title": "函数、极限、导数、微分与积分",
       "date": "2026-07-06",
-      "summary": "用日常语言、美术纯度和彩度、数字 RGB/HSL 三个层面解释颜色的鲜与灰，帮助区分色相、明度、饱和度以及调灰的实际含义。",
+      "summary": "用函数、极限、导数、微分、积分五个概念建立微积分主线：函数描述关系，极限让逼近精确，导数看瞬时变化率，微分估计小变化，积分累加小量成总量。",
       "categoryPath": "posts/0x0 - Inbox",
       "categoryName": "Inbox",
-      "mtimeMs": 1783323570802.568,
-      "size": 31717
+      "mtimeMs": 1783428298247.9016,
+      "size": 53656
     },
     {
       "id": "posts/0x0 - Inbox/凝视画布.html",
@@ -33,21 +33,21 @@
       "summary": "从整体统一、主次、构图、结构、明暗色彩、笔触材料、空间层次、完成度和表达九个维度整理油画欣赏方法，并给出从远看到近看的观画流程。",
       "categoryPath": "posts/0x0 - Inbox",
       "categoryName": "Inbox",
-      "mtimeMs": 1783323567321.901,
-      "size": 27186
+      "mtimeMs": 1783428298247.9016,
+      "size": 27194
     },
     {
-      "id": "posts/0x0 - Inbox/函数、极限、导数、微分与积分.html",
-      "path": "posts/0x0 - Inbox/函数、极限、导数、微分与积分.html",
-      "name": "函数、极限、导数、微分与积分.html",
+      "id": "posts/0x0 - Inbox/鲜与灰.html",
+      "path": "posts/0x0 - Inbox/鲜与灰.html",
+      "name": "鲜与灰.html",
       "format": "html",
-      "title": "函数、极限、导数、微分与积分",
+      "title": "鲜与灰 · 色彩纯度、彩度与饱和度笔记",
       "date": "2026-07-06",
-      "summary": "用函数、极限、导数、微分、积分五个概念建立微积分主线：函数描述关系，极限让逼近精确，导数看瞬时变化率，微分估计小变化，积分累加小量成总量。",
+      "summary": "用日常语言、美术纯度和彩度、数字 RGB/HSL 三个层面解释颜色的鲜与灰，帮助区分色相、明度、饱和度以及调灰的实际含义。",
       "categoryPath": "posts/0x0 - Inbox",
       "categoryName": "Inbox",
-      "mtimeMs": 1783323565541.8684,
-      "size": 53648
+      "mtimeMs": 1783428298247.9016,
+      "size": 31725
     },
     {
       "id": "posts/0x0 - Inbox/最长的一日.html",
@@ -59,8 +59,8 @@
       "summary": "围绕诺曼底登陆的战略背景、欺骗准备、D 日战斗、多国记忆和当代争议，梳理它作为军事行动、政治分界线和历史纪念对象的复杂意义。",
       "categoryPath": "posts/0x0 - Inbox",
       "categoryName": "Inbox",
-      "mtimeMs": 1783323569084.9624,
-      "size": 61863
+      "mtimeMs": 1783428298247.9016,
+      "size": 61871
     }
   ]
 }

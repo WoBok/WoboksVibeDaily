@@ -1327,20 +1327,31 @@
     `;
   }
 
-  function bindRailDock(rail) {
+  function bindRailCollapse(rail) {
     if (!rail) return;
-    const items = $$('.rail-item', rail);
-    rail.addEventListener('pointermove', event => {
-      items.forEach(item => {
-        const rect = item.getBoundingClientRect();
-        const distance = Math.abs(event.clientY - (rect.top + rect.height / 2));
-        const scale = 1 + Math.max(0, 1 - distance / 120) * 0.24;
-        item.style.setProperty('--dock-scale', scale.toFixed(3));
-      });
+    let fadeTimer = null;
+    rail.addEventListener('pointerenter', () => {
+      if (fadeTimer) {
+        window.clearTimeout(fadeTimer);
+        fadeTimer = null;
+      }
+      rail.classList.remove('is-fading');
     });
+
     rail.addEventListener('pointerleave', () => {
-      items.forEach(item => item.style.setProperty('--dock-scale', '1'));
+      rail.classList.remove('is-collapsed');
+      rail.classList.add('is-fading');
+      fadeTimer = window.setTimeout(() => {
+        rail.classList.remove('is-fading');
+        fadeTimer = null;
+      }, 240);
     });
+  }
+
+  function collapseRail(rail) {
+    if (!rail) return;
+    rail.classList.add('is-collapsed');
+    els.body.classList.remove('is-outline-open', 'is-refs-open');
   }
 
   function mountRails(outline, refs, handlers) {
@@ -1355,14 +1366,20 @@
     const refsRail = $('#refsRail');
 
     $$('.rail-item', outlineRail).forEach(button => {
-      button.addEventListener('click', () => handlers.onOutline(outline[Number(button.dataset.index)]));
+      button.addEventListener('click', () => {
+        handlers.onOutline(outline[Number(button.dataset.index)]);
+        collapseRail(outlineRail);
+      });
     });
     $$('.rail-item', refsRail).forEach(button => {
-      button.addEventListener('click', () => handlers.onReference(refs[Number(button.dataset.index)]));
+      button.addEventListener('click', () => {
+        handlers.onReference(refs[Number(button.dataset.index)]);
+        collapseRail(refsRail);
+      });
     });
 
-    bindRailDock(outlineRail);
-    bindRailDock(refsRail);
+    bindRailCollapse(outlineRail);
+    bindRailCollapse(refsRail);
   }
 
   async function renderArticle(path, renderId) {
