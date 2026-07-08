@@ -94,7 +94,7 @@ button {
 .brand__name {
   font-family: "Fraunces", serif;
   font-size: 24px;
-  font-style: italic;
+  font-style: normal;
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -194,7 +194,7 @@ body.is-article-mode .layout {
   position: sticky;
   top: var(--topbar-height);
   height: calc(100vh - var(--topbar-height));
-  overflow-y: auto;
+  overflow: hidden;
   padding: 22px 28px 40px 32px;
   border-right: 1px solid var(--line);
 }
@@ -207,9 +207,12 @@ body.is-article-mode .sidebar {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  height: 100%;
+  min-height: 0;
 }
 
 .sidebar__header {
+  flex: 0 0 auto;
   padding-bottom: 12px;
   border-bottom: 1px dashed var(--line-strong);
 }
@@ -224,10 +227,62 @@ body.is-article-mode .sidebar {
   letter-spacing: 0;
 }
 
+.sidebar-tabs {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--forest);
+  font-family: "Fraunces", serif;
+  font-size: 25px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.sidebar-tab {
+  min-height: 36px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: 0;
+  transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+
+.sidebar-tab:hover {
+  color: var(--moss);
+}
+
+.sidebar-tab.is-active {
+  color: var(--moss);
+}
+
+.sidebar-tab-separator {
+  color: var(--morandi-red);
+  font-size: 1.4em;
+  line-height: 1;
+  transform: translateY(0.08em);
+}
+
 .tree {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.sidebar__inner > nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar__inner > nav::-webkit-scrollbar {
+  display: none;
 }
 
 .tree__loading {
@@ -354,7 +409,7 @@ body.is-article-mode .sidebar {
   overflow: hidden;
   color: var(--ink);
   font-family: "Newsreader", serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
@@ -397,6 +452,107 @@ body.is-article-mode .sidebar {
   margin-left: 14px;
   padding-left: 16px;
   border-left: 1px dashed var(--line);
+}
+
+.timeline-nav {
+  --timeline-axis-width: 34px;
+  --timeline-month-step: 24px;
+  --timeline-indent: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding-left: var(--timeline-indent, 0px);
+  padding-top: 2px;
+}
+
+.timeline-month {
+  display: inline-grid;
+  flex: 0 0 auto;
+  grid-template-columns: var(--timeline-axis-width);
+  place-items: center;
+  min-width: var(--timeline-axis-width);
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: "Newsreader", "Source Han Serif SC", serif;
+  font-size: 19px;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.timeline-month:hover {
+  background: var(--sage-light);
+  color: var(--forest);
+}
+
+.timeline-month.is-active {
+  background: var(--forest);
+  color: var(--ivory);
+}
+
+.timeline-month__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2ch;
+}
+
+.timeline-connector {
+  display: block;
+  flex: 0 0 auto;
+  width: 1px;
+  height: var(--month-gap-height, var(--timeline-month-step));
+  margin-left: calc((var(--timeline-axis-width) - 1px) / 2);
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--line-strong) 0 3px,
+    transparent 3px 7px
+  );
+}
+
+.timeline-year {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: var(--timeline-axis-width);
+  justify-items: center;
+  align-items: center;
+  width: var(--timeline-axis-width);
+  gap: 2px;
+  padding: 2px 0;
+  color: var(--forest);
+}
+
+.timeline-year__dot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  color: var(--morandi-red);
+  font-family: "Newsreader", "Source Han Serif SC", serif;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 0.85;
+}
+
+.timeline-year__text {
+  display: block;
+  justify-self: center;
+  width: max-content;
+  color: var(--moss);
+  font-family: "Fraunces", serif;
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: center;
 }
 
 .content {
@@ -1337,19 +1493,6 @@ body.is-article-mode .content {
   color: var(--forest);
   font-family: "DM Mono", monospace;
   font-size: 12px;
-}
-
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--sage-light);
 }
 
 @media (max-width: 1020px) {

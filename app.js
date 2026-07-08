@@ -10,6 +10,9 @@
     currentFolder: '',
     activeFolder: '',
     currentArticle: '',
+    sidebarMode: 'index',
+    timeline: [],
+    activeTimelineMonth: '',
     openFolders: new Set(),
     lastListRoute: { type: 'latest' },
     listCacheByRoute: new Map(),
@@ -23,6 +26,7 @@
   };
 
   const MATHJAX_SRC = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+  const TIMELINE_MONTH_STEP = 24;
   let mathJaxPromise = null;
 
   const els = {
@@ -33,8 +37,12 @@
     brandLink: $('#brandLink'),
     backBtn: $('#backBtn'),
     indexBtn: $('#indexBtn'),
+    indexTab: $('#indexTab'),
+    timelineTab: $('#timelineTab'),
     mobileRailActions: $('#mobileRailActions')
   };
+
+  let timelineIndentFrame = 0;
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -264,6 +272,25 @@
     return response.text();
   }
 
+  function normalizeMonthKey(value) {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})$/);
+    if (!match) return '';
+
+    const month = Number(match[2]);
+    if (month < 1 || month > 12) return '';
+
+    return `${match[1]}-${match[2]}`;
+  }
+
+  function monthLabel(monthKey) {
+    return String(Number(normalizeMonthKey(monthKey).split('-')[1] || 0));
+  }
+
+  function timelineTitle(monthKey) {
+    const [year, month] = normalizeMonthKey(monthKey).split('-');
+    return `${year} · ${Number(month)}`;
+  }
+
   function parseHash() {
     const raw = location.hash.replace(/^#\/?/, '');
     if (!raw) return { type: 'latest' };
@@ -276,6 +303,12 @@
       return { type: 'article', path: decodeURIComponent(raw.slice('article/'.length)) };
     }
 
+    if (raw.startsWith('timeline/')) {
+      const month = normalizeMonthKey(decodeURIComponent(raw.slice('timeline/'.length)));
+      if (month) return { type: 'timeline', month };
+      return { type: 'latest' };
+    }
+
     return { type: 'latest' };
   }
 
@@ -285,11 +318,12 @@
   }
 
   function isListRoute(route) {
-    return route?.type === 'latest' || route?.type === 'folder';
+    return route?.type === 'latest' || route?.type === 'folder' || route?.type === 'timeline';
   }
 
   function listRouteKey(route) {
     if (!route || route.type === 'latest') return 'latest';
+    if (route.type === 'timeline') return `timeline:${normalizeMonthKey(route.month)}`;
     return `folder:${normalizePath(route.path)}`;
   }
 
@@ -600,7 +634,164 @@
     state.totalArticles = data.totalArticles || 0;
   }
 
+  async function loadTimeline() {
+    const data = await fetchJson('/api/timeline');
+    state.timeline = data.months || [];
+  }
+
+  function renderSidebarTabs(mode) {
+    els.indexTab?.classList.toggle('is-active', mode === 'index');
+    els.timelineTab?.classList.toggle('is-active', mode === 'timeline');
+    els.indexTab?.setAttribute('aria-pressed', String(mode === 'index'));
+    els.timelineTab?.setAttribute('aria-pressed', String(mode === 'timeline'));
+  }
+
+  function updateTimelineIndent() {
+    if (!els.tree || !els.timelineTab || !els.tree.classList.contains('timeline-nav')) return;
+
+    const navRect = els.tree.getBoundingClientRect();
+    const tabRect = els.timelineTab.getBoundingClientRect();
+    if (!navRect.width && !tabRect.width) return;
+
+    const indent = Math.max(0, Math.round(tabRect.left - navRect.left));
+    els.tree.style.setProperty('--timeline-indent', `${indent}px`);
+  }
+
+  function scheduleTimelineIndentUpdate() {
+    if (timelineIndentFrame) window.cancelAnimationFrame(timelineIndentFrame);
+    timelineIndentFrame = window.requestAnimationFrame(() => {
+      timelineIndentFrame = 0;
+      updateTimelineIndent();
+    });
+  }
+
+  function appendTimelineConnector(fragment, gapCount) {
+    if (gapCount <= 0) return;
+
+    const connector = document.createElement('span');
+    connector.className = 'timeline-connector';
+    connector.style.setProperty('--month-gap-count', String(gapCount));
+    connector.style.setProperty('--month-gap-height', `${gapCount * TIMELINE_MONTH_STEP}px`);
+    connector.setAttribute('aria-hidden', 'true');
+    fragment.appendChild(connector);
+  }
+
+  function appendTimelineYear(fragment, year) {
+    const yearNode = document.createElement('div');
+    yearNode.className = 'timeline-year';
+    yearNode.setAttribute('aria-hidden', 'true');
+    yearNode.innerHTML = `
+      <span class="timeline-year__dot">·</span>
+      <span class="timeline-year__text">${escapeHtml(year)}</span>
+      <span class="timeline-year__dot">·</span>
+    `;
+    fragment.appendChild(yearNode);
+  }
+
+  function renderTimelineNav() {
+    els.tree.className = 'timeline-nav';
+    els.tree.setAttribute('aria-label', 'Timeline');
+    updateTimelineIndent();
+
+    const months = state.timeline
+      .map(item => ({
+        ...item,
+        key: normalizeMonthKey(item.key),
+        year: Number(item.year),
+        month: Number(item.month),
+        count: Number(item.count || 0)
+      }))
+      .filter(item => item.key && item.year && item.month);
+
+    if (!months.length) {
+      els.tree.innerHTML = '<div class="empty empty--small"><p>这里还没有时间线。</p></div>';
+      return;
+    }
+
+    const monthsByYear = new Map();
+    months.forEach(item => {
+      if (!monthsByYear.has(item.year)) monthsByYear.set(item.year, []);
+      monthsByYear.get(item.year).push(item);
+    });
+    monthsByYear.forEach(yearMonths => {
+      yearMonths.sort((a, b) => b.month - a.month);
+    });
+
+    const years = months.map(item => item.year);
+    const maxYear = Math.max(...years);
+    const minYear = Math.min(...years);
+    const fragment = document.createDocumentFragment();
+
+    function appendTimelineMonth(item) {
+      const button = document.createElement('button');
+      const isActive = state.activeTimelineMonth === item.key || state.route.month === item.key;
+      button.className = ['timeline-month', isActive ? 'is-active' : ''].filter(Boolean).join(' ');
+      button.type = 'button';
+      button.dataset.month = item.key;
+      button.setAttribute('aria-label', `${item.year}年${item.month}月，${item.count}篇文章`);
+      if (isActive) button.setAttribute('aria-current', 'true');
+      button.innerHTML = `<span class="timeline-month__label">${escapeHtml(monthLabel(item.key))}</span>`;
+      button.addEventListener('click', () => {
+        state.sidebarMode = 'timeline';
+        state.activeTimelineMonth = item.key;
+        els.body.classList.remove('is-index-open');
+        setRoute('timeline', item.key);
+      });
+      fragment.appendChild(button);
+    }
+
+    for (let year = maxYear; year >= minYear; year -= 1) {
+      const yearMonths = monthsByYear.get(year) || [];
+
+      if (yearMonths.length) {
+        yearMonths.forEach((item, index) => {
+          appendTimelineMonth(item);
+
+          const next = yearMonths[index + 1];
+          if (next) appendTimelineConnector(fragment, item.month - next.month);
+          else appendTimelineConnector(fragment, item.month);
+        });
+      } else {
+        appendTimelineConnector(fragment, 13);
+      }
+
+      appendTimelineYear(fragment, year);
+
+      const nextYearMonths = monthsByYear.get(year - 1) || [];
+      if (nextYearMonths.length) {
+        appendTimelineConnector(fragment, Math.max(1, 13 - nextYearMonths[0].month));
+      }
+    }
+
+    els.tree.innerHTML = '';
+    els.tree.appendChild(fragment);
+    updateTimelineIndent();
+  }
+
+  function renderSidebarPanel() {
+    const mode = state.sidebarMode;
+    state.sidebarMode = mode;
+    renderSidebarTabs(mode);
+
+    if (mode === 'timeline') {
+      renderTimelineNav();
+      scheduleTimelineIndentUpdate();
+      return;
+    }
+
+    renderTree();
+  }
+
+  function revealListView() {
+    renderSidebarPanel();
+    setViewMode('list');
+    if (state.sidebarMode === 'timeline') scheduleTimelineIndentUpdate();
+  }
+
   function renderTree() {
+    els.tree.className = 'tree';
+    els.tree.setAttribute('aria-label', '文章目录');
+
     if (!state.tree.length) {
       els.tree.innerHTML = '<div class="empty empty--small"><p>这里还没有文章。</p></div>';
       return;
@@ -783,12 +974,13 @@
   }
 
   async function renderLatest(renderId, options = {}) {
-    setViewMode('list');
     state.currentFolder = '';
     state.activeFolder = '';
     state.currentArticle = '';
+    state.activeTimelineMonth = '';
     const route = { type: 'latest' };
     state.lastListRoute = route;
+    revealListView();
     if (options.restoreScroll) renderCachedList(route, renderId);
 
     const data = await fetchJson('/api/latest');
@@ -803,18 +995,45 @@
   }
 
   async function renderFolder(path, renderId, options = {}) {
-    setViewMode('list');
     state.currentFolder = normalizePath(path);
     state.activeFolder = state.currentFolder;
     state.currentArticle = '';
+    state.activeTimelineMonth = '';
+    state.sidebarMode = 'index';
     const route = listRouteFromFolder(state.currentFolder);
     state.lastListRoute = route;
     expandFolderPath(state.currentFolder);
+    revealListView();
     if (options.restoreScroll) renderCachedList(route, renderId);
 
     const data = await fetchJson('/api/folder', { path: state.currentFolder });
     if (!isActiveRender(renderId)) return false;
     renderListShell(pathBasename(state.currentFolder), renderDisplayPath(state.currentFolder), data.articles || [], {
+      route,
+      steady: options.restoreScroll
+    });
+    if (options.restoreScroll) restoreListScroll(renderId, route);
+    else scrollPageToTop(renderId);
+    return true;
+  }
+
+  async function renderTimelineMonth(month, renderId, options = {}) {
+    const monthKey = normalizeMonthKey(month);
+    if (!monthKey) return false;
+
+    state.currentFolder = '';
+    state.activeFolder = '';
+    state.currentArticle = '';
+    state.activeTimelineMonth = monthKey;
+    state.sidebarMode = 'timeline';
+    const route = { type: 'timeline', month: monthKey };
+    state.lastListRoute = route;
+    revealListView();
+    if (options.restoreScroll) renderCachedList(route, renderId);
+
+    const data = await fetchJson('/api/timeline/month', { month: monthKey });
+    if (!isActiveRender(renderId)) return false;
+    renderListShell(timelineTitle(monthKey), escapeHtml('TIMELINE'), data.articles || [], {
       route,
       steady: options.restoreScroll
     });
@@ -1385,6 +1604,7 @@
     setViewMode('article');
     const articlePath = normalizePath(path);
     state.currentArticle = articlePath;
+    if (state.lastListRoute.type !== 'timeline') state.activeTimelineMonth = '';
     renderArticleLoadingShell();
     scrollPageToTop(renderId);
 
@@ -1728,11 +1948,12 @@
         didRender = await renderLatest(renderId, { restoreScroll: shouldRestoreListScroll });
       } else if (state.route.type === 'folder') {
         didRender = await renderFolder(state.route.path, renderId, { restoreScroll: shouldRestoreListScroll });
+      } else if (state.route.type === 'timeline') {
+        didRender = await renderTimelineMonth(state.route.month, renderId, { restoreScroll: shouldRestoreListScroll });
       } else if (state.route.type === 'article') {
         didRender = await renderArticle(state.route.path, renderId);
       }
       if (!didRender || !isActiveRender(renderId)) return;
-      renderTree();
     } catch (error) {
       if (!isActiveRender(renderId)) return;
       console.error(error);
@@ -1742,6 +1963,7 @@
 
   function bindGlobalEvents() {
     window.addEventListener('hashchange', render);
+    window.addEventListener('resize', updateTimelineIndent);
     document.addEventListener('pointerdown', captureListScrollBeforeArticleNavigation, { capture: true });
     window.addEventListener('wheel', markScrollIntent, { passive: true });
     window.addEventListener('touchmove', markScrollIntent, { passive: true });
@@ -1752,6 +1974,7 @@
     els.brandLink.addEventListener('click', event => {
       event.preventDefault();
       closeAllFolders();
+      state.sidebarMode = 'index';
       els.body.classList.remove('is-index-open', 'is-outline-open', 'is-refs-open');
       setRoute('latest');
     });
@@ -1761,11 +1984,25 @@
         setRoute('folder', state.lastListRoute.path);
         return;
       }
+      if (state.lastListRoute.type === 'timeline') {
+        setRoute('timeline', state.lastListRoute.month);
+        return;
+      }
       setRoute('latest');
     });
 
     els.indexBtn.addEventListener('click', () => {
       els.body.classList.toggle('is-index-open');
+    });
+
+    els.indexTab?.addEventListener('click', () => {
+      state.sidebarMode = 'index';
+      renderSidebarPanel();
+    });
+
+    els.timelineTab?.addEventListener('click', () => {
+      state.sidebarMode = 'timeline';
+      renderSidebarPanel();
     });
 
     els.mobileRailActions.addEventListener('click', event => {
@@ -1787,7 +2024,7 @@
   async function boot() {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     bindGlobalEvents();
-    await loadTree();
+    await Promise.all([loadTree(), loadTimeline()]);
     await render();
   }
 

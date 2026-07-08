@@ -8,8 +8,8 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260707-rail-refine">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20260708-timeline-year-align">
 </head>
 <body>
   <header class="topbar">
@@ -32,7 +32,11 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar__inner">
         <div class="sidebar__header">
-          <h2 class="sidebar__title">Index</h2>
+          <div class="sidebar-tabs" aria-label="Sidebar views">
+            <button class="sidebar-tab is-active" id="indexTab" type="button">Index</button>
+            <span class="sidebar-tab-separator" aria-hidden="true">·</span>
+            <button class="sidebar-tab" id="timelineTab" type="button">Timeline</button>
+          </div>
         </div>
         <nav class="tree" id="tree" aria-label="文章目录">
           <div class="tree__loading">
@@ -50,6 +54,6 @@
     <button type="button" data-rail="refs">Refs</button>
   </div>
 
-  <script src="app.js?v=20260707-rail-refine"></script>
+  <script src="app.js?v=20260708-timeline-year-align"></script>
 </body>
 </html>

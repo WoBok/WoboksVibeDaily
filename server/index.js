@@ -118,6 +118,23 @@ async function handleApi(req, res, requestUrl) {
     return;
   }
 
+  if (pathname === '/api/timeline') {
+    sendJson(res, 200, { months: manifestService.getTimelineMonths() });
+    return;
+  }
+
+  if (pathname === '/api/timeline/month') {
+    const result = manifestService.findArticlesByMonth(requestUrl.searchParams.get('month') || '');
+
+    if (!result) {
+      sendJson(res, 400, { error: 'INVALID_MONTH' });
+      return;
+    }
+
+    sendJson(res, 200, result);
+    return;
+  }
+
   if (pathname === '/api/folder') {
     const rawPath = requestUrl.searchParams.get('path') || '';
     const { relativePath } = resolveContentPath(rawPath);
