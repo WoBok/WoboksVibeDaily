@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "type": "root",
+  "rootPath": "notes",
+  "marker": {
+    "articleCount": 12,
+    "signature": "sha1:028248131443642360e05a6ee3e5b5457591cb46",
+    "generatedAt": "2026-07-08T03:56:31.052Z"
+  },
+  "tree": [
+    {
+      "name": "0x0 - Inbox",
+      "path": "notes/0x0 - Inbox",
+      "displayName": "Inbox",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 4,
+      "children": []
+    },
+    {
+      "name": "0x1 - Concepts",
+      "path": "notes/0x1 - Concepts",
+      "displayName": "Concepts",
+      "type": "folder",
+      "isLeaf": false,
+      "articleCount": 8,
+      "children": [
+        {
+          "name": "0x0 - Math",
+          "path": "notes/0x1 - Concepts/0x0 - Math",
+          "displayName": "Math",
+          "type": "folder",
+          "isLeaf": false,
+          "articleCount": 6,
+          "children": [
+            {
+              "name": "0x0 - Linear Algebra",
+              "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+              "displayName": "Linear Algebra",
+              "type": "folder",
+              "isLeaf": true,
+              "articleCount": 6,
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "0x1 - Computer Graphics",
+          "path": "notes/0x1 - Concepts/0x1 - Computer Graphics",
+          "displayName": "Computer Graphics",
+          "type": "folder",
+          "isLeaf": true,
+          "articleCount": 2,
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "0x2 - Books",
+      "path": "notes/0x2 - Books",
+      "displayName": "Books",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x3 - Films",
+      "path": "notes/0x3 - Films",
+      "displayName": "Films",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x4 - Skills",
+      "path": "notes/0x4 - Skills",
+      "displayName": "Skills",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x5 - Learning",
+      "path": "notes/0x5 - Learning",
+      "displayName": "Learning",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0x6 - Ideas",
+      "path": "notes/0x6 - Ideas",
+      "displayName": "Ideas",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    },
+    {
+      "name": "0xF - Archives",
+      "path": "notes/0xF - Archives",
+      "displayName": "Archives",
+      "type": "folder",
+      "isLeaf": true,
+      "articleCount": 0,
+      "children": []
+    }
+  ],
+  "latest": [
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "name": "点积.md",
+      "format": "markdown",
+      "title": "点积",
+      "date": "2026-07-07",
+      "summary": "点积代数上是对应分量乘积和，几何上是投影与模长的乘积，核心用于通过正负号判定向量的夹角趋向。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803248.643,
+      "size": 3499
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "name": "叉积.md",
+      "format": "markdown",
+      "title": "叉积",
+      "date": "2026-07-07",
+      "summary": "叉积的模长，就是三个面投影行列式值平方和的开方，几何上代表空间平行四边形的面积。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803246.032,
+      "size": 2208
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x1 - Computer Graphics/传统光照模型.md",
+      "path": "notes/0x1 - Concepts/0x1 - Computer Graphics/传统光照模型.md",
+      "name": "传统光照模型.md",
+      "format": "markdown",
+      "title": "传统光照模型",
+      "date": "2026-07-06",
+      "summary": "从点光、方向光、环境光出发，推导漫反射、镜面反射与 Phong、Blinn、Half Lambert 等传统光照模型，并记录一个可调背光的 Half Lambert 变体。",
+      "categoryPath": "notes/0x1 - Concepts/0x1 - Computer Graphics",
+      "categoryName": "Computer Graphics",
+      "mtimeMs": 1783481803249.6401,
+      "size": 8923
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
+      "path": "notes/0x1 - Concepts/0x1 - Computer Graphics/法线纹理.md",
+      "name": "法线纹理.md",
+      "format": "markdown",
+      "title": "法线纹理",
+      "date": "2026-07-06",
+      "summary": "梳理法线贴图的切线空间定义、TBN 推导、纹理采样映射、非统一缩放下法线矩阵使用，以及 Unity 中世界空间法线采样和 MikkTSpace 切线设置。",
+      "categoryPath": "notes/0x1 - Concepts/0x1 - Computer Graphics",
+      "categoryName": "Computer Graphics",
+      "mtimeMs": 1783481803249.6401,
+      "size": 6068
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交.md",
+      "name": "正交.md",
+      "format": "markdown",
+      "title": "正交",
+      "date": "2026-07-06",
+      "summary": "用距离相等和勾股定理推导两个向量正交的充分必要条件，强调点积为 0 与几何垂直之间的等价关系。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803247.6257,
+      "size": 1582
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "name": "正交矩阵.md",
+      "format": "markdown",
+      "title": "正交矩阵",
+      "date": "2026-07-06",
+      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803247.6257,
+      "size": 2345
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
+      "name": "正弦定理和余弦定理.md",
+      "format": "markdown",
+      "title": "正弦定理和余弦定理",
+      "date": "2026-07-06",
+      "summary": "通过三角形高线拆分与勾股关系推导正弦定理和余弦定理，说明边长、角度与投影长度之间的对应关系。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803247.6257,
+      "size": 1815
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
+      "name": "向量投影.md",
+      "format": "markdown",
+      "title": "向量投影",
+      "date": "2026-07-06",
+      "summary": "从向量分解与夹角余弦出发推导向量在另一向量方向上的投影公式，并说明如何求平行分量、垂直分量与投影长度。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803246.032,
+      "size": 1649
+    },
+    {
+      "id": "notes/0x0 - Inbox/鲜与灰.html",
+      "path": "notes/0x0 - Inbox/鲜与灰.html",
+      "name": "鲜与灰.html",
+      "format": "html",
+      "title": "鲜与灰 · 色彩纯度、彩度与饱和度笔记",
+      "date": "2026-07-06",
+      "summary": "用日常语言、美术纯度和彩度、数字 RGB/HSL 三个层面解释颜色的鲜与灰，帮助区分色相、明度、饱和度以及调灰的实际含义。",
+      "categoryPath": "notes/0x0 - Inbox",
+      "categoryName": "Inbox",
+      "mtimeMs": 1783481803244.5203,
+      "size": 31725
+    },
+    {
+      "id": "notes/0x0 - Inbox/函数、极限、导数、微分与积分.html",
+      "path": "notes/0x0 - Inbox/函数、极限、导数、微分与积分.html",
+      "name": "函数、极限、导数、微分与积分.html",
+      "format": "html",
+      "title": "函数、极限、导数、微分与积分",
+      "date": "2026-07-06",
+      "summary": "用函数、极限、导数、微分、积分五个概念建立微积分主线：函数描述关系，极限让逼近精确，导数看瞬时变化率，微分估计小变化，积分累加小量成总量。",
+      "categoryPath": "notes/0x0 - Inbox",
+      "categoryName": "Inbox",
+      "mtimeMs": 1783481803242.5227,
+      "size": 53656
+    },
+    {
+      "id": "notes/0x0 - Inbox/凝视画布.html",
+      "path": "notes/0x0 - Inbox/凝视画布.html",
+      "name": "凝视画布.html",
+      "format": "html",
+      "title": "凝视画布：油画欣赏入门笔记",
+      "date": "2026-07-06",
+      "summary": "从整体统一、主次、构图、结构、明暗色彩、笔触材料、空间层次、完成度和表达九个维度整理油画欣赏方法，并给出从远看到近看的观画流程。",
+      "categoryPath": "notes/0x0 - Inbox",
+      "categoryName": "Inbox",
+      "mtimeMs": 1783481803241.521,
+      "size": 27194
+    },
+    {
+      "id": "notes/0x0 - Inbox/最长的一日.html",
+      "path": "notes/0x0 - Inbox/最长的一日.html",
+      "name": "最长的一日.html",
+      "format": "html",
+      "title": "最长的一日 —— 诺曼底登陆八十二年祭",
+      "date": "2026-06-06",
+      "summary": "围绕诺曼底登陆的战略背景、欺骗准备、D 日战斗、多国记忆和当代争议，梳理它作为军事行动、政治分界线和历史纪念对象的复杂意义。",
+      "categoryPath": "notes/0x0 - Inbox",
+      "categoryName": "Inbox",
+      "mtimeMs": 1783481803244.5203,
+      "size": 61871
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "type": "leaf",
+  "folderName": "0x0 - Linear Algebra",
+  "folderPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+  "displayName": "Linear Algebra",
+  "marker": {
+    "articleCount": 6,
+    "signature": "sha1:1400de9949672b002e7220eea5a0af0e588fbcc3",
+    "generatedAt": "2026-07-08T03:56:31.036Z"
+  },
+  "articles": [
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/点积.md",
+      "name": "点积.md",
+      "format": "markdown",
+      "title": "点积",
+      "date": "2026-07-07",
+      "summary": "点积代数上是对应分量乘积和，几何上是投影与模长的乘积，核心用于通过正负号判定向量的夹角趋向。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803248.643,
+      "size": 3499
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/叉积.md",
+      "name": "叉积.md",
+      "format": "markdown",
+      "title": "叉积",
+      "date": "2026-07-07",
+      "summary": "叉积的模长，就是三个面投影行列式值平方和的开方，几何上代表空间平行四边形的面积。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803246.032,
+      "size": 2208
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交.md",
+      "name": "正交.md",
+      "format": "markdown",
+      "title": "正交",
+      "date": "2026-07-06",
+      "summary": "用距离相等和勾股定理推导两个向量正交的充分必要条件，强调点积为 0 与几何垂直之间的等价关系。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803247.6257,
+      "size": 1582
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正交矩阵.md",
+      "name": "正交矩阵.md",
+      "format": "markdown",
+      "title": "正交矩阵",
+      "date": "2026-07-06",
+      "summary": "总结正交矩阵的判定与性质：行列向量构成标准正交基，逆等于转置，行列式为 ±1，且正交变换保持向量长度不变。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803247.6257,
+      "size": 2345
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/正弦定理和余弦定理.md",
+      "name": "正弦定理和余弦定理.md",
+      "format": "markdown",
+      "title": "正弦定理和余弦定理",
+      "date": "2026-07-06",
+      "summary": "通过三角形高线拆分与勾股关系推导正弦定理和余弦定理，说明边长、角度与投影长度之间的对应关系。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803247.6257,
+      "size": 1815
+    },
+    {
+      "id": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
+      "path": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra/向量投影.md",
+      "name": "向量投影.md",
+      "format": "markdown",
+      "title": "向量投影",
+      "date": "2026-07-06",
+      "summary": "从向量分解与夹角余弦出发推导向量在另一向量方向上的投影公式，并说明如何求平行分量、垂直分量与投影长度。",
+      "categoryPath": "notes/0x1 - Concepts/0x0 - Math/0x0 - Linear Algebra",
+      "categoryName": "Linear Algebra",
+      "mtimeMs": 1783481803246.032,
+      "size": 1649
+    }
+  ]
+}

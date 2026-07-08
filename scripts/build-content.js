@@ -9,7 +9,7 @@ const { ManifestService } = require('../server/services/manifestService');
   }
 
   console.log(`[manifest] ${result.totalArticles} articles`);
-  console.log('[manifest] wrote posts/_manifest.json and leaf manifests');
+  console.log('[manifest] wrote notes/_manifest.json and leaf manifests');
 })().catch(error => {
   console.error(error);
   process.exit(1);

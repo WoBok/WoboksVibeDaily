@@ -43,9 +43,9 @@ function compareContentNames(a, b) {
 
 function encodeContentUrl(relativeArticlePath, mtimeMs) {
   const posixPath = toPosix(relativeArticlePath);
-  const body = posixPath.replace(/^posts\//, '');
+  const body = posixPath.replace(/^notes\//, '');
   const encoded = body.split('/').map(encodeURIComponent).join('/');
-  return `/content/posts/${encoded}?v=${Math.round(mtimeMs)}`;
+  return `/content/notes/${encoded}?v=${Math.round(mtimeMs)}`;
 }
 
 module.exports = {

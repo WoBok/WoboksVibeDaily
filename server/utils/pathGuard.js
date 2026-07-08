@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { POSTS_DIR, ROOT_DIR } = require('../config');
+const { NOTES_DIR, ROOT_DIR } = require('../config');
 const {
   ARTICLE_EXTENSIONS,
   fromPosix,
@@ -15,16 +15,16 @@ class PathGuardError extends Error {
   }
 }
 
-function assertInsidePosts(absPath) {
-  const relative = path.relative(POSTS_DIR, absPath);
+function assertInsideNotes(absPath) {
+  const relative = path.relative(NOTES_DIR, absPath);
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new PathGuardError('PATH_OUTSIDE_POSTS');
+    throw new PathGuardError('PATH_OUTSIDE_NOTES');
   }
 }
 
 function assertValidCategoryPath(relativePath) {
   const parts = toPosix(relativePath).split('/').filter(Boolean);
-  if (parts[0] !== 'posts' || parts.length < 2) {
+  if (parts[0] !== 'notes' || parts.length < 2) {
     throw new PathGuardError('INVALID_CONTENT_PATH');
   }
 
@@ -50,7 +50,7 @@ function decodeRelativePath(rawPath) {
     throw new PathGuardError('PATH_TRAVERSAL');
   }
 
-  if (!normalized.startsWith('posts/')) {
+  if (!normalized.startsWith('notes/')) {
     throw new PathGuardError('INVALID_CONTENT_PATH');
   }
 
@@ -73,7 +73,7 @@ function resolveContentPath(rawPath, options = {}) {
   }
 
   const absPath = path.resolve(ROOT_DIR, fromPosix(relativePath));
-  assertInsidePosts(absPath);
+  assertInsideNotes(absPath);
 
   if (options.mustExist && !fs.existsSync(absPath)) {
     throw new PathGuardError('CONTENT_NOT_FOUND');

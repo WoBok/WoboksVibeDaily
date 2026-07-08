@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { POSTS_DIR } = require('../config');
+const { NOTES_DIR } = require('../config');
 const { readArticleMeta } = require('./articleMetaService');
 const { stableHash } = require('../utils/stableHash');
 const {
@@ -11,8 +11,8 @@ const {
   toPosix
 } = require('../utils/pathTools');
 
-async function ensurePostsRoot() {
-  await fs.mkdir(POSTS_DIR, { recursive: true });
+async function ensureNotesRoot() {
+  await fs.mkdir(NOTES_DIR, { recursive: true });
 }
 
 async function readSortedDir(absPath) {
@@ -82,7 +82,7 @@ async function preserveGeneratedAt(absPath, manifest) {
 }
 
 async function cleanupInvalidContent() {
-  await ensurePostsRoot();
+  await ensureNotesRoot();
   const deleted = [];
 
   async function cleanDirectory(absDir, isRoot) {
@@ -109,7 +109,7 @@ async function cleanupInvalidContent() {
     }
   }
 
-  await cleanDirectory(POSTS_DIR, true);
+  await cleanDirectory(NOTES_DIR, true);
   return deleted;
 }
 
@@ -134,11 +134,11 @@ function markerForArticles(articles) {
 }
 
 async function scanContent(options = {}) {
-  await ensurePostsRoot();
+  await ensureNotesRoot();
   const deleted = options.cleanup ? await cleanupInvalidContent() : [];
   const latest = [];
   const leafManifests = [];
-  const watchDirs = new Set([POSTS_DIR]);
+  const watchDirs = new Set([NOTES_DIR]);
 
   async function scanCategory(absDir, relativePath) {
     watchDirs.add(absDir);
@@ -197,12 +197,12 @@ async function scanContent(options = {}) {
     };
   }
 
-  const rootEntries = await readSortedDir(POSTS_DIR);
+  const rootEntries = await readSortedDir(NOTES_DIR);
   const rootDirs = rootEntries.filter(entry => entry.isDirectory() && isValidCategoryName(entry.name));
   const tree = [];
 
   for (const rootDir of rootDirs) {
-    tree.push(await scanCategory(path.join(POSTS_DIR, rootDir.name), `posts/${rootDir.name}`));
+    tree.push(await scanCategory(path.join(NOTES_DIR, rootDir.name), `notes/${rootDir.name}`));
   }
 
   latest.sort(compareArticles);
@@ -210,13 +210,13 @@ async function scanContent(options = {}) {
   const rootManifest = {
     version: 1,
     type: 'root',
-    rootPath: 'posts',
+    rootPath: 'notes',
     marker: markerForArticles(latest),
     tree,
     latest
   };
 
-  const rootManifestPath = path.join(POSTS_DIR, '_manifest.json');
+  const rootManifestPath = path.join(NOTES_DIR, '_manifest.json');
   await preserveGeneratedAt(rootManifestPath, rootManifest);
   await atomicWriteJson(rootManifestPath, rootManifest);
 

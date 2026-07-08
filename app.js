@@ -72,7 +72,7 @@
       .split('/')
       .filter(Boolean)
       .map((part, index) => {
-        if (index === 0 && options.rootLabel && part.toLowerCase() === 'posts') return options.rootLabel;
+        if (index === 0 && options.rootLabel && part.toLowerCase() === 'notes') return options.rootLabel;
         return displayName(part);
       });
   }
@@ -116,23 +116,23 @@
   }
 
   function encodeContentAssetUrl(relativePath) {
-    const body = normalizePath(relativePath).replace(/^posts\//, '');
-    return `/content/posts/${body.split('/').map(encodeURIComponent).join('/')}`;
+    const body = normalizePath(relativePath).replace(/^notes\//, '');
+    return `/content/notes/${body.split('/').map(encodeURIComponent).join('/')}`;
   }
 
   function resolveMarkdownResourceUrl(value, articlePath) {
     const raw = String(value || '').trim().replace(/^<([\s\S]+)>$/, '$1');
     if (!raw) return '';
     if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return raw;
-    if (raw.startsWith('/content/posts/')) return raw;
+    if (raw.startsWith('/content/notes/')) return raw;
 
     const parts = splitResourceUrl(raw);
     if (!parts.path) return raw;
 
     let contentPath = '';
-    if (parts.path.startsWith('/posts/')) {
+    if (parts.path.startsWith('/notes/')) {
       contentPath = normalizeRelativeSegments(parts.path.slice(1));
-    } else if (parts.path.startsWith('posts/')) {
+    } else if (parts.path.startsWith('notes/')) {
       contentPath = normalizeRelativeSegments(parts.path);
     } else if (parts.path.startsWith('/')) {
       return raw;
@@ -142,7 +142,7 @@
       contentPath = normalizeRelativeSegments(`${baseDir}/${parts.path}`);
     }
 
-    if (!contentPath.startsWith('posts/')) return raw;
+    if (!contentPath.startsWith('notes/')) return raw;
     return `${encodeContentAssetUrl(contentPath)}${parts.suffix}`;
   }
 
@@ -150,15 +150,15 @@
     const raw = String(value || '').trim();
     if (!raw) return '';
     if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return raw;
-    if (raw.startsWith('/content/posts/')) return raw;
+    if (raw.startsWith('/content/notes/')) return raw;
 
     const parts = splitResourceUrl(raw);
     if (!parts.path) return raw;
 
     let contentPath = '';
-    if (parts.path.startsWith('/posts/')) {
+    if (parts.path.startsWith('/notes/')) {
       contentPath = normalizeRelativeSegments(parts.path.slice(1));
-    } else if (parts.path.startsWith('posts/')) {
+    } else if (parts.path.startsWith('notes/')) {
       contentPath = normalizeRelativeSegments(parts.path);
     } else if (parts.path.startsWith('/')) {
       return raw;
@@ -168,7 +168,7 @@
       contentPath = normalizeRelativeSegments(`${baseDir}/${parts.path}`);
     }
 
-    if (!contentPath.startsWith('posts/')) return raw;
+    if (!contentPath.startsWith('notes/')) return raw;
     return `${encodeContentAssetUrl(contentPath)}${parts.suffix}`;
   }
 
@@ -580,7 +580,7 @@
     let acc = '';
     parts.forEach((part, index) => {
       acc = acc ? `${acc}/${part}` : part;
-      if (acc !== 'posts' && (index < parts.length - 1 || folderHasChildren(acc))) {
+      if (acc !== 'notes' && (index < parts.length - 1 || folderHasChildren(acc))) {
         closeSiblingFolders(acc);
         state.openFolders.add(acc);
       }

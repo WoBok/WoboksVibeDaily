@@ -5,7 +5,7 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const {
   CONTENT_URL_PREFIX,
-  POSTS_DIR,
+  NOTES_DIR,
   ROOT_DIR,
   SERVER_HOST,
   SERVER_PORT
@@ -184,9 +184,9 @@ async function handleApi(req, res, requestUrl) {
 
 async function handleContent(req, res, requestUrl) {
   const bodyPath = decodeURIComponent(requestUrl.pathname.slice(`${CONTENT_URL_PREFIX}/`.length));
-  const { absPath } = resolveContentPath(`posts/${bodyPath}`, { mustExist: true });
+  const { absPath } = resolveContentPath(`notes/${bodyPath}`, { mustExist: true });
 
-  if (absPath.endsWith('_manifest.json') || !absPath.startsWith(POSTS_DIR)) {
+  if (absPath.endsWith('_manifest.json') || !absPath.startsWith(NOTES_DIR)) {
     notFound(res);
     return;
   }
