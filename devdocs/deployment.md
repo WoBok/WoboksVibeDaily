@@ -29,20 +29,20 @@ nginx -v
 
 ## 2. 上传或拉取项目
 
-以下示例把项目放在 `/var/www/woboks-vibe-daily`：
+以下示例把项目放在 `/home/admin/WoboksVibeDaily`：
 
 ```bash
 sudo mkdir -p /var/www
 sudo chown -R $USER:$USER /var/www
 cd /var/www
 git clone <你的仓库地址> woboks-vibe-daily
-cd /var/www/woboks-vibe-daily
+cd /home/admin/WoboksVibeDaily
 ```
 
 如果你不是通过 Git 部署，也可以直接把本地项目目录上传到：
 
 ```text
-/var/www/woboks-vibe-daily
+/home/admin/WoboksVibeDaily
 ```
 
 需要确保这些文件和目录存在：
@@ -62,7 +62,7 @@ notes/
 当前项目没有外部 npm 依赖，但仍建议在项目目录执行一次安装命令，方便后续扩展：
 
 ```bash
-cd /var/www/woboks-vibe-daily
+cd /home/admin/WoboksVibeDaily
 npm install
 ```
 
@@ -91,7 +91,7 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/woboks-vibe-daily
+WorkingDirectory=/home/admin/WoboksVibeDaily
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5
@@ -290,7 +290,7 @@ sudo certbot renew --dry-run
 后续更新网站时：
 
 ```bash
-cd /var/www/woboks-vibe-daily
+cd /home/admin/WoboksVibeDaily
 git pull
 npm install
 npm run build:content
@@ -348,7 +348,7 @@ sudo tail -n 100 /var/log/nginx/error.log
 重新生成内容索引：
 
 ```bash
-cd /var/www/woboks-vibe-daily
+cd /home/admin/WoboksVibeDaily
 npm run build:content
 sudo systemctl restart woboks-vibe-daily
 ```
@@ -370,7 +370,7 @@ sudo systemctl reload nginx
 Browser
   -> Nginx: 80/443
   -> Node.js: 127.0.0.1:55555
-  -> /var/www/woboks-vibe-daily
+  -> /home/admin/WoboksVibeDaily
   -> notes/
 ```
 
