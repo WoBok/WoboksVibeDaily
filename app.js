@@ -93,7 +93,7 @@
   function renderDisplayPath(path, options = {}) {
     const segments = displayPathSegments(path, options);
     return segments
-      .map(segment => escapeHtml(segment))
+      .map(segment => `<span class="path-segment">${escapeHtml(segment)}</span>`)
       .join('<span class="path-separator" aria-hidden="true">·</span>');
   }
 
@@ -625,6 +625,7 @@
   function setViewMode(mode) {
     els.body.classList.toggle('is-article-mode', mode === 'article');
     els.body.classList.remove('is-index-open', 'is-outline-open', 'is-refs-open');
+    els.indexBtn.hidden = mode === 'article';
     els.backBtn.hidden = mode !== 'article';
     els.mobileRailActions.hidden = mode !== 'article';
   }
