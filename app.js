@@ -1344,7 +1344,7 @@
       fadeTimer = window.setTimeout(() => {
         rail.classList.remove('is-fading');
         fadeTimer = null;
-      }, 240);
+      }, 180);
     });
   }
 
@@ -1368,7 +1368,6 @@
     $$('.rail-item', outlineRail).forEach(button => {
       button.addEventListener('click', () => {
         handlers.onOutline(outline[Number(button.dataset.index)]);
-        collapseRail(outlineRail);
       });
     });
     $$('.rail-item', refsRail).forEach(button => {
