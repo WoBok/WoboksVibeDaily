@@ -1,7 +1,8 @@
 node_modules/
 .agents/
+.claude
 server.log
 server.err
 npm-debug.log*
 .DS_Store
-posts/**/_manifest.json.*.tmp
+**/_manifest.json
