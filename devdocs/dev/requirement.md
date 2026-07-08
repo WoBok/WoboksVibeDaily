@@ -198,3 +198,8 @@ Just trying to grasp things easier with AI.
 
 1. 这里你有一个理解错误，不是文章列表的字体增大，修改回去，左侧Index的目录列表字体增大一号
 2. Index和Timeline这两个字体现在好像是30px？我的视觉上感觉25px更好
+
+---
+
+2026年7月8日 21点06分
+1. 主界面中左侧Timeline的对其方式进行修改，以现在的年份为参考，年份字体相对于上方标签栏中Timeline文字往有一个数字字符距离

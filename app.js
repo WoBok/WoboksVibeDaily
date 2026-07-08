@@ -43,6 +43,7 @@
   };
 
   let timelineIndentFrame = 0;
+  let timelineYearMeasure = null;
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -646,6 +647,26 @@
     els.timelineTab?.setAttribute('aria-pressed', String(mode === 'timeline'));
   }
 
+  function measureTimelineYearOffset(axisWidth) {
+    if (!els.tree) return 0;
+
+    const currentYear = String(new Date().getFullYear());
+    if (!timelineYearMeasure || !timelineYearMeasure.isConnected) {
+      timelineYearMeasure = document.createElement('span');
+      timelineYearMeasure.className = 'timeline-year__text timeline-year__measure';
+      timelineYearMeasure.setAttribute('aria-hidden', 'true');
+      els.tree.appendChild(timelineYearMeasure);
+    }
+
+    timelineYearMeasure.textContent = currentYear;
+    const yearWidth = timelineYearMeasure.getBoundingClientRect().width;
+    if (!yearWidth) return 0;
+
+    const digitWidth = yearWidth / currentYear.length;
+    const centeredYearOffset = (yearWidth - axisWidth) / 2;
+    return digitWidth + centeredYearOffset;
+  }
+
   function updateTimelineIndent() {
     if (!els.tree || !els.timelineTab || !els.tree.classList.contains('timeline-nav')) return;
 
@@ -653,7 +674,10 @@
     const tabRect = els.timelineTab.getBoundingClientRect();
     if (!navRect.width && !tabRect.width) return;
 
-    const indent = Math.max(0, Math.round(tabRect.left - navRect.left));
+    const navStyle = window.getComputedStyle(els.tree);
+    const axisWidth = parseFloat(navStyle.getPropertyValue('--timeline-axis-width')) || 0;
+    const yearOffset = measureTimelineYearOffset(axisWidth);
+    const indent = Math.max(0, Math.round(tabRect.left - navRect.left + yearOffset));
     els.tree.style.setProperty('--timeline-indent', `${indent}px`);
   }
 

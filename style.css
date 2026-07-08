@@ -555,6 +555,14 @@ body.is-article-mode .sidebar {
   text-align: center;
 }
 
+.timeline-year__measure {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .content {
   min-width: 0;
   padding: 48px 56px 96px;
