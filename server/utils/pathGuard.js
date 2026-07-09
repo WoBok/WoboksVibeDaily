@@ -41,9 +41,16 @@ function assertValidCategoryPath(relativePath) {
   }
 }
 
-function decodeRelativePath(rawPath) {
-  const decoded = decodeURIComponent(String(rawPath || ''));
-  const posix = toPosix(decoded).replace(/^\/+/, '');
+function safeDecodeURIComponent(value) {
+  try {
+    return decodeURIComponent(String(value || ''));
+  } catch {
+    throw new PathGuardError('MALFORMED_PATH');
+  }
+}
+
+function normalizeRelativePath(rawPath) {
+  const posix = toPosix(String(rawPath || '')).replace(/^\/+/, '');
   const normalized = toPosix(path.posix.normalize(posix));
 
   if (normalized.includes('\0') || normalized === '..' || normalized.startsWith('../')) {
@@ -54,7 +61,7 @@ function decodeRelativePath(rawPath) {
     throw new PathGuardError('INVALID_CONTENT_PATH');
   }
 
-  if (normalized.split('/').some(part => part === '_manifest.json' || part.startsWith('.'))) {
+  if (normalized.split('/').some(part => part.startsWith('.'))) {
     throw new PathGuardError('PRIVATE_CONTENT');
   }
 
@@ -62,7 +69,7 @@ function decodeRelativePath(rawPath) {
 }
 
 function resolveContentPath(rawPath, options = {}) {
-  const relativePath = decodeRelativePath(rawPath);
+  const relativePath = normalizeRelativePath(rawPath);
   assertValidCategoryPath(relativePath);
 
   if (options.articleOnly) {
@@ -84,6 +91,6 @@ function resolveContentPath(rawPath, options = {}) {
 
 module.exports = {
   PathGuardError,
-  decodeRelativePath,
-  resolveContentPath
+  resolveContentPath,
+  safeDecodeURIComponent
 };

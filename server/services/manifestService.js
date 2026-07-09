@@ -20,41 +20,47 @@ function articleMonthKey(article) {
 class ManifestService {
   constructor() {
     this.cache = null;
+    this.metaCache = new Map();
     this.rebuildPromise = null;
+    this.rebuildQueued = false;
   }
 
-  async init(options = {}) {
-    return this.rebuild(options);
+  async init() {
+    return this.rebuild();
   }
 
-  async rebuild(options = {}) {
-    if (this.rebuildPromise) return this.rebuildPromise;
+  async rebuild() {
+    if (this.rebuildPromise) {
+      // 重建进行中：排队恰好一次后续重建，避免扫描期间的变更被吞。
+      this.rebuildQueued = true;
+      return this.rebuildPromise;
+    }
 
-    this.rebuildPromise = scanContent(options)
+    this.rebuildPromise = scanContent(this.metaCache)
       .then(result => {
+        if (this.cache && this.cache.marker.signature === result.marker.signature) {
+          result.marker.generatedAt = this.cache.marker.generatedAt;
+        }
+        this.metaCache = result.metaCache;
         this.cache = result;
         return result;
       })
       .finally(() => {
         this.rebuildPromise = null;
+        if (this.rebuildQueued) {
+          this.rebuildQueued = false;
+          this.rebuild().catch(error => console.error('[manifest] queued rebuild failed:', error));
+        }
       });
 
     return this.rebuildPromise;
   }
 
-  getCache() {
+  getIndex() {
     if (!this.cache) {
       throw new Error('MANIFEST_NOT_READY');
     }
     return this.cache;
-  }
-
-  getRootManifest() {
-    return this.getCache().rootManifest;
-  }
-
-  getWatchDirs() {
-    return this.getCache().watchDirs || [];
   }
 
   findFolder(relativePath) {
@@ -68,18 +74,18 @@ class ManifestService {
       return null;
     };
 
-    return walk(this.getRootManifest().tree);
+    return walk(this.getIndex().tree);
   }
 
   findArticle(relativePath) {
     const target = String(relativePath || '').replace(/\\/g, '/');
-    return this.getRootManifest().latest.find(article => article.path === target) || null;
+    return this.getIndex().latest.find(article => article.path === target) || null;
   }
 
   getTimelineMonths() {
     const counts = new Map();
 
-    for (const article of this.getRootManifest().latest) {
+    for (const article of this.getIndex().latest) {
       const key = articleMonthKey(article);
       if (!key) continue;
       counts.set(key, (counts.get(key) || 0) + 1);
@@ -99,7 +105,7 @@ class ManifestService {
 
     return {
       month: key,
-      articles: this.getRootManifest().latest.filter(article => articleMonthKey(article) === key)
+      articles: this.getIndex().latest.filter(article => articleMonthKey(article) === key)
     };
   }
 }

@@ -5,18 +5,17 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const {
   CONTENT_URL_PREFIX,
-  NOTES_DIR,
   ROOT_DIR,
   SERVER_HOST,
   SERVER_PORT
 } = require('./config');
 const { ManifestService } = require('./services/manifestService');
 const { createWatchService } = require('./services/watchService');
-const { PathGuardError, resolveContentPath } = require('./utils/pathGuard');
+const { PathGuardError, resolveContentPath, safeDecodeURIComponent } = require('./utils/pathGuard');
 const { encodeContentUrl } = require('./utils/pathTools');
 
 const manifestService = new ManifestService();
-const shouldWatch = process.argv.includes('--watch') || process.env.WATCH !== '0';
+const shouldWatch = process.env.WATCH !== '0';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -35,7 +34,7 @@ const MIME_TYPES = {
 };
 
 function send(res, status, body, headers = {}) {
-  res.writeHead(status, headers);
+  res.writeHead(status, { 'X-Content-Type-Options': 'nosniff', ...headers });
   res.end(body);
 }
 
@@ -63,13 +62,11 @@ function errorResponse(res, error) {
   sendJson(res, 500, { error: 'INTERNAL_SERVER_ERROR' });
 }
 
-function readRequestBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
+function cacheControlFor(requestUrl) {
+  // 带 ?v= 版本号的资源内容不可变，可长缓存；其余走协商缓存。
+  return requestUrl.searchParams.has('v')
+    ? 'public, max-age=31536000, immutable'
+    : 'no-cache';
 }
 
 async function serveFile(res, absPath, options = {}) {
@@ -85,7 +82,8 @@ async function serveFile(res, absPath, options = {}) {
     'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
     'Last-Modified': stat.mtime.toUTCString(),
     ETag: etag,
-    'Cache-Control': options.cacheControl || 'no-cache'
+    'Cache-Control': options.cacheControl || 'no-cache',
+    'X-Content-Type-Options': 'nosniff'
   };
 
   if (options.ifNoneMatch && options.ifNoneMatch === etag) {
@@ -94,18 +92,22 @@ async function serveFile(res, absPath, options = {}) {
   }
 
   const stream = fs.createReadStream(absPath);
+  stream.on('error', error => {
+    console.error(`[serve] stream error for ${absPath}:`, error.message);
+    res.destroy(error);
+  });
   res.writeHead(200, headers);
   stream.pipe(res);
 }
 
 async function handleApi(req, res, requestUrl) {
   const pathname = requestUrl.pathname;
-  const root = manifestService.getRootManifest();
+  const index = manifestService.getIndex();
 
   if (pathname === '/api/tree') {
     sendJson(res, 200, {
-      tree: root.tree,
-      totalArticles: root.marker.articleCount
+      tree: index.tree,
+      totalArticles: index.marker.articleCount
     });
     return;
   }
@@ -113,8 +115,8 @@ async function handleApi(req, res, requestUrl) {
   if (pathname === '/api/latest') {
     const limit = Math.max(0, Number(requestUrl.searchParams.get('limit') || 0));
     const offset = Math.max(0, Number(requestUrl.searchParams.get('offset') || 0));
-    const list = limit > 0 ? root.latest.slice(offset, offset + limit) : root.latest.slice(offset);
-    sendJson(res, 200, { articles: list, totalArticles: root.marker.articleCount });
+    const list = limit > 0 ? index.latest.slice(offset, offset + limit) : index.latest.slice(offset);
+    sendJson(res, 200, { articles: list, totalArticles: index.marker.articleCount });
     return;
   }
 
@@ -150,10 +152,7 @@ async function handleApi(req, res, requestUrl) {
       return;
     }
 
-    const articles = root.latest
-      .filter(article => article.categoryPath === folder.path)
-      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || b.mtimeMs - a.mtimeMs);
-
+    const articles = index.latest.filter(article => article.categoryPath === folder.path);
     sendJson(res, 200, { folder, articles });
     return;
   }
@@ -187,11 +186,11 @@ async function handleApi(req, res, requestUrl) {
   }
 
   if (pathname === '/api/rebuild' && req.method === 'POST') {
-    await readRequestBody(req);
-    const result = await manifestService.rebuild({ cleanup: false });
+    req.resume();
+    const result = await manifestService.rebuild();
     sendJson(res, 200, {
       totalArticles: result.totalArticles,
-      generatedAt: result.rootManifest.marker.generatedAt
+      generatedAt: result.marker.generatedAt
     });
     return;
   }
@@ -200,22 +199,17 @@ async function handleApi(req, res, requestUrl) {
 }
 
 async function handleContent(req, res, requestUrl) {
-  const bodyPath = decodeURIComponent(requestUrl.pathname.slice(`${CONTENT_URL_PREFIX}/`.length));
+  const bodyPath = safeDecodeURIComponent(requestUrl.pathname.slice(`${CONTENT_URL_PREFIX}/`.length));
   const { absPath } = resolveContentPath(`notes/${bodyPath}`, { mustExist: true });
-
-  if (absPath.endsWith('_manifest.json') || !absPath.startsWith(NOTES_DIR)) {
-    notFound(res);
-    return;
-  }
 
   await serveFile(res, absPath, {
     ifNoneMatch: req.headers['if-none-match'],
-    cacheControl: 'no-cache'
+    cacheControl: cacheControlFor(requestUrl)
   });
 }
 
 async function handleStatic(req, res, requestUrl) {
-  let pathname = decodeURIComponent(requestUrl.pathname);
+  let pathname = safeDecodeURIComponent(requestUrl.pathname);
   if (pathname === '/') pathname = '/index.html';
 
   const allowedRootFiles = new Set(['/index.html', '/app.js', '/style.css', '/favicon.ico']);
@@ -223,15 +217,9 @@ async function handleStatic(req, res, requestUrl) {
     pathname = '/index.html';
   }
 
-  const absPath = path.resolve(ROOT_DIR, `.${pathname}`);
-  if (!absPath.startsWith(ROOT_DIR)) {
-    notFound(res);
-    return;
-  }
-
-  await serveFile(res, absPath, {
+  await serveFile(res, path.join(ROOT_DIR, pathname), {
     ifNoneMatch: req.headers['if-none-match'],
-    cacheControl: pathname === '/index.html' ? 'no-cache' : 'no-cache'
+    cacheControl: pathname === '/index.html' ? 'no-cache' : cacheControlFor(requestUrl)
   });
 }
 
@@ -260,11 +248,11 @@ async function requestHandler(req, res) {
 }
 
 async function start() {
-  const result = await manifestService.init({ cleanup: false });
+  const result = await manifestService.init();
   console.log(`[manifest] ready: ${result.totalArticles} articles`);
 
   const watchService = createWatchService(manifestService);
-  if (shouldWatch) await watchService.start();
+  if (shouldWatch) watchService.start();
 
   const server = http.createServer(requestHandler);
   server.listen(SERVER_PORT, SERVER_HOST, () => {

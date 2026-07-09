@@ -2,6 +2,8 @@
 
 本文档说明服务器已经完成首次部署后，如何更新网站代码和文章内容。
 
+> 索引（manifest）完全存放在内存中：服务启动时扫描一次 `notes/`，运行期间监听 `notes/` 目录，文件变化后约 0.5 秒自动增量重扫。**不再有 `_manifest.json` 生成文件，也不再需要任何构建命令。**
+
 每次更新前，先进入项目目录：
 
 ```bash
@@ -14,7 +16,6 @@ cd /home/admin/WoboksVibeDaily
 
 ```text
 server/
-scripts/
 index.html
 app.js
 style.css
@@ -26,53 +27,33 @@ package.json
 ```bash
 cd /home/admin/WoboksVibeDaily
 git pull
-npm install
-npm run build:content
 sudo systemctl restart woboks-vibe-daily
 ```
 
 说明：
 
 - `git pull`：从 GitHub 拉取最新代码。
-- `npm install`：安装或更新依赖。如果 `package.json` 没变，这一步通常可以省略。
-- `npm run build:content`：重新生成文章 manifest。
-- `sudo systemctl restart woboks-vibe-daily`：重启 Node.js 服务，让后端代码更新生效。
-
-如果你确定依赖没有变化，可以使用简化流程：
-
-```bash
-cd /home/admin/WoboksVibeDaily
-git pull
-npm run build:content
-sudo systemctl restart woboks-vibe-daily
-```
+- `sudo systemctl restart woboks-vibe-daily`：重启 Node.js 服务，让后端代码更新生效（重启时会自动重新扫描文章索引）。
+- 项目零第三方依赖，通常无需 `npm install`；只有 `package.json` 变化时才考虑执行。
 
 ## 2. 只更新文章
 
-如果你只修改了 `notes/` 目录下的文章内容，就属于文章更新。
-
-理论上，服务运行时会监听文章目录变化，`git pull` 后会自动触发 manifest 重建，然后刷新网页即可：
+如果你只修改了 `notes/` 目录下的文章内容，只需要：
 
 ```bash
 cd /home/admin/WoboksVibeDaily
 git pull
 ```
 
-不过生产环境更推荐执行下面这个稳妥流程：
+服务运行时会监听 `notes/` 目录，`git pull` 落盘后自动重建内存索引，刷新网页即可看到新内容。不需要重启 Node.js 服务，也不需要 reload Nginx。
+
+> 安全提示：HTML 笔记在站内以同源方式渲染，其中的脚本会被执行——请把 HTML 笔记视为可执行代码，只放入自己编写或已审查过的内容。命名不符合 `0x` 分类规则的目录和文件会被索引忽略（不会被删除，也不会出现在网站上）。
+
+如果服务是以 `WATCH=0`（关闭监听）方式运行的，可以任选其一让索引生效：
 
 ```bash
-cd /home/admin/WoboksVibeDaily
-git pull
-npm run build:content
-```
-
-这样可以确保 `notes/_manifest.json` 和各文章目录下的 `_manifest.json` 一定是最新的。
-
-只更新文章时，通常不需要重启 Node.js 服务，也不需要 reload Nginx。执行完后直接刷新网页即可。
-
-如果刷新后仍然看不到新文章或新排序，再重启 Node.js 服务：
-
-```bash
+curl -X POST http://127.0.0.1:55555/api/rebuild
+# 或
 sudo systemctl restart woboks-vibe-daily
 ```
 
@@ -83,12 +64,8 @@ sudo systemctl restart woboks-vibe-daily
 ```bash
 cd /home/admin/WoboksVibeDaily
 git pull
-npm install
-npm run build:content
 sudo systemctl restart woboks-vibe-daily
 ```
-
-这套流程最稳，适合手动部署时直接使用。
 
 ## 4. 什么时候需要 reload Nginx
 
@@ -115,7 +92,6 @@ sudo systemctl reload nginx
 ```bash
 cd /home/admin/WoboksVibeDaily
 git pull
-npm run build:content
 ```
 
 更新网站代码：
@@ -123,8 +99,6 @@ npm run build:content
 ```bash
 cd /home/admin/WoboksVibeDaily
 git pull
-npm install
-npm run build:content
 sudo systemctl restart woboks-vibe-daily
 ```
 

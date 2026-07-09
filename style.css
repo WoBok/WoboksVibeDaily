@@ -227,16 +227,6 @@ body.is-article-mode .sidebar {
   border-bottom: 1px dashed var(--line-strong);
 }
 
-.sidebar__title {
-  margin: 0;
-  color: var(--forest);
-  font-family: "Fraunces", serif;
-  font-size: 28px;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: 0;
-}
-
 .sidebar-tabs {
   display: inline-flex;
   align-items: baseline;
@@ -655,6 +645,10 @@ body.is-article-mode .content {
   gap: 28px;
 }
 
+.list-sentinel {
+  height: 1px;
+}
+
 .post-card {
   display: flex;
   flex-direction: column;
@@ -933,6 +927,21 @@ body.is-article-mode .content {
   margin-top: 0.42em;
 }
 
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 0.42em 0 0;
+}
+
+.markdown-body li.task-item {
+  list-style: none;
+}
+
+.markdown-body li.task-item input[type="checkbox"] {
+  margin: 0 0.45em 0 -1.4em;
+  accent-color: var(--moss);
+  vertical-align: -0.08em;
+}
+
 .markdown-body a {
   color: var(--clay);
   text-decoration: none;
@@ -1004,6 +1013,32 @@ body.is-article-mode .content {
   background: var(--line);
 }
 
+.markdown-body .table-wrap {
+  overflow-x: auto;
+  margin: 0 0 1.25em;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.94em;
+  line-height: 1.6;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-body th {
+  border-bottom-color: var(--line-strong);
+  color: var(--forest);
+  font-weight: 600;
+}
+
 .math-inline {
   color: var(--moss);
   font-size: 0.9em;
@@ -1011,16 +1046,21 @@ body.is-article-mode .content {
   white-space: nowrap;
 }
 
+/* 块级公式：开放式经典排版——无框无底、公式居中、编号右对齐（类 LaTeX \eqno）。 */
 .math-block {
+  position: relative;
   overflow-x: auto;
-  margin: 1.4em 0;
-  padding: 14px 16px;
-  border-left: 3px solid var(--sage);
-  background: rgba(243, 239, 230, 0.62);
+  overflow-y: hidden;
+  margin: 2em 0;
+  padding: 0.3em 3.25em;
   color: var(--forest);
   font-weight: 600;
   line-height: 1.7;
   text-align: center;
+}
+
+.math-block mjx-container[jax="SVG"][display="true"] {
+  margin: 0;
 }
 
 .markdown-body mjx-container[jax="SVG"] {
@@ -1035,8 +1075,10 @@ body.is-article-mode .content {
 }
 
 .math-block__suffix {
-  display: inline-block;
-  margin-left: 8px;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
   color: var(--ink-soft);
   font-family: "DM Mono", monospace;
   font-size: 12px;

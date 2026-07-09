@@ -1,44 +1,21 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { NOTES_DIR } = require('../config');
 
 function createWatchService(manifestService) {
-  const watchers = new Map();
+  let watcher = null;
   let timer = null;
-  let running = false;
-
-  function closeAll() {
-    for (const watcher of watchers.values()) watcher.close();
-    watchers.clear();
-  }
 
   function shouldIgnore(fileName) {
     if (!fileName) return false;
-    const name = path.basename(String(fileName));
-    return name === '_manifest.json'
-      || name.startsWith('_manifest.json.')
-      || name.endsWith('.tmp')
-      || name.startsWith('.');
-  }
-
-  async function refreshWatchers() {
-    closeAll();
-    for (const dir of manifestService.getWatchDirs()) {
-      if (watchers.has(dir) || !fs.existsSync(dir)) continue;
-      const watcher = fs.watch(dir, { persistent: true }, (_eventType, fileName) => {
-        if (shouldIgnore(fileName)) return;
-        scheduleRebuild();
-      });
-      watchers.set(dir, watcher);
-    }
+    return path.basename(String(fileName)).startsWith('.');
   }
 
   function scheduleRebuild() {
-    if (!running) return;
     clearTimeout(timer);
     timer = setTimeout(async () => {
       try {
-        await manifestService.rebuild({ cleanup: false });
-        await refreshWatchers();
+        await manifestService.rebuild();
         console.log('[watch] manifest rebuilt');
       } catch (error) {
         console.error('[watch] rebuild failed:', error);
@@ -47,15 +24,18 @@ function createWatchService(manifestService) {
   }
 
   return {
-    async start() {
-      running = true;
-      await refreshWatchers();
-      console.log(`[watch] watching ${watchers.size} content directories`);
+    start() {
+      watcher = fs.watch(NOTES_DIR, { persistent: true, recursive: true }, (_eventType, fileName) => {
+        if (shouldIgnore(fileName)) return;
+        scheduleRebuild();
+      });
+      watcher.on('error', error => console.error('[watch] watcher error:', error));
+      console.log('[watch] watching notes/ recursively');
     },
     stop() {
-      running = false;
       clearTimeout(timer);
-      closeAll();
+      watcher?.close();
+      watcher = null;
     }
   };
 }

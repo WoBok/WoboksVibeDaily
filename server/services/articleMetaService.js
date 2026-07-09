@@ -22,7 +22,10 @@ function decodeEntities(value) {
 
 function formatDate(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function extractDateFromFileName(fileName) {
@@ -89,9 +92,8 @@ function parseHtmlMeta(source) {
   };
 }
 
-async function readArticleMeta(absPath, relativePath, categoryPath) {
+async function readArticleMeta(absPath, relativePath, categoryPath, stat) {
   const source = await fs.readFile(absPath, 'utf8');
-  const stat = await fs.stat(absPath);
   const fileName = path.basename(absPath);
   const format = articleFormat(fileName);
   const categoryName = displayName(path.basename(categoryPath));
@@ -110,7 +112,7 @@ async function readArticleMeta(absPath, relativePath, categoryPath) {
     parsed = parseHtmlMeta(source);
   }
 
-  const date = parsed.date || extractDateFromFileName(fileName) || formatDate(stat.birthtime);
+  const date = parsed.date || extractDateFromFileName(fileName) || formatDate(stat.mtime);
 
   return {
     id: relativePath,

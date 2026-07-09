@@ -5,4 +5,4 @@ server.log
 server.err
 npm-debug.log*
 .DS_Store
-**/_manifest.json
+.idea

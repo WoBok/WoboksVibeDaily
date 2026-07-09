@@ -32,10 +32,9 @@ nginx -v
 以下示例把项目放在 `/home/admin/WoboksVibeDaily`：
 
 ```bash
-sudo mkdir -p /var/www
-sudo chown -R $USER:$USER /var/www
-cd /var/www
-git clone <你的仓库地址> woboks-vibe-daily
+mkdir -p /home/admin
+cd /home/admin
+git clone <你的仓库地址> WoboksVibeDaily
 cd /home/admin/WoboksVibeDaily
 ```
 
@@ -53,26 +52,16 @@ app.js
 style.css
 package.json
 server/
-scripts/
 notes/
 ```
 
-## 3. 安装依赖并生成内容索引
+## 3. 内容索引说明
 
-当前项目没有外部 npm 依赖，但仍建议在项目目录执行一次安装命令，方便后续扩展：
+项目零第三方依赖，无需 `npm install`，也没有构建步骤。
 
-```bash
-cd /home/admin/WoboksVibeDaily
-npm install
-```
+文章索引完全存放在内存中：服务启动时自动扫描一次 `notes/`，运行期间默认监听 `notes/` 目录，文件变化后约 0.5 秒自动增量重扫。不会生成任何 `_manifest.json` 文件。
 
-生成或刷新文章索引：
-
-```bash
-npm run build:content
-```
-
-该命令会生成 `notes/_manifest.json` 以及各叶子目录下的 `_manifest.json`。
+如需关闭文件监听（例如只读挂载的环境），设置环境变量 `WATCH=0` 启动，之后可通过 `POST /api/rebuild` 或重启服务刷新索引。
 
 ## 4. 使用 systemd 托管 Node.js 服务
 
@@ -287,23 +276,15 @@ sudo certbot renew --dry-run
 
 ## 9. 更新部署流程
 
-后续更新网站时：
+后续更新网站代码时：
 
 ```bash
 cd /home/admin/WoboksVibeDaily
 git pull
-npm install
-npm run build:content
-sudo systemctl restart woboks-vibe-daily
-sudo systemctl reload nginx
-```
-
-如果只是修改 `notes/` 内容，并且服务保持默认监听行为，Node 服务会启动文件监听，通常会自动刷新索引。稳妥起见，线上更新后仍建议执行：
-
-```bash
-npm run build:content
 sudo systemctl restart woboks-vibe-daily
 ```
+
+如果只是修改 `notes/` 内容，`git pull` 即可：服务默认监听文章目录，会自动刷新内存索引，无需重启，也无需任何构建命令。详见 `update-guide.md`。
 
 ## 10. 常见问题排查
 
@@ -345,11 +326,11 @@ sudo tail -n 100 /var/log/nginx/error.log
 
 ### API 可以访问但文章打不开
 
-重新生成内容索引：
+刷新内存索引（或直接重启服务）：
 
 ```bash
-cd /home/admin/WoboksVibeDaily
-npm run build:content
+curl -X POST http://127.0.0.1:55555/api/rebuild
+# 或
 sudo systemctl restart woboks-vibe-daily
 ```
 

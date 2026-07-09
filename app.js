@@ -7,7 +7,6 @@
   const state = {
     tree: [],
     totalArticles: 0,
-    currentFolder: '',
     activeFolder: '',
     currentArticle: '',
     sidebarMode: 'index',
@@ -27,7 +26,13 @@
 
   const MATHJAX_SRC = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
   const TIMELINE_MONTH_STEP = 24;
+  // 年份标记占位的月格数：12 个月 + 1 格年标记间距。
+  const TIMELINE_YEAR_GAP_SLOTS = 13;
+  const LATEST_PAGE_SIZE = 30;
+  const LIST_CACHE_LIMIT = 30;
+  const CARD_ANIMATION_DELAY_CAP = 12;
   let mathJaxPromise = null;
+  let listObserver = null;
 
   const els = {
     body: document.body,
@@ -129,34 +134,9 @@
     return `/content/notes/${body.split('/').map(encodeURIComponent).join('/')}`;
   }
 
-  function resolveMarkdownResourceUrl(value, articlePath) {
-    const raw = String(value || '').trim().replace(/^<([\s\S]+)>$/, '$1');
-    if (!raw) return '';
-    if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return raw;
-    if (raw.startsWith('/content/notes/')) return raw;
-
-    const parts = splitResourceUrl(raw);
-    if (!parts.path) return raw;
-
-    let contentPath = '';
-    if (parts.path.startsWith('/notes/')) {
-      contentPath = normalizeRelativeSegments(parts.path.slice(1));
-    } else if (parts.path.startsWith('notes/')) {
-      contentPath = normalizeRelativeSegments(parts.path);
-    } else if (parts.path.startsWith('/')) {
-      return raw;
-    } else {
-      const baseDir = normalizePath(articlePath).split('/').slice(0, -1).join('/');
-      if (!baseDir) return raw;
-      contentPath = normalizeRelativeSegments(`${baseDir}/${parts.path}`);
-    }
-
-    if (!contentPath.startsWith('notes/')) return raw;
-    return `${encodeContentAssetUrl(contentPath)}${parts.suffix}`;
-  }
-
-  function resolveHtmlResourceUrl(value, articlePath) {
-    const raw = String(value || '').trim();
+  function resolveResourceUrl(value, articlePath, options = {}) {
+    let raw = String(value || '').trim();
+    if (options.stripAngleBrackets) raw = raw.replace(/^<([\s\S]+)>$/, '$1');
     if (!raw) return '';
     if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return raw;
     if (raw.startsWith('/content/notes/')) return raw;
@@ -188,7 +168,7 @@
         const trimmed = item.trim();
         if (!trimmed) return '';
         const [url, ...descriptors] = trimmed.split(/\s+/);
-        return [resolveHtmlResourceUrl(url, articlePath), ...descriptors].join(' ');
+        return [resolveResourceUrl(url, articlePath), ...descriptors].join(' ');
       })
       .filter(Boolean)
       .join(', ');
@@ -202,7 +182,7 @@
   function rewriteHtmlCss(value, articlePath) {
     return String(value || '')
       .replace(/url\((['"]?)([^'")]+)\1\)/gi, (_match, quote, url) => {
-        return `url(${quote}${resolveHtmlResourceUrl(url, articlePath)}${quote})`;
+        return `url(${quote}${resolveResourceUrl(url, articlePath)}${quote})`;
       })
       .replace(/(-?\d*\.?\d+)vh\b/g, (_match, amount) => {
         const ratio = Number(amount) / 100;
@@ -229,7 +209,7 @@
       ['a', 'href']
     ].forEach(([selector, attribute]) => {
       $$(`${selector}[${attribute}]`, doc).forEach(element => {
-        element.setAttribute(attribute, resolveHtmlResourceUrl(element.getAttribute(attribute), articlePath));
+        element.setAttribute(attribute, resolveResourceUrl(element.getAttribute(attribute), articlePath));
       });
     });
 
@@ -292,22 +272,31 @@
     return `${year} · ${Number(month)}`;
   }
 
+  function safeDecodeHash(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return '';
+    }
+  }
+
   function parseHash() {
     const raw = location.hash.replace(/^#\/?/, '');
     if (!raw) return { type: 'latest' };
 
     if (raw.startsWith('folder/')) {
-      return { type: 'folder', path: decodeURIComponent(raw.slice('folder/'.length)) };
+      const path = safeDecodeHash(raw.slice('folder/'.length));
+      if (path) return { type: 'folder', path };
     }
 
     if (raw.startsWith('article/')) {
-      return { type: 'article', path: decodeURIComponent(raw.slice('article/'.length)) };
+      const path = safeDecodeHash(raw.slice('article/'.length));
+      if (path) return { type: 'article', path };
     }
 
     if (raw.startsWith('timeline/')) {
-      const month = normalizeMonthKey(decodeURIComponent(raw.slice('timeline/'.length)));
+      const month = normalizeMonthKey(safeDecodeHash(raw.slice('timeline/'.length)));
       if (month) return { type: 'timeline', month };
-      return { type: 'latest' };
     }
 
     return { type: 'latest' };
@@ -421,9 +410,15 @@
     };
   }
 
+  function setCappedMapEntry(map, key, value) {
+    map.delete(key);
+    map.set(key, value);
+    if (map.size > LIST_CACHE_LIMIT) map.delete(map.keys().next().value);
+  }
+
   function saveListScroll(route = state.route) {
     if (!isListRoute(route)) return;
-    state.listScrollByRoute.set(listRouteKey(route), pageScrollPosition());
+    setCappedMapEntry(state.listScrollByRoute, listRouteKey(route), pageScrollPosition());
   }
 
   function scheduleListScrollSave() {
@@ -579,7 +574,6 @@
 
   function closeAllFolders() {
     state.openFolders.clear();
-    state.currentFolder = '';
     state.activeFolder = '';
   }
 
@@ -777,14 +771,14 @@
           else appendTimelineConnector(fragment, item.month);
         });
       } else {
-        appendTimelineConnector(fragment, 13);
+        appendTimelineConnector(fragment, TIMELINE_YEAR_GAP_SLOTS);
       }
 
       appendTimelineYear(fragment, year);
 
       const nextYearMonths = monthsByYear.get(year - 1) || [];
       if (nextYearMonths.length) {
-        appendTimelineConnector(fragment, Math.max(1, 13 - nextYearMonths[0].month));
+        appendTimelineConnector(fragment, Math.max(1, TIMELINE_YEAR_GAP_SLOTS - nextYearMonths[0].month));
       }
     }
 
@@ -874,21 +868,17 @@
         return;
       }
 
-      if (isClickableLeaf) {
-        if (isCurrentFolder(node.path)) {
-          state.currentFolder = node.path;
-          state.activeFolder = node.path;
-          els.body.classList.remove('is-index-open');
-          renderTree();
-          return;
-        }
-
-        closeSiblingFolders(node.path);
-        state.currentFolder = node.path;
+      if (isCurrentFolder(node.path)) {
         state.activeFolder = node.path;
         els.body.classList.remove('is-index-open');
-        setRoute('folder', node.path);
+        renderTree();
+        return;
       }
+
+      closeSiblingFolders(node.path);
+      state.activeFolder = node.path;
+      els.body.classList.remove('is-index-open');
+      setRoute('folder', node.path);
     });
 
     wrap.appendChild(row);
@@ -905,10 +895,11 @@
     return wrap;
   }
 
-  function listSignature(title, eyebrow, articles) {
+  function listSignature(title, eyebrow, articles, total) {
     return JSON.stringify([
       title,
       eyebrow,
+      total || 0,
       (articles || []).map(article => [
         article.path,
         article.title,
@@ -921,7 +912,7 @@
 
   function cacheList(route, entry) {
     if (!isListRoute(route)) return;
-    state.listCacheByRoute.set(listRouteKey(route), entry);
+    setCappedMapEntry(state.listCacheByRoute, listRouteKey(route), entry);
   }
 
   function renderCachedList(route, renderId) {
@@ -931,30 +922,37 @@
     renderListShell(cached.title, cached.eyebrow, cached.articles, {
       route,
       cache: false,
-      steady: true
+      steady: true,
+      total: cached.total
     });
     restoreListScroll(renderId, route, { force: true });
     return true;
   }
 
+  function disconnectListObserver() {
+    listObserver?.disconnect();
+    listObserver = null;
+  }
+
   function renderListShell(title, eyebrow, articles, options = {}) {
     cleanupArticleFrame();
+    disconnectListObserver();
     const route = options.route || state.route;
     const routeKey = isListRoute(route) ? listRouteKey(route) : '';
-    const signature = listSignature(title, eyebrow, articles);
+    const total = Math.max(Number(options.total) || 0, articles.length);
+    const signature = listSignature(title, eyebrow, articles, total);
+    const cacheEntry = () => ({ title, eyebrow, articles: articles.slice(), signature, total });
     if (
       options.skipIfUnchanged !== false
       && routeKey
       && els.content.dataset.listKey === routeKey
       && els.content.dataset.listSignature === signature
     ) {
-      if (options.cache !== false) {
-        cacheList(route, { title, eyebrow, articles: articles.slice(), signature });
-      }
+      if (options.cache !== false) cacheList(route, cacheEntry());
       return;
     }
 
-    const summary = articles.length === 1 ? '1 note' : `${articles.length} notes`;
+    const summary = total === 1 ? '1 note' : `${total} notes`;
     const viewClass = ['list-view', options.steady ? 'list-view--steady' : ''].filter(Boolean).join(' ');
     els.content.innerHTML = `
       <div class="${viewClass}">
@@ -970,6 +968,7 @@
             </div>
           `}
         </div>
+        ${total > articles.length ? '<div class="list-sentinel" aria-hidden="true"></div>' : ''}
       </div>
     `;
     if (routeKey) {
@@ -979,14 +978,13 @@
       clearContentViewState();
     }
 
-    if (options.cache !== false) {
-      cacheList(route, { title, eyebrow, articles: articles.slice(), signature });
-    }
+    if (options.cache !== false) cacheList(route, cacheEntry());
   }
 
   function renderArticleCard(article, index) {
+    const delay = Math.min(index, CARD_ANIMATION_DELAY_CAP) * 45;
     return `
-      <a class="post-card" href="${routeHash('article', article.path)}" style="animation-delay:${index * 45}ms">
+      <a class="post-card" href="${routeHash('article', article.path)}" style="animation-delay:${delay}ms">
         <div class="post-card__meta">
           <span>${escapeHtml(article.date || '—')}</span>
           <span class="meta-separator" aria-hidden="true">·</span>
@@ -998,21 +996,76 @@
     `;
   }
 
+  function appendLatestCards(articles) {
+    const items = $('.list-view__items', els.content);
+    if (!items) return;
+    const holder = document.createElement('template');
+    holder.innerHTML = articles.map((article, index) => renderArticleCard(article, index)).join('');
+    items.appendChild(holder.content);
+  }
+
+  function watchLatestSentinel(renderId, route, entry) {
+    disconnectListObserver();
+    const sentinel = $('.list-sentinel', els.content);
+    if (!sentinel) return;
+
+    let loading = false;
+    listObserver = new IntersectionObserver(async observations => {
+      if (loading || !observations.some(observation => observation.isIntersecting)) return;
+      loading = true;
+      try {
+        const data = await fetchJson('/api/latest', { limit: LATEST_PAGE_SIZE, offset: entry.articles.length });
+        if (!isActiveRender(renderId) || !sentinel.isConnected) return;
+
+        const more = data.articles || [];
+        appendLatestCards(more);
+        entry.articles.push(...more);
+        entry.total = Math.max(Number(data.totalArticles) || 0, entry.articles.length);
+        entry.signature = listSignature(entry.title, entry.eyebrow, entry.articles, entry.total);
+        els.content.dataset.listSignature = entry.signature;
+        cacheList(route, entry);
+
+        if (!more.length || entry.articles.length >= entry.total) {
+          disconnectListObserver();
+          sentinel.remove();
+        }
+      } catch (error) {
+        console.warn('[latest] load more failed:', error);
+      } finally {
+        loading = false;
+      }
+    }, { rootMargin: '600px 0px' });
+
+    listObserver.observe(sentinel);
+  }
+
   async function renderLatest(renderId, options = {}) {
-    state.currentFolder = '';
     state.activeFolder = '';
     state.currentArticle = '';
     state.activeTimelineMonth = '';
     const route = { type: 'latest' };
     state.lastListRoute = route;
     revealListView();
-    if (options.restoreScroll) renderCachedList(route, renderId);
+    const cached = options.restoreScroll ? state.listCacheByRoute.get(listRouteKey(route)) : null;
+    if (cached) renderCachedList(route, renderId);
 
-    const data = await fetchJson('/api/latest');
+    // 返回列表时按已加载数量重取，保证滚动位置对应的卡片全部就位。
+    const limit = Math.max(LATEST_PAGE_SIZE, cached?.articles.length || 0);
+    const data = await fetchJson('/api/latest', { limit });
     if (!isActiveRender(renderId)) return false;
-    renderListShell('Latest', escapeHtml('HOME'), data.articles || [], {
+    const articles = data.articles || [];
+    const total = Math.max(Number(data.totalArticles) || 0, articles.length);
+    renderListShell('Latest', escapeHtml('HOME'), articles, {
       route,
-      steady: options.restoreScroll
+      steady: options.restoreScroll,
+      total
+    });
+    watchLatestSentinel(renderId, route, {
+      title: 'Latest',
+      eyebrow: escapeHtml('HOME'),
+      articles,
+      total,
+      signature: listSignature('Latest', escapeHtml('HOME'), articles, total)
     });
     if (options.restoreScroll) restoreListScroll(renderId, route);
     else scrollPageToTop(renderId);
@@ -1020,20 +1073,20 @@
   }
 
   async function renderFolder(path, renderId, options = {}) {
-    state.currentFolder = normalizePath(path);
-    state.activeFolder = state.currentFolder;
+    const folderPath = normalizePath(path);
+    state.activeFolder = folderPath;
     state.currentArticle = '';
     state.activeTimelineMonth = '';
     state.sidebarMode = 'index';
-    const route = listRouteFromFolder(state.currentFolder);
+    const route = listRouteFromFolder(folderPath);
     state.lastListRoute = route;
-    expandFolderPath(state.currentFolder);
+    expandFolderPath(folderPath);
     revealListView();
     if (options.restoreScroll) renderCachedList(route, renderId);
 
-    const data = await fetchJson('/api/folder', { path: state.currentFolder });
+    const data = await fetchJson('/api/folder', { path: folderPath });
     if (!isActiveRender(renderId)) return false;
-    renderListShell(pathBasename(state.currentFolder), renderDisplayPath(state.currentFolder), data.articles || [], {
+    renderListShell(pathBasename(folderPath), renderDisplayPath(folderPath), data.articles || [], {
       route,
       steady: options.restoreScroll
     });
@@ -1046,7 +1099,6 @@
     const monthKey = normalizeMonthKey(month);
     if (!monthKey) return false;
 
-    state.currentFolder = '';
     state.activeFolder = '';
     state.currentArticle = '';
     state.activeTimelineMonth = monthKey;
@@ -1089,46 +1141,48 @@
     return slug || fallback;
   }
 
+  function safeLinkHref(href) {
+    const value = String(href || '');
+    if (/^(?:https?:|mailto:|tel:)/i.test(value)) return value;
+    // 其余带协议的地址（javascript: 等）一律不生成链接。
+    if (/^[a-z][a-z\d+.-]*:/i.test(value)) return '';
+    return value;
+  }
+
   function renderInlineMarkdown(value, context = {}) {
-    const inlineMath = [];
-    let html = String(value || '').replace(/\$([^$\n]+?)\$/g, (_match, body) => {
-      const token = `@@MATH_${inlineMath.length}@@`;
-      inlineMath.push(`<span class="math-inline">$${escapeHtml(body)}$</span>`);
-      return token;
-    });
+    const snippets = [];
+    const stash = snippet => {
+      snippets.push(snippet);
+      return `@@INLINE_${snippets.length - 1}@@`;
+    };
+
+    // `\$` 表示字面美元符；包一层 span 避免被 MathJax 与其他 `$` 配对。
+    let html = String(value || '').replace(/\\\$/g, () => stash('<span>$</span>'));
+
+    html = html.replace(/\$([^$\n]+?)\$/g, (_match, body) =>
+      stash(`<span class="math-inline">$${escapeHtml(body)}$</span>`));
 
     html = escapeHtml(html);
-    const code = [];
 
-    html = html.replace(/`([^`]+)`/g, (_match, body) => {
-      const token = `@@CODE_${code.length}@@`;
-      code.push(`<code>${body}</code>`);
-      return token;
-    });
+    html = html.replace(/`([^`]+)`/g, (_match, body) => stash(`<code>${body}</code>`));
 
     html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, src) => {
-      const resolvedSrc = resolveMarkdownResourceUrl(decodeHtmlEntities(src), context.articlePath);
+      const resolvedSrc = resolveResourceUrl(decodeHtmlEntities(src), context.articlePath, { stripAngleBrackets: true });
       return `<img src="${escapeAttr(resolvedSrc)}" alt="${escapeAttr(decodeHtmlEntities(alt))}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
     });
 
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => {
-      const resolvedHref = resolveMarkdownResourceUrl(decodeHtmlEntities(href), context.articlePath);
-      return `<a href="${escapeAttr(resolvedHref)}">${label}</a>`;
+      const resolvedHref = safeLinkHref(resolveResourceUrl(decodeHtmlEntities(href), context.articlePath, { stripAngleBrackets: true }));
+      return resolvedHref ? `<a href="${escapeAttr(resolvedHref)}">${label}</a>` : label;
     });
 
     html = html
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/~~([^~]+)~~/g, '<del>$1</del>');
 
-    code.forEach((snippet, index) => {
-      html = html.replace(`@@CODE_${index}@@`, snippet);
-    });
-
-    inlineMath.forEach((snippet, index) => {
-      html = html.replace(`@@MATH_${index}@@`, snippet);
-    });
-
-    return html;
+    // 回调形式回填，避免片段中的 $& $' 等被 replace 当作特殊替换模式。
+    return html.replace(/@@INLINE_(\d+)@@/g, (_match, index) => snippets[Number(index)]);
   }
 
   function findClosingDollar(value, fromIndex) {
@@ -1205,23 +1259,122 @@
     return `<div class="math-block">${escapeHtml(math)}${suffixHtml}</div>`;
   }
 
+  const CJK_CHAR = /[⺀-鿿豈-﫿︰-﹏＀-￯]/;
+
+  function joinParagraphLines(lines) {
+    return lines.reduce((joined, line) => {
+      if (!joined) return line;
+      // 中文（CJK）跨行书写时直接拼接，避免换行处插入英文空格。
+      const noSpace = CJK_CHAR.test(joined[joined.length - 1]) && CJK_CHAR.test(line[0]);
+      return noSpace ? joined + line : `${joined} ${line}`;
+    }, '');
+  }
+
+  function matchListItem(line) {
+    const match = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+    if (!match) return null;
+
+    const type = /^\d+\.$/.test(match[2]) ? 'ol' : 'ul';
+    let content = match[3];
+    let task = '';
+
+    if (type === 'ul') {
+      const taskMatch = content.match(/^\[([ xX])\]\s+(.+)$/);
+      if (taskMatch) {
+        task = taskMatch[1] === ' ' ? 'unchecked' : 'checked';
+        content = taskMatch[2];
+      }
+    }
+
+    return { indent: match[1].replace(/\t/g, '  ').length, type, content, task };
+  }
+
+  function renderListLevel(items, start, indent, context) {
+    const type = items[start].type;
+    const parts = [];
+    let index = start;
+
+    while (index < items.length && items[index].indent === indent && items[index].type === type) {
+      const item = items[index];
+      let inner = renderInlineMarkdown(item.content, context);
+      if (item.task) {
+        inner = `<input type="checkbox" disabled${item.task === 'checked' ? ' checked' : ''}> ${inner}`;
+      }
+      index += 1;
+
+      while (index < items.length && items[index].indent > indent) {
+        const child = renderListLevel(items, index, items[index].indent, context);
+        inner += child.html;
+        index = child.next;
+      }
+
+      parts.push(`<li${item.task ? ' class="task-item"' : ''}>${inner}</li>`);
+    }
+
+    return { html: `<${type}>${parts.join('')}</${type}>`, next: index };
+  }
+
+  function renderListBlock(items, context) {
+    const html = [];
+    let index = 0;
+    while (index < items.length) {
+      const level = renderListLevel(items, index, items[index].indent, context);
+      html.push(level.html);
+      index = level.next;
+    }
+    return html.join('');
+  }
+
+  function splitTableRow(line) {
+    return String(line || '')
+      .trim()
+      .replace(/^\|/, '')
+      .replace(/\|$/, '')
+      .split(/(?<!\\)\|/)
+      .map(cell => cell.trim().replace(/\\\|/g, '|'));
+  }
+
+  function isTableSeparator(line) {
+    const trimmed = String(line || '').trim();
+    if (!trimmed.includes('-') || !/^[|\s:-]+$/.test(trimmed)) return false;
+    return splitTableRow(trimmed).every(cell => /^:?-+:?$/.test(cell));
+  }
+
+  function renderTable(headerLine, separatorLine, rowLines, context) {
+    const headers = splitTableRow(headerLine);
+    const aligns = splitTableRow(separatorLine).map(cell => {
+      if (cell.startsWith(':') && cell.endsWith(':')) return 'center';
+      if (cell.endsWith(':')) return 'right';
+      if (cell.startsWith(':')) return 'left';
+      return '';
+    });
+    const alignAttr = index => (aligns[index] ? ` style="text-align:${aligns[index]}"` : '');
+
+    const head = headers
+      .map((cell, index) => `<th${alignAttr(index)}>${renderInlineMarkdown(cell, context)}</th>`)
+      .join('');
+    const body = rowLines
+      .map(rowLine => {
+        const cells = splitTableRow(rowLine);
+        return `<tr>${headers
+          .map((_cell, index) => `<td${alignAttr(index)}>${renderInlineMarkdown(cells[index] ?? '', context)}</td>`)
+          .join('')}</tr>`;
+      })
+      .join('');
+
+    return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead>${body ? `<tbody>${body}</tbody>` : ''}</table></div>`;
+  }
+
   function renderMarkdown(markdown, context = {}) {
     const { body } = parseFrontmatter(markdown);
     const lines = body.replace(/\r\n/g, '\n').split('\n');
     const html = [];
     let paragraph = [];
-    let list = null;
 
     const flushParagraph = () => {
       if (!paragraph.length) return;
-      html.push(`<p>${renderInlineMarkdown(paragraph.join(' '), context)}</p>`);
+      html.push(`<p>${renderInlineMarkdown(joinParagraphLines(paragraph), context)}</p>`);
       paragraph = [];
-    };
-
-    const flushList = () => {
-      if (!list) return;
-      html.push(`<${list.type}>${list.items.map(item => `<li>${renderInlineMarkdown(item, context)}</li>`).join('')}</${list.type}>`);
-      list = null;
     };
 
     for (let i = 0; i < lines.length; i += 1) {
@@ -1230,14 +1383,12 @@
 
       if (!trimmed) {
         flushParagraph();
-        flushList();
         continue;
       }
 
       const displayMath = readDisplayMath(lines, i);
       if (displayMath) {
         flushParagraph();
-        flushList();
         html.push(renderMathBlock(displayMath.math, displayMath.suffix, context));
         i = displayMath.nextIndex;
         continue;
@@ -1246,7 +1397,6 @@
       const fence = trimmed.match(/^```(\w*)/);
       if (fence) {
         flushParagraph();
-        flushList();
         const lang = fence[1] || '';
         const code = [];
         i += 1;
@@ -1261,7 +1411,6 @@
       const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
       if (heading) {
         flushParagraph();
-        flushList();
         const level = heading[1].length;
         html.push(`<h${level}>${renderInlineMarkdown(heading[2], context)}</h${level}>`);
         continue;
@@ -1269,38 +1418,63 @@
 
       if (/^---+$/.test(trimmed)) {
         flushParagraph();
-        flushList();
         html.push('<hr>');
         continue;
       }
 
-      const unordered = trimmed.match(/^[-*+]\s+(.+)$/);
-      if (unordered) {
+      const listItem = matchListItem(line);
+      if (listItem) {
         flushParagraph();
-        if (!list || list.type !== 'ul') {
-          flushList();
-          list = { type: 'ul', items: [] };
+        const items = [listItem];
+        while (i + 1 < lines.length) {
+          const next = matchListItem(lines[i + 1]);
+          if (!next) break;
+          items.push(next);
+          i += 1;
         }
-        list.items.push(unordered[1]);
+        html.push(renderListBlock(items, context));
         continue;
       }
 
-      const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
-      if (ordered) {
+      if (trimmed.startsWith('>')) {
         flushParagraph();
-        if (!list || list.type !== 'ol') {
-          flushList();
-          list = { type: 'ol', items: [] };
+        const quoted = [];
+        while (i < lines.length && lines[i].trim().startsWith('>')) {
+          quoted.push(lines[i].trim().replace(/^>\s?/, ''));
+          i += 1;
         }
-        list.items.push(ordered[1]);
+        i -= 1;
+
+        const paragraphs = [];
+        let buffer = [];
+        for (const quoteLine of quoted) {
+          if (!quoteLine.trim()) {
+            if (buffer.length) paragraphs.push(buffer);
+            buffer = [];
+            continue;
+          }
+          buffer.push(quoteLine);
+        }
+        if (buffer.length) paragraphs.push(buffer);
+
+        html.push(`<blockquote>${paragraphs
+          .map(part => `<p>${renderInlineMarkdown(joinParagraphLines(part), context)}</p>`)
+          .join('')}</blockquote>`);
         continue;
       }
 
-      const quote = trimmed.match(/^>\s?(.+)$/);
-      if (quote) {
+      if (trimmed.includes('|') && isTableSeparator(lines[i + 1])) {
         flushParagraph();
-        flushList();
-        html.push(`<blockquote><p>${renderInlineMarkdown(quote[1], context)}</p></blockquote>`);
+        const headerLine = trimmed;
+        const separatorLine = lines[i + 1];
+        const rows = [];
+        i += 2;
+        while (i < lines.length && lines[i].trim().includes('|')) {
+          rows.push(lines[i]);
+          i += 1;
+        }
+        i -= 1;
+        html.push(renderTable(headerLine, separatorLine, rows, context));
         continue;
       }
 
@@ -1308,7 +1482,6 @@
     }
 
     flushParagraph();
-    flushList();
     return html.join('\n');
   }
 
@@ -1636,9 +1809,8 @@
     const data = await fetchJson('/api/article', { path: articlePath });
     if (!isActiveRender(renderId) || state.currentArticle !== articlePath) return false;
     const { article, content } = data;
-    state.currentFolder = article.categoryPath || '';
-    state.activeFolder = state.currentFolder;
-    expandFolderPath(state.currentFolder);
+    state.activeFolder = article.categoryPath || '';
+    expandFolderPath(state.activeFolder);
 
     if (article.format === 'markdown') {
       renderMarkdownArticle(article, content.markdown || '', renderId);
@@ -1658,6 +1830,7 @@
 
   function renderArticleFrameSlots(inner, options = {}) {
     cleanupArticleFrame();
+    disconnectListObserver();
     clearContentViewState();
 
     const viewClasses = ['article-view'];
@@ -1944,6 +2117,7 @@
 
   function renderError(message) {
     cleanupArticleFrame();
+    disconnectListObserver();
     clearContentViewState();
     els.content.innerHTML = `
       <div class="empty">
