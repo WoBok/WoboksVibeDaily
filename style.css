@@ -997,6 +997,8 @@ body.is-article-mode .content {
   background: var(--forest);
   color: var(--ivory);
   box-shadow: var(--shadow-soft);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(249, 248, 244, 0.32) transparent;
 }
 
 .markdown-body pre code {
@@ -1016,6 +1018,8 @@ body.is-article-mode .content {
 .markdown-body .table-wrap {
   overflow-x: auto;
   margin: 0 0 1.25em;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sage-light) transparent;
 }
 
 .markdown-body table {
@@ -1049,18 +1053,25 @@ body.is-article-mode .content {
 /* 块级公式：开放式经典排版——无框无底、公式居中、编号右对齐（类 LaTeX \eqno）。 */
 .math-block {
   position: relative;
-  overflow-x: auto;
-  overflow-y: hidden;
   margin: 2em 0;
-  padding: 0.3em 3.25em;
+  padding: 0 3.25em;
   color: var(--forest);
   font-weight: 600;
   line-height: 1.7;
   text-align: center;
 }
 
+/* 滚动放在 MathJax 容器上：短公式由外层居中，长公式左对齐、可完整滑到开头，编号保持固定。 */
 .math-block mjx-container[jax="SVG"][display="true"] {
+  display: inline-block;
+  max-width: 100%;
   margin: 0;
+  padding: 0.3em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sage-light) transparent;
 }
 
 .markdown-body mjx-container[jax="SVG"] {
@@ -1872,6 +1883,14 @@ body.is-article-mode .content {
 
   .markdown-body {
     font-size: 16px;
+  }
+
+  .markdown-body pre {
+    padding: 16px 18px;
+  }
+
+  .math-block {
+    padding: 0 2.2em;
   }
 
   .html-article-frame {
