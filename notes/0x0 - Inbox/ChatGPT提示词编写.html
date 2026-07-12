@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>提示词编写 | ChatGPT Learn</title>
+  <style>
+    :root{--bg:#0d0d0d;--panel:#151515;--panel2:#1b1b1b;--text:#f2f2f2;--muted:#a8a8a8;--line:#2b2b2b;--accent:#fff;--code:#181818;--link:#d6d6d6}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:"OpenAI Sans","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.65}
+    a{color:var(--link);text-decoration:underline;text-underline-offset:3px}a:hover{color:#fff}.topbar{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 28px;position:sticky;top:0;background:rgba(13,13,13,.94);backdrop-filter:blur(12px);z-index:20}.brand{font-weight:650;letter-spacing:-.01em;text-decoration:none;color:#fff}.brand span{color:var(--muted);font-weight:450;margin-left:9px}.toplinks{margin-left:auto;display:flex;gap:24px;font-size:14px}.toplinks a{text-decoration:none;color:var(--muted)}
+    .layout{display:grid;grid-template-columns:minmax(0,960px) 230px;gap:64px;max-width:1280px;margin:0 auto;padding:24px 28px 90px}.toc{position:sticky;top:28px;align-self:start;max-height:calc(100vh - 56px);overflow:auto}.toc a{display:block;text-decoration:none;color:#9d9d9d;padding:5px 0}.toc a:hover{color:#fff}
+    main{min-width:0}.eyebrow{color:#8b8b8b;font-size:13px;margin-bottom:12px}.hero h1{font-size:52px;line-height:1.08;letter-spacing:-.045em;margin:0 0 12px;font-weight:650}.dek{font-size:20px;line-height:1.5;color:#b8b8b8;margin:0 0 44px}.source-note{font-size:12px;color:#777;border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:34px}
+    h2{font-size:29px;line-height:1.25;letter-spacing:-.025em;margin:58px 0 16px;padding-top:10px}h3{font-size:21px;line-height:1.35;margin:38px 0 12px}h4{font-size:17px;margin:30px 0 10px}p{margin:0 0 17px;color:#dedede}ul,ol{padding-left:25px;margin:0 0 20px}li{margin:7px 0;color:#dedede}strong{color:#fff}code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace;background:#242424;border:1px solid #333;border-radius:5px;padding:.12em .35em;font-size:.9em}.prompt{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:17px 19px;margin:18px 0 22px;white-space:pre-wrap;font-family:"SFMono-Regular",Consolas,"Noto Sans Mono CJK SC",monospace;font-size:14px;line-height:1.65;color:#f0f0f0;overflow:auto}.note{border-left:3px solid #676767;background:#151515;padding:14px 18px;margin:20px 0;color:#cfcfcf}.verify{font-weight:650;color:#fff;margin-top:18px}.image-wrap{margin:24px 0 32px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#111}.image-wrap img{display:block;width:100%;height:auto}.caption{padding:9px 13px;color:#8e8e8e;font-size:12px;border-top:1px solid var(--line)}
+    .toc{font-size:13px;border-left:1px solid var(--line);padding-left:20px}.toc-title{color:#f0f0f0;font-weight:600;margin-bottom:9px}.toc a{padding:4px 0}.toc .sub{padding-left:12px;font-size:12px}.next{display:flex;justify-content:flex-end;border-top:1px solid var(--line);margin-top:58px;padding-top:24px}.next a{text-decoration:none}.footer{border-top:1px solid var(--line);color:#777;font-size:12px;padding:25px 28px;text-align:center}
+    @media(max-width:1050px){.layout{display:block;max-width:900px;padding-left:30px;padding-right:30px}.toc{display:none}}@media(max-width:760px){.layout{padding:20px 20px 70px}.hero h1{font-size:42px}.dek{font-size:18px}h2{font-size:27px}.prompt{font-size:13px}}
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <main id="top">
+      <div class="hero"><h1>提示词编写</h1><p class="dek">为 Chat、ChatGPT Work 和 Codex 编写实用的提示词</p></div>
+      <div class="source-note">中文翻译 · 原文：<a href="https://learn.chatgpt.com/docs/prompting">Prompting | ChatGPT Learn</a></div>
+
+      <section id="overview"><h2>提示词概述</h2>
+        <p>提示词，就是你用来告诉 ChatGPT：你想了解什么、创建什么或修改什么的内容。它可以是一个问题、一条指令，也可以是一个目标。你不需要使用技术化语法，也不必套用僵硬的公式。只需用自己的话开始，查看回复，再通过后续消息逐步调整结果。</p>
+        <p>简短的提示词往往就足够了。对于规模更大或更重要的任务，请加入真正关键的部分：</p>
+        <ul><li><strong>目标：</strong>ChatGPT 应该做什么？</li><li><strong>背景：</strong>哪些信息或来源会有帮助？</li><li><strong>输出：</strong>你需要什么格式、篇幅或详细程度？</li><li><strong>边界：</strong>哪些内容必须保持不变？ChatGPT 应避免什么，或在采取什么行动前先征求你的意见？</li></ul>
+        <p>只使用对任务有帮助的部分即可。你不必每项都填，也不需要遵循规定格式。</p>
+      </section>
+
+      <section id="result"><h2>描述你需要的结果</h2>
+        <p>从结果开始说，而不是先列出一长串详细步骤。如果受众或格式会影响 ChatGPT 应该产出的内容，就把这些信息也写进去。</p>
+        <div class="prompt">把这些会议记录整理成一份给项目团队看的简短更新。
+把决策和后续步骤放在最前面。</div>
+        <p>这条提示词说明了要创建什么，以及谁会阅读。如果过程本身很重要，就描述过程；否则，给 ChatGPT 留出空间，让它自行搜索、比较信息并调整方法。</p>
+      </section>
+
+      <section id="context"><h2>补充有用的背景信息</h2>
+        <p>分享那些可能改变结果的信息。只添加真正相关的来源，并说明 ChatGPT 应从每个来源中提取什么。</p>
+        <ul><li>如果你希望 ChatGPT 对文档、电子表格、演示文稿或 PDF 文件进行总结、比较、转换，或<a href="https://learn.chatgpt.com/docs/files">创建供审核的文件</a>，请附上这些文件。</li><li>如果任务依赖视觉信息，请添加截图、示意图或其他<a href="https://learn.chatgpt.com/docs/image-inputs">图片输入</a>。请明确指出重要区域，不要只让图片自己说明一切。</li><li>如果答案依赖最新信息，请要求 ChatGPT 使用<a href="https://learn.chatgpt.com/docs/web-search">网页搜索</a>；如果你需要核查结果，也请要求提供来源。</li><li>当相关的聊天或任务需要共享文件、来源或本地文件夹时，请使用<a href="https://learn.chatgpt.com/docs/projects-chats-tasks">项目</a>。</li></ul>
+        <h3 id="connected">使用已连接的数据源</h3><p>当 ChatGPT 能访问已连接的数据源时，请说明它应该去哪里查找，以及要找什么。你不需要逐一描述它应该执行的每次搜索。</p>
+        <div class="prompt">使用云端硬盘中的最新项目计划，以及项目 Slack 频道里的相关决策和进展，准备一份状态更新。</div>
+        <p>使用已连接的数据源需要相应的插件；能否使用还可能取决于你的套餐和工作区设置。</p>
+        <h3 id="plugins">使用插件</h3><p>插件为 ChatGPT 提供可复用的指令，以及连接 Google Drive、Gmail、Slack、GitHub 等工具的能力。只需说明你想要的结果，让 ChatGPT 从可用工具中选择。若要指定插件，请在编辑框中输入 <code>@</code>。</p>
+        <p><a href="https://learn.chatgpt.com/docs/plugins">了解插件：在 ChatGPT 中查找、安装和使用插件。</a></p>
+        <h3 id="personalize">个性化 ChatGPT</h3><p>对于希望跨聊天和任务持续生效的偏好，请在“设置 &gt; 个性化”中写入自定义指令。仅与当前任务相关的细节，应保留在本次提示词中。</p>
+        <p><a href="https://learn.chatgpt.com/docs/personalization">查看个性化设置：设置默认个性、自定义指令和其他应用偏好。</a></p>
+      </section>
+
+      <section id="boundaries"><h2>设置能防止实际问题的边界</h2>
+        <p>边界是少量但关键的指令，用来防止 ChatGPT 额外制造工作，或执行你并不打算让它做的操作。如果改错某个细节会让结果无法使用，或者你希望在内容影响其他人之前先审核，就应加上一条边界。</p>
+        <ul><li>保持已批准的日期和预算数字不变。</li><li>只使用提供的来源。缺少信息时请标明，不要猜测。</li><li>所有建议都必须控制在规定预算内。</li><li>把消息准备成草稿，不要发送。</li></ul>
+        <p>重点写清最重要的一两个边界即可。你不需要控制 ChatGPT 执行的每一个步骤。</p>
+      </section>
+
+      <section id="ready"><h2>让结果可以直接使用</h2>
+        <p>告诉 ChatGPT 你打算如何使用结果。这能帮助它选择合适的篇幅、详细程度和组织方式。</p>
+        <ul><li>把它整理成一页摘要，让主管能在会前快速浏览。将决策和后续步骤放在最前面。</li><li>把这些笔记整理成一封跟进邮件，列出决策、负责人和截止日期。</li><li>制作一张清晰的表格，对比计划支出和实际支出，并突出显示超过 10% 的差异。</li></ul>
+        <p>对于重要工作，可以要求 ChatGPT 做最终检查，例如确认每项行动都有负责人和截止日期，或标出它无法验证的信息。之后，在使用或分享结果前，请你自己再检查一遍。</p>
+      </section>
+
+      <section id="followup"><h2>用后续消息改进结果</h2>
+        <p>第一条提示词不必完美。查看结果后，再具体说明你想修改什么。</p>
+        <div class="prompt">让开头更直接，保留证据，并把建议移到背景说明之前。</div>
+        <p>你可以补充遗漏的来源、纠正方向、要求另一个方案，或改变详细程度，而无须从头开始。</p>
+        <h3 id="steering">中途引导与排队</h3><p>Codex 已经在工作时，你无需等待当前运行结束，也可以继续发送消息：</p>
+        <ul><li><strong>中途引导（Steer）</strong>会把消息加入当前运行。适合改变方向、补充遗漏的细节或提供新信息。</li><li><strong>排队（Queue）</strong>会把消息保存到下一次运行。适合应在当前工作完成后再处理的后续事项。</li></ul>
+        <p>在 ChatGPT 桌面应用中，可前往“设置 &gt; 通用 &gt; 后续消息行为”选择默认方式。排队的消息会显示在编辑框上方，你可以编辑、重新排序、发送或删除。该设置还会显示快捷键，让你能针对单条消息临时使用另一种方式，而不改变默认设置。</p>
+        <p>在 Codex CLI 中，Codex 工作时按 <code>Enter</code> 可引导当前轮次，按 <code>Tab</code> 可将消息排到下一轮。详情参见交互快捷键。</p>
+      </section>
+
+      <section id="together"><h2>把各个部分组合起来</h2>
+        <p>如果要利用已连接的数据源制作项目更新，一条完整的提示词可以这样写：</p>
+        <div class="prompt">为周一的管理层会议准备一页项目状态更新。使用云端硬盘中的最新项目计划，以及项目 Slack 频道里的相关决策和进展。
+
+开头先列出管理层需要做出的决策和后续步骤。总结进度、风险、负责人和截止日期。保持已批准的日期和预算数字不变。标出相互冲突或缺失的信息，不要发送或发布任何内容。
+
+结束前，请检查每个后续步骤是否都有负责人和截止日期。</div>
+        <p>这条提示词涵盖了目标、背景、输出和边界，并要求进行最终检查，但没有把每个步骤都规定死。</p>
+      </section>
+
+      <section id="voice"><h2>使用语音听写</h2>
+        <p>在 ChatGPT 桌面应用中，当编辑框可见时按住 <code>Ctrl</code>+<code>M</code>，然后开始说话。ChatGPT 会把你的语音转写到编辑框中，你可以在发送提示词前检查并编辑文字。</p>
+        <div class="image-wrap"><picture><source media="(prefers-color-scheme: dark)" srcset="https://learn.chatgpt.com/images/codex/app/voice-dictation-dark.webp"><img src="https://learn.chatgpt.com/images/codex/app/voice-dictation-dark.webp" alt="编辑框中的语音听写指示器及已转写的提示词"></picture></div>
+      </section>
+
+      <section id="chat-examples"><h2>Chat 的提示词示例</h2><p>Chat 适合用于提问、构思想法、起草内容和处理日常决策。先说明你想得到的结果，只有当细节会改变答案时再补充。</p>
+        <h3>理解一个主题</h3><div class="prompt">向从未投资过的人解释复利是如何运作的。
+使用一个具体示例，并解释你引入的所有金融术语。</div>
+        <h3>起草和完善文字</h3><div class="prompt">起草一封友好的邮件，说明我因为要出行而谢绝这次邀请。
+控制在 120 字以内，并为将来的活动保留机会。</div>
+        <h3>比较选项</h3><div class="prompt">为一名每年出国旅行两次的用户比较这两个手机套餐。
+用表格展示重要差异，然后推荐其中一个并说明取舍。</div>
+        <h3>制定实用计划</h3><div class="prompt">规划五顿工作日晚餐，每顿制作时间不超过 30 分钟。避免花生，在不同餐食中重复利用食材，最后提供一份合并后的购物清单。</div>
+      </section>
+
+      <section id="work"><h2>为 Work 编写提示词</h2>
+        <p>Chat 适合快速提问、简短改写、头脑风暴和轻量草稿。Work 则适合需要利用不同来源或工具、包含一系列步骤、会执行修改，或需要产出较大型交付物的任务。</p>
+        <p>对于 Work 任务，请描述你需要的结果，提供源材料，说明受众，并解释你将如何审核工作。要求 ChatGPT 制定计划、收集所需信息、创建文件，并在完成前进行检查。</p>
+        <h3 id="work-efficient">高效使用 Work</h3><p>Work 适合耗时或周期性任务，也适合创建可复用的成品文件。即使某项任务消耗较多额度，只要能节省时间、提高质量或帮助你做出重要决策，就仍然可能值得。</p><p>先从一项你可以审核的结果开始：</p>
+        <ul><li>只包含相关来源，并在适当时限制日期范围。</li><li>明确受众、输出格式和期望篇幅。</li><li>将必做工作与可选的改进或润色分开。</li><li>如果方法很重要，就要求先制定计划。在 ChatGPT 发送、发布或修改他人依赖的信息前，要求获得你的批准。</li><li>如果任务开始执行你已不再需要的工作，请缩小范围或停止任务。</li></ul><p>检查第一版结果，完善指令；当流程行之有效时，重复使用它。</p>
+        <h3>把源材料制作成成品文件</h3><div class="prompt">使用附带的季度报告制作一份管理层简报和一套六页演示文稿。
+
+受众是高管团队。开头列出他们需要做出的三项决策；区分报告中的事实和你的分析；每个数字都要标注来源文件；完成前检查简报和幻灯片内容是否一致。</div>
+        <h3>研究一项决策</h3><div class="prompt">为一家 50 人的公司研究三款客户支持平台。使用当前来源比较定价、安全性、集成能力和迁移工作量。
+交付一份建议备忘录，其中包含链接、假设，以及签订合同前我们需要回答的问题。</div>
+        <h3>协调一次发布</h3><div class="prompt">根据附带的产品简报制定发布计划。包括时间表、负责人、依赖项、风险、公告草稿、客户常见问题和发布日检查清单。在制作最终文件前，标出所有尚未决定的事项。</div>
+        <p>对于周期性工作，先在普通任务中完善提示词。输出稳定可靠后，再从该任务中安排定时工作。如果每次定时运行都应该从一个新任务开始，则创建独立的定时任务。</p>
+      </section>
+
+      <section id="codex"><h2>为 Codex 编写提示词</h2>
+        <p>当你希望 ChatGPT 处理代码、代码库或开发工具时，请使用 Codex。一条实用的 Codex 提示词应说明你想要的行为，指出相关代码或复现步骤，保留重要约束，并说明如何验证改动。</p>
+        <p>对于多步骤任务，如果你希望 Codex 在编辑前先调查并提出方案，可在应用编辑框中输入 <code>/plan</code>。当“目标模式（Goal mode）”可用时，可在计划之后使用 <code>/goal</code> 设置一个持续目标。当前命令列表请参见应用斜杠命令。</p>
+        <h3 id="read-examples">如何阅读这些示例</h3><p>每个工作流程都包括：</p><ul><li>适用场景，以及最合适的 Codex 使用界面（IDE、CLI 或云端）。</li><li>带有示例用户提示词的步骤。</li><li>背景说明：Codex 会自动看到什么，以及你应该附加什么。</li><li>验证：如何检查输出。</li></ul>
+        <div class="note"><strong>注意：</strong>IDE 扩展会自动把你打开的文件加入上下文。在 CLI 中，请明确提及路径，或者使用 <code>/mention</code> 和 <code>@</code> 路径自动补全来附加文件。</div>
+        <p>Codex 会在一个限制文件和网络访问的沙箱中运行本地命令。如果任务需要跨越该边界，Codex 会按照你的审批策略，在继续前请求批准。</p>
+
+        <h3 id="explain-codebase">解释代码库</h3><p>当你正在熟悉一个项目、接手某项服务，或尝试理解协议、数据模型或请求流程时，使用此工作流。</p>
+        <h4>IDE 扩展工作流（本地探索最快）</h4><ol><li>打开最相关的文件。</li><li>选择你关心的代码（可选，但推荐）。</li><li>向 Codex 输入：</li></ol>
+        <div class="prompt">解释请求是如何流经所选代码的。
+
+请包括：
+- 涉及的每个模块的职责简述
+- 数据在哪里进行验证，以及验证哪些内容
+- 修改时需要留意的一两个“易踩坑点”</div>
+        <p class="verify">验证：</p><ul><li>要求提供一张可以核查的流程图或检查清单：<div class="prompt">用编号列表总结请求流程中的各个步骤，然后列出涉及的文件。</div></li></ul>
+        <h4>CLI 工作流（适合保留操作记录和命令）</h4><ol><li>启动交互式会话：<div class="prompt">codex</div></li><li>附加文件（可选）并输入：<div class="prompt">我需要理解这项服务所使用的协议。读取 @foo.ts 和 @schema.ts，解释数据结构及请求/响应流程。重点说明必填字段与可选字段，以及向后兼容规则。</div></li></ol>
+        <p><strong>背景说明：</strong>你可以在编辑框中使用 <code>@</code> 插入工作区文件路径，或使用 <code>/mention</code> 附加特定文件。</p>
+
+        <h3 id="fix-bug">修复错误</h3><p>当你能在本地复现异常行为时，使用此工作流。</p>
+        <h4>CLI 工作流（复现与验证的紧凑循环）</h4><ol><li>在仓库根目录启动 Codex：<div class="prompt">codex</div></li><li>向 Codex 提供复现步骤，以及你怀疑的文件：</li></ol>
+        <div class="prompt">错误：在设置页面点击“保存”后，有时会显示“已保存”，但更改并未持久化。
+
+复现步骤：
+1) 启动应用：npm run dev
+2) 前往 /settings
+3) 切换“启用提醒”
+4) 点击“保存”
+5) 刷新页面：开关恢复原状
+
+约束：
+- 不要更改 API 结构。
+- 保持修复最小化；如果可行，添加回归测试。
+
+先在本地复现错误，再提出补丁并运行检查。</div>
+        <p><strong>背景说明：</strong></p><ul><li>由你提供：复现步骤和约束（这些比高层描述更重要）。</li><li>由 Codex 提供：命令输出、发现的调用位置，以及触发的所有堆栈跟踪。</li></ul>
+        <p class="verify">验证：</p><ul><li>修复后，Codex 应重新执行复现步骤。</li><li>如果项目有标准检查流程，请要求它运行：<div class="prompt">修复后，运行 lint 和最小范围的相关测试套件。报告所运行的命令和结果。</div></li></ul>
+        <h4>IDE 扩展工作流</h4><ol><li>打开你认为存在错误的文件，以及离它最近的调用方。</li><li>向 Codex 输入：<div class="prompt">找出导致显示“已保存”但更改未持久化的错误。提出修复方案后，告诉我如何在界面中验证。</div></li></ol>
+
+        <h3 id="write-test">编写测试</h3><p>当你想明确界定测试范围时，使用此工作流。</p>
+        <h4>IDE 扩展工作流（基于所选代码）</h4><ol><li>打开包含该函数的文件。</li><li>选中定义该函数的代码行。从命令面板选择“Add to Codex Thread”，把这些代码加入上下文。</li><li>向 Codex 输入：<div class="prompt">为这个函数编写单元测试。遵循其他测试中使用的约定。</div></li></ol>
+        <p><strong>背景说明：</strong>“Add to Codex Thread”会提供所选代码行（即“行号”范围），以及已打开的文件。</p>
+        <h4>CLI 工作流（在提示词中描述路径和行范围）</h4><ol><li>启动 Codex：<div class="prompt">codex</div></li><li>在提示词中写出函数名：<div class="prompt">为 @transform.ts 中的 invert_list 函数添加测试。覆盖正常路径和边界情况。</div></li></ol>
+
+        <h3 id="prototype">根据截图制作原型</h3><p>当你想把设计稿、截图或界面参考转成可运行原型时，使用此工作流。</p>
+        <h4>CLI 工作流（图片 + 提示词）</h4><ol><li>把截图保存到本地（例如 <code>./specs/ui.png</code>）。</li><li>运行 Codex：<div class="prompt">codex</div></li><li>把图片文件拖入终端，附加到提示词中。</li><li>继续补充约束和结构：</li></ol>
+        <div class="prompt">根据这张图片创建一个新仪表板。
+
+约束：
+- 使用 React、Vite 和 Tailwind。用 TypeScript 编写代码。
+- 尽可能准确地匹配间距、字体排版和布局。
+
+输出：
+- 一个用于呈现界面的新路由/页面
+- 所需的小型组件
+- 包含本地运行说明的 README.md</div>
+        <p><strong>背景说明：</strong></p><ul><li>图片提供视觉要求，但你仍需说明实现约束（框架、路由、组件风格）。</li><li>用文字说明图片无法体现的行为，例如悬停状态、验证规则或键盘交互。</li></ul><p class="verify">验证：</p><ul><li>要求 Codex 启动开发服务器（如果允许），并准确告诉你去哪里查看：<div class="prompt">启动开发服务器，并告诉我查看原型的本地 URL/路由。</div></li></ul>
+        <h4>IDE 扩展工作流（图片 + 现有文件）</h4><ol><li>在 Codex 任务中附加图片（拖放或粘贴）。</li><li>向 Codex 输入：<div class="prompt">创建一个新的设置页面。以附带的截图为目标界面。
+遵循该项目其他文件中的设计和视觉模式。</div></li></ol>
+
+        <h3 id="live-ui">通过实时更新迭代界面</h3><p>当你希望 Codex 编辑代码时形成紧凑的“设计 → 调整 → 刷新 → 再调整”循环，可使用此工作流。</p>
+        <h4>CLI 工作流（运行 Vite，再用小范围提示词迭代）</h4><ol><li>启动 Codex：<div class="prompt">codex</div></li><li>在单独的终端窗口中启动开发服务器：<div class="prompt">npm run dev</div></li><li>要求 Codex 修改：<div class="prompt">为落地页提出 2～3 项样式改进。</div></li><li>选择一个方向，用简短、具体的提示词继续迭代：<div class="prompt">采用方案 2。
+
+只修改页眉：
+- 让字体排版更具编辑设计感
+- 增加留白
+- 确保在移动设备上仍然美观</div></li><li>继续提出聚焦的小范围要求：<div class="prompt">下一轮：减少视觉干扰。
+保留布局，但简化颜色并删除多余边框。</div></li></ol>
+        <p class="verify">验证：</p><ul><li>Codex 更新代码时，在浏览器中查看变化。</li><li>提交你喜欢的更改，撤销不喜欢的更改。</li><li>如果你撤销或修改了某项编辑，请告诉 Codex，以免它在处理下一条提示词时覆盖你的改动。</li></ul>
+
+        <h3 id="cloud-refactor">把重构任务委派给云端</h3><p>当你想利用本地上下文设计方案，再把耗时的实现工作委派给可并行运行的云端任务时，使用此工作流。</p>
+        <h4>本地规划（IDE）</h4><ol><li>确保当前工作已提交，或至少已暂存，以便清楚地比较改动。</li><li>要求 Codex 生成重构计划。如果你有 <code>$plan</code> 技能，请明确调用：</li></ol>
+        <div class="prompt">$plan
+
+我们需要重构身份验证子系统，以实现：
+- 拆分职责（令牌解析、会话加载与权限）
+- 减少循环导入
+- 提高可测试性
+
+约束：
+- 不改变用户可见行为
+- 保持公共 API 稳定
+- 包含分步骤的迁移计划</div>
+        <ol start="3"><li>审核计划并协商修改：<div class="prompt">修改计划：
+- 明确每个里程碑中究竟移动哪些文件
+- 包含回滚策略</div></li></ol>
+        <p><strong>背景说明：</strong>当 Codex 能在本地扫描当前代码（入口点、模块边界、依赖关系图线索）时，规划效果最好。</p>
+        <h4>云端委派（IDE → 云端）</h4><ol><li>如果尚未设置，请先设置 Codex 云端环境。</li><li>点击提示词编辑框下方的云朵图标，选择你的云端环境。</li><li>输入下一条提示词后，Codex 会在云端创建一个新任务，并继承现有任务上下文（包括计划和本地源代码改动）：<div class="prompt">实施计划中的里程碑 1。</div></li><li>审核云端差异，如有需要继续迭代。</li><li>直接从云端创建 PR，或把更改拉到本地进行测试和收尾。</li><li>继续迭代计划中的其他里程碑。</li></ol>
+        <p>委派到云端的任务会在隔离环境中运行。除非你为该环境启用互联网访问，否则代理阶段默认无法访问互联网。</p>
+
+        <h3 id="local-review">执行本地代码审查</h3><p>当你希望在提交或创建 PR 前多一双眼睛检查代码时，使用此工作流。</p>
+        <h4>CLI 工作流（审查工作树）</h4><ol><li>启动 Codex：<div class="prompt">codex</div></li><li>运行审查命令：<div class="prompt">/review</div></li><li>可选：提供自定义关注点：<div class="prompt">/review 重点关注边界情况和安全问题</div></li></ol><p class="verify">验证：</p><ul><li>根据审查反馈应用修复，然后重新运行 <code>/review</code>，确认问题已经解决。</li></ul>
+
+        <h3 id="github-review">审查 GitHub 拉取请求</h3><p>当你希望获得审查反馈，但不想把分支拉到本地时，使用此工作流。</p><p>使用前，请先在仓库中启用 Codex Code Review。详情参见“代码审查”。</p>
+        <h4>GitHub 工作流（评论驱动）</h4><ol><li>在 GitHub 上打开拉取请求。</li><li>发表评论，标记 Codex 并明确关注点：<div class="prompt">@codex review</div></li><li>可选：提供更明确的指令：<div class="prompt">@codex review for security vulnerabilities and security concerns</div></li></ol>
+
+        <h3 id="update-docs">更新文档</h3><p>当你需要准确、清晰地修改文档时，使用此工作流。</p>
+        <h4>IDE 或 CLI 工作流（本地编辑 + 本地验证）</h4><ol><li>确定需要修改的文档文件，并打开它们（IDE），或使用 <code>@</code> 提及它们（IDE 或 CLI）。</li><li>在提示词中说明范围和验证要求：<div class="prompt">更新“高级功能”文档，添加身份验证故障排除指南。验证所有链接均有效。</div></li><li>Codex 起草改动后，审核文档并根据需要继续迭代。</li></ol><p class="verify">验证：</p><ul><li>阅读渲染后的页面。</li></ul>
+      </section>
+
+      <div class="next"><a href="https://learn.chatgpt.com/docs/personalization">下一篇：个性化 ChatGPT →</a></div>
+    </main>
+    <aside class="toc" aria-label="本页目录"><div class="toc-title">本页内容</div><a href="#overview">提示词概述</a><a href="#result">描述所需结果</a><a href="#context">补充背景信息</a><a class="sub" href="#connected">已连接的数据源</a><a class="sub" href="#plugins">插件</a><a href="#boundaries">设置边界</a><a href="#ready">让结果可直接使用</a><a href="#followup">后续消息</a><a href="#together">组合各个部分</a><a href="#voice">语音听写</a><a href="#chat-examples">Chat 示例</a><a href="#work">Work 提示词</a><a href="#codex">Codex 提示词</a><a class="sub" href="#fix-bug">修复错误</a><a class="sub" href="#prototype">根据截图制作原型</a><a class="sub" href="#cloud-refactor">云端重构</a><a class="sub" href="#local-review">代码审查</a></aside>
+  </div>
+  <footer class="footer">非官方中文翻译，仅供学习参考。产品名称、界面标签和快捷键以原文及当前产品为准。</footer>
+</body>
+</html>
