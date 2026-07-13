@@ -11,8 +11,6 @@ tags:
   - "骨骼动画"
 ---
 
-# UE 导出 glTF 并导入 Unity
-
 ## 一、UE 中导出 glTF / GLB
 
 ### 1. 启用 glTF Exporter
