@@ -146,7 +146,7 @@ AnimationClip
 ```
 
 如果没有 Animation Clip，检查 UE 导出时是否启用了动画和蒙皮权重选项。
-### 1. 使用Animation Controller播放动画
+### 3. 使用Animation Controller播放动画
 #### 1. 创建 Animator Controller
 
 在 Unity 的 Project 窗口中右键：
@@ -199,7 +199,7 @@ Apply Root Motion：按需要开启
 
 glTF 原始骨架动画通常不需要 Avatar。只有使用 Unity Humanoid 动画重定向时，才需要有效的 Avatar。
 
-### 2. 使用 GltfAsset 加载并自动播放（推荐）
+### 4. 使用 GltfAsset 加载并自动播放（推荐）
 
 #### 1. 将文件放入：
 
