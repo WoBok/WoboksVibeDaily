@@ -1,11 +1,11 @@
 ---
-title: "使用 UE5.4 源码引擎打开现有工程"
+title: "使用 UE 源码引擎打开现有工程"
 date: "2026-07-13"
-summary: "说明注册 UE5.4 源码引擎、切换现有工程关联、重新生成并编译工程文件，最终打开工程的操作流程。"
+summary: "说明注册 UE 源码引擎、切换现有工程关联、重新生成并编译工程文件，最终打开工程的操作流程。"
 category: "Unreal Engine"
 tags:
   - "Unreal Engine"
-  - "UE5.4"
+  - "UE"
   - "源码引擎"
   - "Visual Studio"
   - "工程配置"
@@ -54,7 +54,7 @@ MyProject.uproject
 Switch Unreal Engine version...
 ```
 
-然后选择已经编译好的 UE5.4 源码引擎。
+然后选择已经编译好的 UE 源码引擎。
 
 ## 3. 重新生成工程文件
 
