@@ -858,7 +858,6 @@ body.is-article-mode .content {
   margin: 0;
   color: var(--forest);
   font-family: "Fraunces", serif;
-  font-size: clamp(26px, 1.5625vw, 44px);
   font-style: normal;
   font-weight: 650;
   line-height: 1.08;
