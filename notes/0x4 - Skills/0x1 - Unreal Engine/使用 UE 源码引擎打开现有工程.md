@@ -37,7 +37,7 @@ Generate Visual Studio project files
 如果没有 `UnrealVersionSelector-Win64-Shipping.exe`，可以直接使用源码引擎的编辑器打开工程：
 
 ```bat
-"...\Engine\Binaries\Win64\UnrealEditor.exe" "D:\Projects\MyProject\MyProject.uproject"
+"...\Engine\Binaries\Win64\UnrealEditor.exe" "...\Projects\MyProject\MyProject.uproject"
 ```
 
 ## 2. 切换工程关联的引擎
@@ -92,7 +92,7 @@ MyProject.uproject
 也可以明确指定源码引擎打开：
 
 ```bat
-"...\Engine\Binaries\Win64\UnrealEditor.exe" "D:\Projects\MyProject\MyProject.uproject"
+"...\Engine\Binaries\Win64\UnrealEditor.exe" "...\Projects\MyProject\MyProject.uproject"
 ```
 
 ## C++ 工程完整流程
