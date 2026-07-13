@@ -1286,7 +1286,8 @@
       }
     }
 
-    return { indent: match[1].replace(/\t/g, '  ').length, type, content, task };
+    const start = type === 'ol' ? Number.parseInt(match[2], 10) : 1;
+    return { indent: match[1].replace(/\t/g, '  ').length, type, content, task, start };
   }
 
   function renderListLevel(items, start, indent, context) {
@@ -1311,7 +1312,8 @@
       parts.push(`<li${item.task ? ' class="task-item"' : ''}>${inner}</li>`);
     }
 
-    return { html: `<${type}>${parts.join('')}</${type}>`, next: index };
+    const startAttr = type === 'ol' && items[start].start !== 1 ? ` start="${items[start].start}"` : '';
+    return { html: `<${type}${startAttr}>${parts.join('')}</${type}>`, next: index };
   }
 
   function renderListBlock(items, context) {
