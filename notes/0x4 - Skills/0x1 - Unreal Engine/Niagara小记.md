@@ -2,7 +2,7 @@
 title: "Niagara小记"
 date: "2026-07-13"
 summary: "记录 Niagara 粒子在 Sprite Renderer 中配置 Sub UV 图集，并通过生成阶段参数随机选择子图案的方法。"
-category: "0x1 - Unreal Engine"
+category: "Unreal Engine"
 tags:
   - "Unreal Engine"
   - "Niagara"

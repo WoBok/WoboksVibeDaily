@@ -53,7 +53,7 @@ description: 为 Markdown 和 HTML 文章自动创建、更新并维护元数据
 示例：
 
 ```text
-文件路径：notes/UnrealEngine/Niagara粒子位置更新.md
+文件路径：notes/0x1 - Unreal Engine/Niagara粒子位置更新.md
 title：Niagara粒子位置更新
 ```
 
@@ -96,13 +96,13 @@ YYYY-MM-DD
 
 ### category
 
-使用文件所在的直接父文件夹名称。
+使用文件所在的直接父文件夹名称，去除0x* - 前缀。
 
 示例：
 
 ```text
-文件路径：notes/UnrealEngine/Niagara粒子位置更新.md
-category：UnrealEngine
+文件路径：notes/0x1 - Unreal Engine/Niagara粒子位置更新.md
+category：Unreal Engine
 ```
 
 特殊情况：
@@ -145,7 +145,7 @@ UE5
 title: "文件名称"
 date: "创建日期"
 summary: "文章总结"
-category: "所在文件夹名称"
+category: "所在文件夹名称，去除0x* - 前缀"
 tags:
   - "tag1"
   - "tag2"
@@ -161,7 +161,7 @@ tags:
 title: "使用源码引擎打开 UE 工程"
 date: "2026-07-13"
 summary: "讲解如何注册 UE 源码引擎，并让现有工程关联和使用已编译完成的源码引擎。"
-category: "UnrealEngine"
+category: "Unreal Engine"
 tags:
   - "Unreal Engine"
   - "UE5"
@@ -204,7 +204,7 @@ tags:
 <meta name="title" content="文件名称">
 <meta name="date" content="创建日期">
 <meta name="summary" content="文章总结">
-<meta name="category" content="所在文件夹名称">
+<meta name="category" content="所在文件夹名称，去除0x* - 前缀">
 <meta name="tags" content="tag1|tag2|tag3">
 ```
 
@@ -224,7 +224,7 @@ tags:
   <meta name="title" content="使用源码引擎打开 UE 工程">
   <meta name="date" content="2026-07-13">
   <meta name="summary" content="讲解如何注册 UE 源码引擎，并让现有工程关联和使用已编译完成的源码引擎。">
-  <meta name="category" content="UnrealEngine">
+  <meta name="category" content="Unreal Engine">
   <meta name="tags" content="Unreal Engine|UE5|源码引擎|工程配置">
   <title>使用源码引擎打开 UE 工程</title>
 </head>
