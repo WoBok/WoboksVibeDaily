@@ -1558,6 +1558,27 @@
     }
   }
 
+  function enableMarkdownHorizontalWheel(root) {
+    root?.addEventListener('wheel', event => {
+      if (event.ctrlKey || event.metaKey || event.deltaY === 0) return;
+
+      const target = event.target.closest(
+        'pre code, .math-block mjx-container[jax="SVG"][display="true"]'
+      );
+      if (!target || !root.contains(target) || target.scrollWidth <= target.clientWidth) return;
+
+      const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? event.deltaY * 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? event.deltaY * target.clientHeight
+          : event.deltaY;
+      const nextScrollLeft = Math.max(0, Math.min(target.scrollLeft + delta, target.scrollWidth - target.clientWidth));
+
+      event.preventDefault();
+      target.scrollLeft = nextScrollLeft;
+    }, { passive: false });
+  }
+
   function isExternalLink(link, baseUrl) {
     const raw = link.getAttribute('href') || '';
     if (!raw || raw.startsWith('#') || raw.startsWith('mailto:') || raw.startsWith('tel:')) return false;
@@ -1730,10 +1751,102 @@
     doc.head.appendChild(style);
   }
 
-  function railTemplate(type, items) {
+  function parseRenderedRgb(value) {
+    const match = String(value || '').match(/^rgba?\(\s*([\d.]+)[,\s]+\s*([\d.]+)[,\s]+\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i);
+    if (!match) return null;
+    return {
+      red: Number(match[1]),
+      green: Number(match[2]),
+      blue: Number(match[3]),
+      alpha: match[4] === undefined ? 1 : Number(match[4])
+    };
+  }
+
+  function relativeLuminance({ red, green, blue }) {
+    const linear = [red, green, blue].map(channel => {
+      const normalized = channel / 255;
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  }
+
+  function htmlArticleSurfaceTone(doc) {
+    const layers = [doc.documentElement, doc.body]
+      .filter(Boolean)
+      .map(element => parseRenderedRgb(doc.defaultView?.getComputedStyle(element).backgroundColor));
+    let surface = { red: 249, green: 248, blue: 244 };
+
+    layers.forEach(layer => {
+      if (!layer || layer.alpha <= 0) return;
+      const alpha = Math.min(1, Math.max(0, layer.alpha));
+      surface = {
+        red: layer.red * alpha + surface.red * (1 - alpha),
+        green: layer.green * alpha + surface.green * (1 - alpha),
+        blue: layer.blue * alpha + surface.blue * (1 - alpha)
+      };
+    });
+
+    return relativeLuminance(surface) < 0.42 ? 'dark' : 'light';
+  }
+
+  function bridgeHtmlFixedElements(frame, doc, signal) {
+    const records = new Map();
+    let animationFrame = 0;
+
+    const prepare = () => {
+      $$('*', doc).forEach(element => {
+        if (records.has(element) || doc.defaultView?.getComputedStyle(element).position !== 'fixed') return;
+        const rect = element.getBoundingClientRect();
+        records.set(element, { viewportTop: rect.top });
+        element.dataset.wvdFixedBridge = '';
+        element.style.setProperty('position', 'absolute', 'important');
+        element.style.setProperty('bottom', 'auto', 'important');
+      });
+    };
+
+    const sync = () => {
+      animationFrame = 0;
+      records.forEach((record, element) => {
+        if (!element.isConnected) {
+          records.delete(element);
+          return;
+        }
+        element.style.setProperty('top', `${Math.round(window.scrollY + record.viewportTop)}px`, 'important');
+      });
+    };
+
+    const scheduleSync = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(sync);
+    };
+
+    const observer = new MutationObserver(mutations => {
+      const needsSync = mutations.some(mutation => {
+        return mutation.type === 'childList' || mutation.target.dataset.wvdFixedBridge === undefined;
+      });
+      if (!needsSync) return;
+      prepare();
+      scheduleSync();
+    });
+    observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+
+    prepare();
+    sync();
+    window.addEventListener('scroll', scheduleSync, { passive: true, signal });
+    window.addEventListener('resize', scheduleSync, { passive: true, signal });
+    signal.addEventListener('abort', () => {
+      observer.disconnect();
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    }, { once: true });
+  }
+
+  function railTemplate(type, items, options = {}) {
     const emptyText = type === 'outline' ? 'No headings' : 'No refs';
+    const surfaceClass = options.surfaceTone === 'dark' ? ' article-rail--on-dark' : '';
     return `
-      <aside class="article-rail article-rail--${type}" id="${type}Rail">
+      <aside class="article-rail article-rail--${type}${surfaceClass}" id="${type}Rail">
         <div class="article-rail__inner">
           ${items.length ? items.map((item, index) => `
             <button class="rail-item rail-item--level-${item.level || 1}" type="button" data-index="${index}">
@@ -1773,13 +1886,13 @@
     els.body.classList.remove('is-outline-open', 'is-refs-open');
   }
 
-  function mountRails(outline, refs, handlers) {
+  function mountRails(outline, refs, handlers, options = {}) {
     const outlineHost = $('#outlineRailSlot');
     const refsHost = $('#refsRailSlot');
     if (!outlineHost || !refsHost) return;
 
-    outlineHost.innerHTML = railTemplate('outline', outline);
-    refsHost.innerHTML = railTemplate('refs', refs);
+    outlineHost.innerHTML = railTemplate('outline', outline, options);
+    refsHost.innerHTML = railTemplate('refs', refs, options);
 
     const outlineRail = $('#outlineRail');
     const refsRail = $('#refsRail');
@@ -1876,6 +1989,7 @@
 
     const body = $('#articleBody');
     prepareMarkdownImages(body);
+    enableMarkdownHorizontalWheel(body);
     const mathReady = typesetMath(body);
     const outline = prepareHeadings(body);
     const refs = prepareReferences(body, window.location.href, 'markdown');
@@ -2011,6 +2125,7 @@
         if (!doc) return;
 
         bindHtmlAnchorNavigation(frame, doc, options.articleUrl, controller.signal);
+        bridgeHtmlFixedElements(frame, doc, controller.signal);
 
         doc.addEventListener('wheel', event => {
           if (event.ctrlKey || event.metaKey) return;
@@ -2085,6 +2200,7 @@
         injectHtmlReferenceStyle(doc);
         const outline = prepareHeadings(doc.body);
         const refs = prepareReferences(doc.body, url, 'html');
+        const surfaceTone = htmlArticleSurfaceTone(doc);
 
         mountRails(outline, refs, {
           onOutline(item) {
@@ -2093,7 +2209,7 @@
           onReference(item) {
             if (item?.href) window.open(item.href, '_blank', 'noopener,noreferrer');
           }
-        });
+        }, { surfaceTone });
       } catch (error) {
         mountRails([], [], {
           onOutline() {},

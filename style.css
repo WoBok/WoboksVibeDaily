@@ -882,13 +882,18 @@ body.is-article-mode .content {
 .markdown-body h5,
 .markdown-body h6 {
   scroll-margin-top: 76px;
-  margin: 2.15em 0 0.64em;
+  margin: 2.15em 0 0.76em;
   color: var(--forest);
   font-family: "Fraunces", serif;
   font-style: normal;
   font-weight: 650;
   line-height: 1.18;
   letter-spacing: 0;
+}
+
+/* Keep the article title and its first section visually connected. */
+.markdown-body > :first-child {
+  margin-top: 0.9em;
 }
 
 .markdown-body h1 {
@@ -914,7 +919,7 @@ body.is-article-mode .content {
 .markdown-body ol,
 .markdown-body blockquote,
 .markdown-body pre {
-  margin: 0 0 1.25em;
+  margin: 0 0 0.9em;
 }
 
 .markdown-body ul,
@@ -990,20 +995,27 @@ body.is-article-mode .content {
 }
 
 .markdown-body pre {
-  overflow-x: auto;
-  padding: 20px 24px;
+  overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--forest);
   color: var(--ivory);
   box-shadow: var(--shadow-soft);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(249, 248, 244, 0.32) transparent;
 }
 
 .markdown-body pre code {
-  padding: 0;
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 20px 24px;
   background: transparent;
   color: inherit;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.markdown-body pre code::-webkit-scrollbar,
+.math-block mjx-container[jax="SVG"][display="true"]::-webkit-scrollbar {
+  display: none;
 }
 
 .markdown-body hr {
@@ -1016,7 +1028,7 @@ body.is-article-mode .content {
 
 .markdown-body .table-wrap {
   overflow-x: auto;
-  margin: 0 0 1.25em;
+  margin: 0 0 0.9em;
   scrollbar-width: thin;
   scrollbar-color: var(--sage-light) transparent;
 }
@@ -1060,7 +1072,7 @@ body.is-article-mode .content {
   text-align: center;
 }
 
-/* 滚动放在 MathJax 容器上：短公式由外层居中，长公式左对齐、可完整滑到开头，编号保持固定。 */
+/* 短公式由外层居中；超出边界的公式由悬停滚轮横向查看，编号保持固定。 */
 .math-block mjx-container[jax="SVG"][display="true"] {
   display: inline-block;
   max-width: 100%;
@@ -1069,8 +1081,8 @@ body.is-article-mode .content {
   overflow-x: auto;
   overflow-y: hidden;
   text-align: left;
-  scrollbar-width: thin;
-  scrollbar-color: var(--sage-light) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .markdown-body mjx-container[jax="SVG"] {
@@ -1222,6 +1234,31 @@ body.is-article-mode .content {
   cursor: pointer;
   text-align: left;
   transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+
+/* HTML articles can bring their own light or dark surface. */
+.article-rail--on-dark .rail-item {
+  color: rgba(249, 248, 244, 0.9);
+}
+
+.article-rail--on-dark.article-rail--outline .rail-item__line,
+.article-rail--on-dark.article-rail--refs .rail-item__line {
+  background: rgba(249, 248, 244, 0.82);
+}
+
+.article-rail--on-dark.article-rail--outline .rail-item__text,
+.article-rail--on-dark.article-rail--refs .rail-item__text {
+  color: rgba(249, 248, 244, 0.9);
+}
+
+.article-rail--on-dark.article-rail--outline .rail-item:hover .rail-item__text,
+.article-rail--on-dark.article-rail--refs .rail-item:hover .rail-item__text {
+  color: var(--forest);
+}
+
+.article-rail--on-dark.article-rail--outline:hover .rail-item__line,
+.article-rail--on-dark.article-rail--refs:hover .rail-item__line {
+  background: var(--forest);
 }
 
 .rail-item__line {
@@ -1884,7 +1921,7 @@ body.is-article-mode .content {
     font-size: 16px;
   }
 
-  .markdown-body pre {
+  .markdown-body pre code {
     padding: 16px 18px;
   }
 
