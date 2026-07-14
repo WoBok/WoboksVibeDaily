@@ -203,3 +203,10 @@ Just trying to grasp things easier with AI.
 
 2026年7月8日 21点06分
 1. 主界面中左侧Timeline的对其方式进行修改，以现在的年份为参考，年份字体相对于上方标签栏中Timeline文字往有一个数字字符距离
+
+2026年7月14日 11点17分
+我现在有这样一个需求，我在我的电脑上将工程推送到Github之后，我的远程的服务器会自动下拉，我准备使用GitHub Actions + SSH的方式完成这个任务，我还有一个需求：
+当我下拉的工程中，如果只有notes和skill文件夹内的文件（这个文件夹最好是一个数组或者类似数组，我后续可以继续添加）发生了变化，则只拉取即可，如果notes以外的文件夹也更新了，那么我就需要运行sudo systemctl restart woboks-vibe-daily，以上是我的需求，审查这个文档中的操作是否合理，其中脚本设计是否合理，是否考虑全面
+https://github.com/WoBok/WoboksVibeDaily.git这是我的Git仓库地址（给你作为参考）
+我的工程放到了我的Linux服务器的/home/admin/WoboksVibeDaily中，deploy-woboks-vibe-daily.sh是否也可以放到这个文件夹？
+最后给我一份完整的操作手册，包含如何在我的服务器操作，以及如何在Github中操作，放到devdocs/manual中

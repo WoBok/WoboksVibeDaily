@@ -1,0 +1,176 @@
+name: Conditional test and deploy woboks-vibe-daily
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-woboks-vibe-daily
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check changes and run tests when needed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether tests are required
+        id: changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+
+          # 只有这些目录中的文件发生变化时，跳过 npm test。
+          # 后续可以继续向数组中添加仓库根目录下的相对目录名。
+          NO_TEST_DIRS=(
+            "notes"
+            "skills"
+            # "docs"
+          )
+
+          is_no_test_path() {
+            local file="$1"
+            local dir
+
+            for dir in "${NO_TEST_DIRS[@]}"; do
+              dir="${dir#/}"
+              dir="${dir%/}"
+
+              if [[ -n "$dir" && "$file" == "$dir/"* ]]; then
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
+          # 默认执行测试。只有能够可靠证明“全部变化都在免测试目录”时才跳过。
+          run_tests=true
+
+          if [[ "$EVENT_NAME" == "push" \
+            && -n "$BEFORE_SHA" \
+            && ! "$BEFORE_SHA" =~ ^0+$ ]]; then
+
+            # force-push 时，旧提交可能不在 checkout 得到的历史中；尝试单独获取。
+            if ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags origin "$BEFORE_SHA" || true
+            fi
+
+            if git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              changed_files=()
+              while IFS= read -r -d '' file; do
+                changed_files+=("$file")
+              done < <(
+                git diff --name-only --no-renames -z "$BEFORE_SHA" "$AFTER_SHA"
+              )
+
+              run_tests=false
+              printf 'Changed files:\n'
+
+              for file in "${changed_files[@]}"; do
+                printf '  - %s\n' "$file"
+
+                if ! is_no_test_path "$file"; then
+                  run_tests=true
+                  break
+                fi
+              done
+            else
+              echo "Cannot resolve the before commit; tests will run."
+            fi
+          else
+            echo "This is a manual run or the first branch push; tests will run."
+          fi
+
+          echo "run_tests=$run_tests" >> "$GITHUB_OUTPUT"
+
+          if [[ "$run_tests" == "true" ]]; then
+            echo "Tests are required."
+          else
+            echo "All changes are inside NO_TEST_DIRS; npm test will be skipped."
+          fi
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.run_tests == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Run tests
+        if: steps.changes.outputs.run_tests == 'true'
+        run: npm test
+
+  deploy:
+    name: Deploy to production server
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          : "${DEPLOY_SSH_KEY:?DEPLOY_SSH_KEY is not configured}"
+          : "${DEPLOY_KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS is not configured}"
+
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' \
+            > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' \
+            > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Run deployment
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          TARGET_COMMIT: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          : "${DEPLOY_HOST:?DEPLOY_HOST is not configured}"
+          : "${DEPLOY_USER:?DEPLOY_USER is not configured}"
+          : "${TARGET_COMMIT:?github.sha is empty}"
+
+          if [[ ! "$TARGET_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid target commit: $TARGET_COMMIT" >&2
+            exit 1
+          fi
+
+          port="${DEPLOY_PORT:-22}"
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$port" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=2 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "deploy $TARGET_COMMIT"
