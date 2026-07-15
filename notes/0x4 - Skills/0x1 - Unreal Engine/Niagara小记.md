@@ -45,3 +45,11 @@ Random Range Float
 ```
 
 例如，4×4 图集共有 16 张图，范围设置为 `0～15`。
+
+## 用自定义参数实现 Sprite Size 宽高联动
+1. 在 **Particle Spawn** 阶段,在 Initialize Particle **之前**加一个 **Set new or existing parameter directly**(Set Parameter)模块。
+2. 新建一个 Particle 属性,比如 `Particles.SizeWidth`(类型 Float)。
+3. 给 `Particles.SizeWidth` 的值用 Dynamic Input → **Random Range Float**,Min = 10,Max = 20。
+4. 回到 Initialize Particle 的 Sprite Size(Non-Uniform 模式,或用 Make Vector 2D):
+   - **X**:下拉选择 **Link Inputs → Particles → SizeWidth**
+   - **Y**:下拉选择 **Dynamic Inputs → Multiply Float**,第一个输入 Link 到 `Particles.SizeWidth`,第二个输入填 2.0
