@@ -224,7 +224,7 @@ GltfAsset
 #### 3. 设置组件：
 
 ```text
-Url：GLTF_Test/GLTF_Test/GLTF_Test01.gltf
+Url：GLTF_Test/GLTF_Test01.gltf
 Streaming Asset：开启
 Load On Startup：开启
 Play Automatically：开启
