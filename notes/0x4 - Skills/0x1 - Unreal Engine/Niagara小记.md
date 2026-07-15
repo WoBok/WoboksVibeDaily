@@ -12,7 +12,7 @@ tags:
 
 ## Niagara 随机选择 Sub UV 图案
 1. 在 **Sprite Renderer → Sub UV** 中，将 **Sub Image Size** 设置为图集的行列数。  
-例如：4×4 图集设置为 `4, 4`。
+  - 例如：4×4 图集设置为 `4, 4`。
 2. 确认 **Sub Image Index Binding** 绑定为：
 
 ```latex
@@ -37,14 +37,14 @@ Particles.SubImageIndex
 Random Range Float
 ```
 
-随机范围设置为：
+  - 随机范围设置为：
 
 ```latex
 最小值：0
 最大值：图案总数 - 1
 ```
 
-例如，4×4 图集共有 16 张图，范围设置为 `0～15`。
+  - 例如，4×4 图集共有 16 张图，范围设置为 `0～15`。
 
 ## 用自定义参数实现 Sprite Size 宽高联动
 1. 在 **Particle Spawn** 阶段,在 Initialize Particle **之前**加一个 **Set new or existing parameter directly**(Set Parameter)模块。
