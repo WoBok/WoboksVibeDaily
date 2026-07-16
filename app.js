@@ -18,6 +18,8 @@
     listScrollByRoute: new Map(),
     listScrollLockKey: '',
     listScrollSaveFrame: 0,
+    articleScrollTrackingPath: '',
+    articleScrollSaveTimer: 0,
     route: { type: 'latest' },
     renderId: 0,
     scrollIntentRenderId: 0,
@@ -30,6 +32,9 @@
   const TIMELINE_YEAR_GAP_SLOTS = 13;
   const LATEST_PAGE_SIZE = 30;
   const LIST_CACHE_LIMIT = 30;
+  const ARTICLE_SCROLL_STORAGE_KEY = 'wvd:article-scroll:v1';
+  const ARTICLE_SCROLL_LIMIT = 100;
+  const ARTICLE_SCROLL_SAVE_DELAY = 120;
   const CARD_ANIMATION_DELAY_CAP = 12;
   let mathJaxPromise = null;
   let listObserver = null;
@@ -414,6 +419,97 @@
     map.delete(key);
     map.set(key, value);
     if (map.size > LIST_CACHE_LIMIT) map.delete(map.keys().next().value);
+  }
+
+  function readArticleScrollStore() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(ARTICLE_SCROLL_STORAGE_KEY) || '{}');
+      return Array.isArray(parsed.positions) ? parsed.positions : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function articleScrollTarget(path) {
+    const articlePath = normalizePath(path);
+    const entry = readArticleScrollStore().find(item => normalizePath(item?.path) === articlePath);
+    if (!entry) return null;
+
+    return {
+      left: Math.max(0, Number(entry.left) || 0),
+      top: Math.max(0, Number(entry.top) || 0)
+    };
+  }
+
+  function saveArticleScroll(path = state.currentArticle) {
+    const articlePath = normalizePath(path);
+    if (!articlePath || state.articleScrollTrackingPath !== articlePath) return;
+
+    const position = pageScrollPosition();
+    const positions = readArticleScrollStore()
+      .filter(item => normalizePath(item?.path) !== articlePath)
+      .slice(-(ARTICLE_SCROLL_LIMIT - 1));
+
+    positions.push({
+      path: articlePath,
+      left: Math.max(0, position.left || 0),
+      top: Math.max(0, position.top || 0),
+      updatedAt: Date.now()
+    });
+
+    try {
+      localStorage.setItem(ARTICLE_SCROLL_STORAGE_KEY, JSON.stringify({ positions }));
+    } catch {
+      // Reading should keep working even when storage is unavailable or full.
+    }
+  }
+
+  function scheduleArticleScrollSave() {
+    if (
+      state.route.type !== 'article'
+      || state.articleScrollTrackingPath !== normalizePath(state.currentArticle)
+    ) return;
+
+    if (state.articleScrollSaveTimer) window.clearTimeout(state.articleScrollSaveTimer);
+    state.articleScrollSaveTimer = window.setTimeout(() => {
+      state.articleScrollSaveTimer = 0;
+      saveArticleScroll();
+    }, ARTICLE_SCROLL_SAVE_DELAY);
+  }
+
+  function flushArticleScrollSave() {
+    if (state.articleScrollSaveTimer) {
+      window.clearTimeout(state.articleScrollSaveTimer);
+      state.articleScrollSaveTimer = 0;
+    }
+    saveArticleScroll();
+  }
+
+  function restoreArticleScroll(renderId, path) {
+    const articlePath = normalizePath(path);
+    if (!isActiveRender(renderId) || state.currentArticle !== articlePath) return;
+
+    const target = articleScrollTarget(articlePath);
+    if (target && !hasScrollIntent(renderId)) {
+      withInstantPageScroll(scrollRoot => {
+        scrollRoot.scrollLeft = target.left;
+        scrollRoot.scrollTop = target.top;
+        document.body.scrollLeft = target.left;
+        document.body.scrollTop = target.top;
+        window.scrollTo(target.left, target.top);
+      });
+    }
+
+    state.articleScrollTrackingPath = articlePath;
+    if (hasScrollIntent(renderId)) scheduleArticleScrollSave();
+  }
+
+  function scheduleArticleScrollRestore(renderId, path, readyPromise) {
+    const restore = () => restoreArticleScroll(renderId, path);
+    window.requestAnimationFrame(restore);
+    window.setTimeout(restore, 180);
+    window.setTimeout(restore, 650);
+    Promise.resolve(readyPromise).then(restore).catch(() => {});
   }
 
   function saveListScroll(route = state.route) {
@@ -1916,6 +2012,7 @@
   async function renderArticle(path, renderId) {
     setViewMode('article');
     const articlePath = normalizePath(path);
+    state.articleScrollTrackingPath = '';
     state.currentArticle = articlePath;
     if (state.lastListRoute.type !== 'timeline') state.activeTimelineMonth = '';
     renderArticleLoadingShell();
@@ -2002,6 +2099,7 @@
       }
     });
     revealArticleWhenReady(renderId, view, mathReady);
+    scheduleArticleScrollRestore(renderId, article.path, mathReady);
   }
 
   function resizeHtmlFrame(frame, options = {}) {
@@ -2124,6 +2222,12 @@
         const doc = frame.contentDocument;
         if (!doc) return;
 
+        // An iframe emits an initial about:blank load before srcdoc/src is ready.
+        // Treating that empty document as ready would restore against a one-screen
+        // frame and then overwrite the saved article position with zero.
+        const frameHref = frame.contentWindow?.location?.href || '';
+        if (frameHref === 'about:blank') return;
+
         bindHtmlAnchorNavigation(frame, doc, options.articleUrl, controller.signal);
         bridgeHtmlFixedElements(frame, doc, controller.signal);
 
@@ -2190,6 +2294,7 @@
       articleUrl: url,
       onReady() {
         revealArticleView(renderId, view);
+        restoreArticleScroll(renderId, article.path);
       }
     });
     frame.addEventListener('load', () => {
@@ -2221,12 +2326,14 @@
     try {
       const html = await fetchText(url);
       if (!isActiveRender(renderId) || state.currentArticle !== normalizePath(article.path)) return false;
+      state.articleScrollTrackingPath = '';
       scrollPageToTop(renderId);
       frame.srcdoc = buildHtmlSrcdoc(html, article);
       return true;
     } catch (error) {
       if (!isActiveRender(renderId) || state.currentArticle !== normalizePath(article.path)) return false;
       console.warn('[html] srcdoc load failed, falling back to iframe src:', error);
+      state.articleScrollTrackingPath = '';
       scrollPageToTop(renderId);
       frame.src = url;
       return true;
@@ -2250,6 +2357,9 @@
     const nextRoute = parseHash();
     const previousListKey = isListRoute(previousRoute) ? listRouteKey(previousRoute) : '';
     const isLeavingListForArticle = previousListKey && nextRoute.type === 'article';
+    if (previousRoute?.type === 'article') {
+      flushArticleScrollSave();
+    }
     if (previousListKey && !isLeavingListForArticle && state.listScrollLockKey !== previousListKey) {
       saveListScroll(previousRoute);
     }
@@ -2284,6 +2394,14 @@
     document.addEventListener('pointerdown', captureListScrollBeforeArticleNavigation, { capture: true });
     window.addEventListener('wheel', markScrollIntent, { passive: true });
     window.addEventListener('touchmove', markScrollIntent, { passive: true });
+    window.addEventListener('scroll', scheduleArticleScrollSave, { passive: true });
+    window.addEventListener('pagehide', flushArticleScrollSave);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushArticleScrollSave();
+    });
+    document.addEventListener('pointerdown', () => {
+      if (state.route.type === 'article') markScrollIntent();
+    }, { capture: true });
     window.addEventListener('keydown', event => {
       if (isScrollKey(event.key)) markScrollIntent();
     });
