@@ -1018,6 +1018,38 @@ body.is-article-mode .content {
   display: none;
 }
 
+.mermaid-diagram {
+  margin: 1.8em 0 2em;
+  padding: clamp(18px, 4vw, 28px);
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
+  color: var(--forest);
+  text-align: center;
+  scrollbar-width: thin;
+}
+
+.mermaid-diagram .mermaid {
+  width: max-content;
+  min-width: 100%;
+  margin: 0 auto;
+}
+
+.mermaid-diagram svg {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+}
+
+.mermaid-diagram text,
+.mermaid-diagram .label,
+.mermaid-diagram .nodeLabel,
+.mermaid-diagram .edgeLabel {
+  font-family: "Newsreader", "Source Han Serif SC", "Songti SC", Georgia, serif !important;
+}
+
 .markdown-body hr {
   width: 60%;
   height: 1px;

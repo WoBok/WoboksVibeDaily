@@ -27,6 +27,7 @@
   };
 
   const MATHJAX_SRC = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+  const MERMAID_SRC = 'https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs';
   const TIMELINE_MONTH_STEP = 24;
   // 年份标记占位的月格数：12 个月 + 1 格年标记间距。
   const TIMELINE_YEAR_GAP_SLOTS = 13;
@@ -37,6 +38,7 @@
   const ARTICLE_SCROLL_SAVE_DELAY = 120;
   const CARD_ANIMATION_DELAY_CAP = 12;
   let mathJaxPromise = null;
+  let mermaidPromise = null;
   let listObserver = null;
 
   const els = {
@@ -1654,6 +1656,123 @@
     }
   }
 
+  function findMermaidBlocks(root) {
+    return $$('pre > code.language-mermaid', root);
+  }
+
+  function ensureMermaid() {
+    if (!mermaidPromise) {
+      mermaidPromise = import(MERMAID_SRC).then(module => {
+        const mermaid = module.default;
+        const styles = getComputedStyle(document.documentElement);
+        const color = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+        const ivory = color('--ivory', '#F9F8F4');
+        const ivoryWarm = color('--ivory-warm', '#F3EFE6');
+        const paper = color('--paper', '#FCFAF4');
+        const forest = color('--forest', '#2D3A31');
+        const moss = color('--moss', '#4F5E4A');
+        const sage = color('--sage', '#8C9A84');
+        const sageLight = color('--sage-light', '#C8D1BF');
+        const sageActive = color('--sage-active', '#DDE9D2');
+        const clay = color('--clay', '#C27B66');
+        const clayDeep = color('--clay-deep', '#A65D4B');
+        const ink = color('--ink', '#1F2620');
+        const inkSoft = color('--ink-soft', '#4A534B');
+
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: 'strict',
+          suppressErrorRendering: true,
+          theme: 'base',
+          fontFamily: '"Newsreader", "Source Han Serif SC", "Songti SC", Georgia, serif',
+          themeVariables: {
+            background: ivory,
+            primaryColor: ivoryWarm,
+            primaryTextColor: ink,
+            primaryBorderColor: moss,
+            secondaryColor: sageActive,
+            secondaryTextColor: forest,
+            secondaryBorderColor: sage,
+            tertiaryColor: paper,
+            tertiaryTextColor: inkSoft,
+            tertiaryBorderColor: sageLight,
+            lineColor: moss,
+            textColor: ink,
+            mainBkg: ivoryWarm,
+            nodeBorder: moss,
+            clusterBkg: paper,
+            clusterBorder: sageLight,
+            titleColor: forest,
+            edgeLabelBackground: ivory,
+            actorBkg: ivoryWarm,
+            actorBorder: moss,
+            actorTextColor: ink,
+            actorLineColor: sage,
+            signalColor: forest,
+            signalTextColor: ink,
+            labelBoxBkgColor: paper,
+            labelBoxBorderColor: sage,
+            labelTextColor: ink,
+            loopTextColor: inkSoft,
+            noteBkgColor: sageActive,
+            noteBorderColor: sage,
+            noteTextColor: ink,
+            activationBkgColor: sageLight,
+            activationBorderColor: moss,
+            sectionBkgColor: ivoryWarm,
+            altSectionBkgColor: paper,
+            gridColor: sageLight,
+            todayLineColor: clay,
+            taskBkgColor: sageActive,
+            taskBorderColor: moss,
+            taskTextColor: ink,
+            taskTextOutsideColor: inkSoft,
+            critBkgColor: clay,
+            critBorderColor: clayDeep,
+            doneTaskBkgColor: sageLight,
+            doneTaskBorderColor: sage,
+            activeTaskBkgColor: ivoryWarm,
+            activeTaskBorderColor: moss
+          }
+        });
+        return mermaid;
+      });
+    }
+
+    return mermaidPromise;
+  }
+
+  async function typesetMermaid(root) {
+    const blocks = findMermaidBlocks(root);
+    if (!blocks.length) return;
+
+    try {
+      const mermaid = await ensureMermaid();
+
+      for (const code of blocks) {
+        const sourceBlock = code.parentElement;
+        if (!sourceBlock?.isConnected || !root.contains(sourceBlock)) continue;
+
+        const figure = document.createElement('figure');
+        figure.className = 'mermaid-diagram';
+        const diagram = document.createElement('div');
+        diagram.className = 'mermaid';
+        diagram.textContent = code.textContent || '';
+        figure.appendChild(diagram);
+        sourceBlock.replaceWith(figure);
+
+        try {
+          await mermaid.run({ nodes: [diagram] });
+        } catch (error) {
+          figure.replaceWith(sourceBlock);
+          console.warn('[mermaid] Diagram rendering failed:', error);
+        }
+      }
+    } catch (error) {
+      console.warn('[mermaid] Mermaid failed to load:', error);
+    }
+  }
+
   function enableMarkdownHorizontalWheel(root) {
     root?.addEventListener('wheel', event => {
       if (event.ctrlKey || event.metaKey || event.deltaY === 0) return;
@@ -2087,7 +2206,8 @@
     const body = $('#articleBody');
     prepareMarkdownImages(body);
     enableMarkdownHorizontalWheel(body);
-    const mathReady = typesetMath(body);
+    // MathJax 先处理正文；Mermaid 源码仍在 code/pre 中，因此不会被误识别为公式。
+    const contentReady = typesetMath(body).then(() => typesetMermaid(body));
     const outline = prepareHeadings(body);
     const refs = prepareReferences(body, window.location.href, 'markdown');
     mountRails(outline, refs, {
@@ -2098,8 +2218,8 @@
         if (item?.href) window.open(item.href, '_blank', 'noopener,noreferrer');
       }
     });
-    revealArticleWhenReady(renderId, view, mathReady);
-    scheduleArticleScrollRestore(renderId, article.path, mathReady);
+    revealArticleWhenReady(renderId, view, contentReady);
+    scheduleArticleScrollRestore(renderId, article.path, contentReady);
   }
 
   function resizeHtmlFrame(frame, options = {}) {
