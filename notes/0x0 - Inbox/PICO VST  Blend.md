@@ -294,7 +294,7 @@ case BLEND_Translucent:
 
 | 方法 | 设置 |
 |---|---|
-| Clip Mode + Sqrt 补偿 | `r.Mobile.PICO.BlendModeSetting 1`；材质 Opacity 使用 $$A_{\mathrm{Material}}=\sqrt{A_{\mathrm{Target}}}$$ |
+| Clip Mode + Sqrt 补偿 | `r.Mobile.PICO.BlendModeSetting 1`；材质 Opacity 使用 $A_{\mathrm{Material}}=\sqrt{A_{\mathrm{Target}}}$ |
 | Additive Mode | `r.Mobile.PICO.BlendModeSetting 2`；材质继续使用目标 Opacity |
 
 ## 5. 说明
