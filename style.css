@@ -963,7 +963,7 @@ body.is-article-mode .content {
   max-height: 256px;
   width: auto;
   height: auto;
-  margin: 22px 0;
+  margin: 22px auto;
   border-radius: var(--radius-md);
   cursor: zoom-in;
   object-fit: contain;
@@ -983,6 +983,10 @@ body.is-article-mode .content {
   border-left: 3px solid var(--sage);
   color: var(--ink-soft);
   font-style: italic;
+}
+
+.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 .markdown-body code {
@@ -1060,9 +1064,14 @@ body.is-article-mode .content {
 
 .markdown-body .table-wrap {
   overflow-x: auto;
+  overflow-y: hidden;
   margin: 0 0 0.9em;
-  scrollbar-width: thin;
-  scrollbar-color: var(--sage-light) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.markdown-body .table-wrap::-webkit-scrollbar {
+  display: none;
 }
 
 .markdown-body table {
@@ -1119,12 +1128,13 @@ body.is-article-mode .content {
 
 .markdown-body mjx-container[jax="SVG"] {
   color: var(--forest);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .markdown-body mjx-container[jax="SVG"] path {
   stroke: currentColor;
-  stroke-width: 6;
+  stroke-width: 10;
+  stroke-linejoin: round;
   paint-order: stroke fill;
 }
 

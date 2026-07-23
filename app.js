@@ -1257,6 +1257,11 @@
     // `\$` 表示字面美元符；包一层 span 避免被 MathJax 与其他 `$` 配对。
     let html = String(value || '').replace(/\\\$/g, () => stash('<span>$</span>'));
 
+    // 先处理 `$$...$$`，避免后续的单 `$` 匹配拆坏双美元公式。
+    // 行内上下文（例如表格单元格）统一交给 MathJax 按行内公式排版。
+    html = html.replace(/\$\$([^$\n]+?)\$\$/g, (_match, body) =>
+      stash(`<span class="math-inline">$${escapeHtml(body)}$</span>`));
+
     html = html.replace(/\$([^$\n]+?)\$/g, (_match, body) =>
       stash(`<span class="math-inline">$${escapeHtml(body)}$</span>`));
 
@@ -1558,7 +1563,9 @@
         if (buffer.length) paragraphs.push(buffer);
 
         html.push(`<blockquote>${paragraphs
-          .map(part => `<p>${renderInlineMarkdown(joinParagraphLines(part), context)}</p>`)
+          .map(part => `<p>${part
+            .map(quoteLine => renderInlineMarkdown(quoteLine.trimEnd(), context))
+            .join('<br>')}</p>`)
           .join('')}</blockquote>`);
         continue;
       }
