@@ -28,6 +28,22 @@
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
+  /* 页面、消息区与代码块共用同一套深色滚动条 */
+  *{
+    scrollbar-width:thin;
+    scrollbar-color:#3a4b60 #0b1119;
+  }
+  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar-track{background:#0b1119}
+  *::-webkit-scrollbar-thumb{
+    min-width:36px;min-height:36px;
+    background:#3a4b60;
+    border:2px solid #0b1119;
+    border-radius:999px;
+  }
+  *::-webkit-scrollbar-thumb:hover{background:#536a86}
+  *::-webkit-scrollbar-thumb:active{background:#5aa9ff}
+  *::-webkit-scrollbar-corner{background:#0b1119}
   body{
     margin:0;background:var(--bg);color:var(--text);
     font-family:var(--sans);line-height:1.7;
@@ -128,54 +144,76 @@
   .prim.open .method{max-height:80px;opacity:1;padding-top:10px;border-top-color:var(--border-soft)}
   .prim .method b{color:var(--client)}
 
-  /* ---------- 消息流演示 ---------- */
-  .flow{display:grid;grid-template-columns:1fr;gap:18px}
-  .flow-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-  .flow-actors{display:flex;gap:0;align-items:center;font-family:var(--mono);font-size:13px}
-  .flow-actors .a{padding:5px 12px;border-radius:6px;border:1px solid var(--border)}
-  .flow-actors .a.cl{color:var(--client);border-color:rgba(90,169,255,.4)}
-  .flow-actors .a.sv{color:var(--server);border-color:rgba(61,220,151,.4)}
-  .flow-actors .link{width:34px;height:1px;background:var(--border);position:relative}
-  .flow-ctrl{display:flex;gap:10px;align-items:center}
-  .flow-ctrl button{font-family:var(--mono);font-size:13px;padding:8px 15px;border-radius:7px;
-    border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:.15s}
-  .flow-ctrl button:hover:not(:disabled){border-color:var(--client);color:var(--client)}
-  .flow-ctrl button:disabled{opacity:.35;cursor:not-allowed}
-  .flow-ctrl .step{font-family:var(--mono);font-size:12px;color:var(--faint);min-width:74px;text-align:center}
-
-  .terminal{background:#070b11;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-  .term-bar{display:flex;align-items:center;gap:7px;padding:11px 15px;background:var(--panel);
+  /* ---------- 会话模拟器 ---------- */
+  .sim{background:#070b11;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .sim-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:11px 16px;background:var(--panel);border-bottom:1px solid var(--border-soft)}
+  .sim-bar .st{font-family:var(--mono);font-size:12.5px;color:var(--dim);display:flex;align-items:center;gap:9px}
+  .sim-bar .st .live{width:8px;height:8px;border-radius:50%;background:var(--server);
+    box-shadow:0 0 0 3px rgba(61,220,151,.14)}
+  .sim-bar .status{font-family:var(--mono);font-size:11.5px;color:var(--faint);text-align:right}
+  .sim-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px 18px 0}
+  .sim-colhead{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;padding-bottom:7px;
     border-bottom:1px solid var(--border-soft)}
-  .term-bar i{width:11px;height:11px;border-radius:50%;background:#2a3542;display:inline-block}
-  .term-bar span{font-family:var(--mono);font-size:12px;color:var(--faint);margin-left:8px}
-  .term-body{padding:18px;min-height:300px;max-height:430px;overflow-y:auto}
-  .msg{margin-bottom:14px;opacity:0;transform:translateY(8px);animation:rise .3s forwards}
+  .sim-colhead.cl{color:var(--client)}
+  .sim-colhead.sv{color:var(--server);text-align:right}
+  .sim-body{
+    position:relative;padding:12px 18px;min-height:210px;max-height:460px;
+    overflow-y:auto;scrollbar-gutter:stable;
+    scrollbar-color:#43617e #080d13;
+  }
+  .sim-body::-webkit-scrollbar-track{background:#080d13}
+  .sim-body::-webkit-scrollbar-thumb{
+    background:linear-gradient(180deg,#416a8f,#2f5d51);
+    border-color:#080d13;
+  }
+  .sim-body::-webkit-scrollbar-thumb:hover{
+    background:linear-gradient(180deg,var(--client),var(--server));
+  }
+  .stage-messages{scroll-margin-top:12px}
+  /* 同一次交换的请求与返回并列一行、等高 */
+  .msg-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch;margin-bottom:8px}
+  .msg-cell{min-width:0;display:flex}
+  .bubble{width:100%;opacity:0;transform:translateY(6px);animation:rise .3s forwards;
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;padding:10px 12px}
   @keyframes rise{to{opacity:1;transform:none}}
-  .msg-head{display:flex;align-items:center;gap:9px;margin-bottom:6px;font-family:var(--mono);font-size:12px}
-  .arrow{font-weight:700}
-  .msg.cl .arrow{color:var(--client)} .msg.sv .arrow{color:var(--server)}
-  .msg .who{color:var(--dim)}
-  .msg .lbl{margin-left:auto;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--border);color:var(--faint)}
-  .msg.cl .lbl{color:var(--client);border-color:rgba(90,169,255,.35)}
-  .msg.sv .lbl{color:var(--server);border-color:rgba(61,220,151,.35)}
-  .msg.note{padding-left:0}
-  .msg.note .bubble{border-style:dashed;color:var(--dim)}
-  pre.json{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.55;
-    background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;
-    padding:12px 14px;overflow-x:auto;white-space:pre}
-  .msg.cl pre.json{border-left:2px solid var(--client)}
-  .msg.sv pre.json{border-left:2px solid var(--server)}
+  .msg-cell.cl .bubble{border-left:2px solid var(--client)}
+  .msg-cell.sv .bubble{border-right:2px solid var(--server)}
+  .b-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-family:var(--mono);font-size:12px}
+  .msg-cell.cl .b-head{color:var(--client)}
+  .msg-cell.sv .b-head{color:var(--server);flex-direction:row-reverse}
+  .b-head .arr{font-weight:700}
+  .b-head .lbl{color:var(--dim);font-size:11.5px}
+  pre.json{margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;
+    background:#0a0f16;border:1px solid var(--border-soft);border-radius:6px;
+    padding:9px 11px;overflow-x:auto;white-space:pre;scrollbar-gutter:stable}
   .jk{color:#7fb4ff}      /* key */
   .js{color:#8fd6a8}      /* string */
   .jn{color:#ffb454}      /* number */
   .jb{color:#ff8f8f}      /* bool/null */
   .jp{color:var(--faint)} /* punctuation */
+  .sim-empty{color:#5c6675;font-family:var(--mono);font-size:13px;text-align:center;padding:72px 12px}
 
-  .explain{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--client);
-    border-radius:8px;padding:15px 18px;font-size:14.5px;color:var(--dim);min-height:1px}
+  .sim-stages{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px;
+    background:var(--panel);border-top:1px solid var(--border-soft)}
+  .stage-btn{font-family:var(--mono);font-size:13px;padding:9px 15px;border-radius:7px;
+    border:1px solid var(--border);background:var(--surface);color:var(--dim);cursor:pointer;transition:.15s}
+  .stage-btn:disabled{opacity:.4;cursor:not-allowed}
+  .stage-btn.done{opacity:.9;color:var(--server);border-color:rgba(61,220,151,.45)}
+  .stage-btn.done::before{content:"✓ "}
+  .stage-btn.active{opacity:1;color:#07110b;background:var(--server);border-color:var(--server);
+    font-weight:600;box-shadow:0 0 0 3px rgba(61,220,151,.14);cursor:pointer}
+  .stage-btn.active:hover{color:#07110b}
+  .stage-btn.reset{margin-left:auto;background:transparent;color:var(--faint)}
+  .stage-btn.reset:not(:disabled):hover{color:var(--client);border-color:var(--client)}
+
+  .explain{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--server);
+    border-radius:8px;padding:15px 18px;font-size:14.5px;color:var(--dim);min-height:1px;margin-top:16px}
   .explain b{color:var(--text)}
+  .explain code{font-family:var(--mono);font-size:12.5px;background:var(--surface);
+    padding:1px 5px;border-radius:4px;color:var(--text)}
   .explain .ph{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--client);display:block;margin-bottom:6px}
+    color:var(--server);display:block;margin-bottom:6px}
 
   /* ---------- 速记表 ---------- */
   .cheat{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
@@ -193,7 +231,9 @@
     .roles,.prims{grid-template-columns:1fr}
     .cheat{grid-template-columns:1fr}
     .layer{grid-template-columns:1fr;gap:6px}
-    .flow-head{flex-direction:column;align-items:flex-start}
+    .sim-cols{display:none}
+    .srow{grid-template-columns:1fr}
+    .srow.cl .bubble,.srow.sv .bubble{grid-column:1}
   }
 </style>
 </head>
@@ -286,7 +326,7 @@
   <div class="wrap">
     <div class="snum">04 / 核心：原语 Primitives</div>
     <h2>双方能相互提供的六种能力</h2>
-    <p class="sub">原语是 MCP 里最重要的概念——它规定了双方能给对方什么。<b>Server 提供三种</b>（把能力交给 AI），<b>Client 也提供三种</b>（让 Server 反过来借用 AI 和用户）。点卡片看对应的方法名。</p>
+    <p class="sub">原语是 MCP 里最重要的概念——它规定了双方能给对方什么。<b>Server 提供三种</b>（把能力交给 AI），<b>Client 也提供三种</b>（反过来供 Server 借用模型、征询用户、并划定文件范围）。点卡片看对应的方法名。</p>
     <div class="prim-legend">
       <span><i class="dot s"></i>Server 提供 → 供 AI 使用</span>
       <span><i class="dot c"></i>Client 提供 → 供 Server 回借</span>
@@ -301,29 +341,28 @@
   <div class="wrap">
     <div class="snum">05 / 一次真实对话长什么样</div>
     <h2>四步走通：握手 → 发现 → 调用 → 更新</h2>
-    <p class="sub">下面是 Client 与 Server 之间真实的 JSON-RPC 消息（已精简）。点"下一条"逐条推进，右侧会解释每一步在做什么。看完这段，你就理解了 MCP 运转的全部骨架。</p>
-    <div class="flow">
-      <div class="flow-head">
-        <div class="flow-actors">
-          <span class="a cl">Client</span>
-          <span class="link"></span>
-          <span class="a sv">Server</span>
-        </div>
-        <div class="flow-ctrl">
-          <button id="prevBtn">← 上一条</button>
-          <span class="step" id="stepInd">0 / 8</span>
-          <button id="nextBtn">下一条 →</button>
-          <button id="resetBtn">重置</button>
-        </div>
+    <p class="sub">下面是 Client 与 Server 之间真实的 JSON-RPC 消息（已精简）。点下方的 <b>1 – 4</b> 逐个阶段查看：<b>客户端消息在左、服务器消息在右</b>，下方会解释这个阶段在做什么。走完这四步，你就理解了 MCP 运转的全部骨架。</p>
+    <div class="sim">
+      <div class="sim-bar">
+        <span class="st"><span class="live"></span>MCP 会话模拟器</span>
+        <span class="status" id="simStatus">就绪 · 从第 1 步开始</span>
       </div>
-      <div class="terminal">
-        <div class="term-bar"><i></i><i></i><i></i><span>mcp-session · jsonrpc-2.0</span></div>
-        <div class="term-body" id="termBody"></div>
+      <div class="sim-cols">
+        <div class="sim-colhead cl">◀ MCP CLIENT · AI 应用</div>
+        <div class="sim-colhead sv">MCP SERVER · 提供能力 ▶</div>
       </div>
-      <div class="explain" id="flowExplain">
-        <span class="ph">点击「下一条 →」开始</span>
-        整个连接从一次握手开始，之后 Client 先"问有哪些工具"，再"调用工具"，Server 还能主动推送变更通知。
+      <div class="sim-body" id="simBody"></div>
+      <div class="sim-stages">
+        <button class="stage-btn active" data-stage="1">1 · 初始化握手</button>
+        <button class="stage-btn" data-stage="2" disabled>2 · 列出工具</button>
+        <button class="stage-btn" data-stage="3" disabled>3 · 调用天气工具</button>
+        <button class="stage-btn" data-stage="4" disabled>4 · 工具变更通知</button>
+        <button class="stage-btn reset" id="simReset">重置</button>
       </div>
+    </div>
+    <div class="explain" id="simExplain">
+      <span class="ph">点击 1–4 开始</span>
+      整个连接从一次握手开始，之后 Client 先"问有哪些工具"，再"调用工具"，最后 Server 还能主动推送变更通知。点上面任意阶段，这里会解释它在做什么。
     </div>
   </div>
 </section>
@@ -360,7 +399,7 @@
         <h4>// 六个原语</h4>
         <ul>
           <li>Server：<b>Tools</b>(做事) · <b>Resources</b>(给数据) · <b>Prompts</b>(给模板)</li>
-          <li>Client：<b>Sampling</b>(借模型) · <b>Elicitation</b>(问用户) · <b>Logging</b>(记日志)</li>
+          <li>Client：<b>Sampling</b>(借模型) · <b>Elicitation</b>(问用户) · <b>Roots</b>(划范围)</li>
         </ul>
       </div>
     </div>
@@ -472,7 +511,7 @@ const prims=[
   {side:'server',n:'Prompts',zh:'提示',d:'可复用的<b style="color:#d6dde7">交互模板</b>：系统提示、少样本示例，帮你规范和模型的对话。',m:'发现 <b>prompts/list</b> · 获取 <b>prompts/get</b>'},
   {side:'client',n:'Sampling',zh:'采样',d:'Server 反过来<b style="color:#d6dde7">请求 Host 的大模型</b>生成内容。让 Server 用上模型，又不必自带模型 SDK、保持模型无关。',m:'请求 <b>sampling/createMessage</b>'},
   {side:'client',n:'Elicitation',zh:'征询',d:'Server <b style="color:#d6dde7">向用户追加提问</b>或请求确认（比如"确定要删除吗？"）。',m:'请求 <b>elicitation/create</b>'},
-  {side:'client',n:'Logging',zh:'日志',d:'Server 向 Client <b style="color:#d6dde7">发送日志</b>，用于调试与监控。',m:'发送日志消息'}
+  {side:'client',n:'Roots',zh:'根目录',d:'Client <b style="color:#d6dde7">划定文件系统范围</b>，用 file:// 路径告诉 Server 该聚焦哪些目录。是协调约定（Server 应当遵守），并非强制的安全边界。',m:'列出 <b>roots/list</b> · 变更 <b>roots/list_changed</b>'}
 ];
 const pc=document.getElementById('prims');
 pc.innerHTML=prims.map((p,i)=>`
@@ -498,74 +537,119 @@ function hl(obj){
   j=j.replace(/([{}\[\],])/g,'<span class="jp">$1</span>');
   return j;
 }
-const steps=[
-  { from:'cl', ph:'第 1 步 · 初始化', lbl:'initialize',
-    exp:'<b>建立连接的第一句话。</b>Client 发起握手，报上自己支持的能力（这里声明支持 elicitation）和协议版本，请求开始会话。',
-    json:{jsonrpc:"2.0",id:1,method:"initialize",params:{protocolVersion:"2025-06-18",capabilities:{elicitation:{}},clientInfo:{name:"example-client",version:"1.0.0"}}}},
-  { from:'sv', ph:'第 1 步 · 初始化', lbl:'response',
-    exp:'<b>Server 回应并"亮牌"。</b>它声明自己支持 tools（且工具列表变化时会发通知）和 resources。双方由此<b>协商出彼此都支持的能力</b>——这是 MCP 有状态、需要生命周期管理的原因。',
-    json:{jsonrpc:"2.0",id:1,result:{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:true},resources:{}},serverInfo:{name:"example-server",version:"1.0.0"}}}},
-  { from:'cl', ph:'第 1 步 · 初始化', lbl:'notification',
-    exp:'<b>握手收尾。</b>Client 发一条通知表示"我准备好了"。注意它<b>没有 id</b>——这是 JSON-RPC 的通知，只管发、不等回复。',
-    json:{jsonrpc:"2.0",method:"notifications/initialized"}},
-  { from:'cl', ph:'第 2 步 · 发现工具', lbl:'tools/list',
-    exp:'<b>问："你有哪些工具？"</b>调用前先发现。请求本身很简单，不带参数。这种 <code>*/list</code> 机制让工具列表可以是<b>动态</b>的。',
-    json:{jsonrpc:"2.0",id:2,method:"tools/list"}},
-  { from:'sv', ph:'第 2 步 · 发现工具', lbl:'tools 数组',
-    exp:'<b>Server 交出工具清单。</b>每个工具都有唯一 <b>name</b>、给人看的 <b>title</b>、说明 <b>description</b>，以及最关键的 <b>inputSchema</b>——用 JSON Schema 规定该传什么参数。AI 正是靠这些元数据知道"有什么、怎么调"。',
-    json:{jsonrpc:"2.0",id:2,result:{tools:[{name:"weather_current",title:"天气查询",description:"获取任意地点的当前天气",inputSchema:{type:"object",properties:{location:{type:"string"},units:{type:"string",enum:["metric","imperial"],default:"metric"}},required:["location"]}}]}}},
-  { from:'cl', ph:'第 3 步 · 调用工具', lbl:'tools/call',
-    exp:'<b>真正干活。</b>当模型决定用某个工具，Client 就发 <code>tools/call</code>：name 必须与清单里的完全一致，arguments 按 inputSchema 填。这里查旧金山、用英制单位。',
-    json:{jsonrpc:"2.0",id:3,method:"tools/call",params:{name:"weather_current",arguments:{location:"San Francisco",units:"imperial"}}}},
-  { from:'sv', ph:'第 3 步 · 调用工具', lbl:'result',
-    exp:'<b>Server 返回结果。</b>结果放在 <b>content 数组</b>里，可以是文本、图片、资源等多种类型。这段真实数据会被喂回模型，成为对话的上下文——AI 由此获得了"现实世界"的信息。',
-    json:{jsonrpc:"2.0",id:3,result:{content:[{type:"text",text:"旧金山当前天气：68°F，局部多云，西风 8 mph，湿度 65%"}]}}},
-  { from:'sv', ph:'第 4 步 · 实时更新', lbl:'notification',
-    exp:'<b>Server 主动推送变更。</b>当可用工具发生变化，它发一条通知（同样无 id）。Client 收到后会重新 <code>tools/list</code> 刷新。<b>无需轮询</b>，连接始终保持同步——这让 AI 能适应动态变化的能力集。',
-    json:{jsonrpc:"2.0",method:"notifications/tools/list_changed"}}
+// 每个阶段由若干"交换(row)"组成：一行里 cl=请求、sv=返回，并列且等高；只有一侧时另一侧留空
+const stages=[
+  { name:'初始化握手',
+    exp:'<b>建立连接的第一句话。</b>Client 发起 <code>initialize</code> 握手，报上自己支持的能力（这里声明支持 elicitation）和协议版本，请求开始会话；Server 回应并"亮牌"，声明它支持 tools（且工具列表变化时会发通知）和 resources。双方由此<b>协商出彼此都支持的能力</b>——这也是 MCP 有状态、需要生命周期管理的原因。最后 Client 再发一条 <code>notifications/initialized</code>（无 id，只发不等回复）表示准备就绪。',
+    rows:[
+      { cl:{lbl:'initialize 请求',json:{jsonrpc:"2.0",id:1,method:"initialize",params:{protocolVersion:"2025-06-18",capabilities:{elicitation:{}},clientInfo:{name:"example-client",version:"1.0.0"}}}},
+        sv:{lbl:'initialize 响应',json:{jsonrpc:"2.0",id:1,result:{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:true},resources:{}},serverInfo:{name:"example-server",version:"1.0.0"}}}} },
+      { cl:{lbl:'initialized 通知',json:{jsonrpc:"2.0",method:"notifications/initialized"}} }
+    ]},
+  { name:'列出工具',
+    exp:'<b>先发现，再调用。</b>Client 发 <code>tools/list</code> 问"你有哪些工具"，请求本身不带参数。Server 交出工具清单：每个工具都有唯一 <b>name</b>、说明 <b>description</b>，以及最关键的 <b>inputSchema</b>——用 JSON Schema 规定该传什么参数。AI 正是靠这些元数据知道"有什么、怎么调"。这种 <code>*/list</code> 机制让工具列表可以是<b>动态</b>的。',
+    rows:[
+      { cl:{lbl:'tools/list',json:{jsonrpc:"2.0",id:2,method:"tools/list"}},
+        sv:{lbl:'tools 列表',json:{jsonrpc:"2.0",id:2,result:{tools:[{name:"weather_current",description:"获取任意地点的当前天气",inputSchema:{type:"object",properties:{location:{type:"string"},units:{type:"string",enum:["metric","imperial"]}},required:["location"]}},{name:"calculator_arithmetic",description:"计算数学表达式",inputSchema:{type:"object",properties:{expression:{type:"string"}},required:["expression"]}}]}}} }
+    ]},
+  { name:'调用天气工具',
+    exp:'<b>真正干活。</b>当模型决定用某个工具，Client 就发 <code>tools/call</code>：name 必须与清单里的完全一致，arguments 按 inputSchema 填（这里查北京）。Server 把结果放在 <b>content 数组</b>里返回（可以是文本、图片、资源等多种类型）。这段真实数据会被喂回模型，成为对话的上下文——AI 由此获得了"现实世界"的信息。',
+    rows:[
+      { cl:{lbl:'tools/call',json:{jsonrpc:"2.0",id:3,method:"tools/call",params:{name:"weather_current",arguments:{location:"北京",units:"metric"}}}},
+        sv:{lbl:'tool 结果',json:{jsonrpc:"2.0",id:3,result:{content:[{type:"text",text:"北京当前 28°C，晴转多云，微风 3 级，湿度 45%"}]}}} }
+    ]},
+  { name:'工具变更通知',
+    exp:'<b>保持同步。</b>当可用工具发生变化，Server 主动发一条 <code>notifications/tools/list_changed</code>（同样无 id）。Client 收到后会重新 <code>tools/list</code> 拉取刷新，<b>无需轮询</b>——这里就多出了一个新工具 stock_quote。连接始终保持最新，让 AI 能适应动态变化的能力集。',
+    rows:[
+      { sv:{lbl:'list_changed 通知',json:{jsonrpc:"2.0",method:"notifications/tools/list_changed"}} },
+      { cl:{lbl:'tools/list（重新拉取）',json:{jsonrpc:"2.0",id:4,method:"tools/list"}},
+        sv:{lbl:'更新后的列表',json:{jsonrpc:"2.0",id:4,result:{tools:["weather_current","calculator_arithmetic","stock_quote (新增)"]}}} }
+    ]}
 ];
 
-const termBody=document.getElementById('termBody');
-const stepInd=document.getElementById('stepInd');
-const explainEl=document.getElementById('flowExplain');
-const nextBtn=document.getElementById('nextBtn');
-const prevBtn=document.getElementById('prevBtn');
-const resetBtn=document.getElementById('resetBtn');
-let cur=0;
+const simBody=document.getElementById('simBody');
+const simStatus=document.getElementById('simStatus');
+const simExplain=document.getElementById('simExplain');
+const simReset=document.getElementById('simReset');
+const stageBtns=[...document.querySelectorAll('.stage-btn[data-stage]')];
+const introExp='<span class="ph">点击「1 · 初始化握手」开始</span>四个阶段需<b>依次解锁</b>：完成当前阶段，下一步按钮才会亮起。每一步的消息会逐条动画出现，同一次的请求与返回并列同一行。';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let current=1;      // 下一个可点击的阶段
+let playing=false;  // 动画进行中
 
-function render(){
-  stepInd.textContent = cur+' / '+steps.length;
-  prevBtn.disabled = cur===0;
-  nextBtn.disabled = cur===steps.length;
-
-  let html='';
-  for(let i=0;i<cur;i++){
-    const s=steps[i];
-    const dir = s.from==='cl' ? 'Client ──▶ Server' : 'Server ──▶ Client';
-    html+=`<div class="msg ${s.from}">
-      <div class="msg-head">
-        <span class="arrow">${s.from==='cl'?'▶':'◀'}</span>
-        <span class="who">${dir}</span>
-        <span class="lbl">${s.lbl}</span>
-      </div>
-      <pre class="json">${hl(s.json)}</pre></div>`;
-  }
-  termBody.innerHTML = html || '<div style="color:#5c6675;font-family:var(--mono);font-size:13px;padding-top:110px;text-align:center">// 点击「下一条 →」查看第一条消息</div>';
-  termBody.scrollTop = termBody.scrollHeight;
-
-  if(cur===0){
-    explainEl.innerHTML='<span class="ph">点击「下一条 →」开始</span>整个连接从一次握手开始，之后 Client 先"问有哪些工具"，再"调用工具"，Server 还能主动推送变更通知。';
-  }else{
-    const s=steps[cur-1];
-    explainEl.style.borderLeftColor = s.from==='cl' ? 'var(--client)' : 'var(--server)';
-    explainEl.querySelector?.('.ph');
-    explainEl.innerHTML=`<span class="ph" style="color:${s.from==='cl'?'var(--client)':'var(--server)'}">${s.ph}</span>${s.exp}`;
-  }
+function updateButtons(){
+  stageBtns.forEach((b,i)=>{
+    const n=i+1;
+    b.classList.toggle('done', n<current);
+    b.classList.toggle('active', n===current && !playing);
+    b.disabled = playing || n!==current;
+  });
+  simReset.disabled = playing;
 }
-nextBtn.onclick=()=>{ if(cur<steps.length){cur++;render();} };
-prevBtn.onclick=()=>{ if(cur>0){cur--;render();} };
-resetBtn.onclick=()=>{ cur=0;render(); };
-render();
+
+function bubble(side,m){
+  const el=document.createElement('div');
+  el.className='bubble';
+  el.innerHTML=`<div class="b-head"><span class="arr">${side==='cl'?'▶':'◀'}</span><span class="lbl">${m.lbl}</span></div><pre class="json">${hl(m.json)}</pre>`;
+  return el;
+}
+function keepStageStartVisible(stageEl){
+  // stageEl 的 offsetTop 以 simBody 为基准；内容增高时重复定位，
+  // 始终展示本轮消息起点，而不是被新内容推到列表底部。
+  requestAnimationFrame(()=>{
+    simBody.scrollTo({
+      top:Math.max(0,stageEl.offsetTop-12),
+      behavior:'auto'
+    });
+  });
+}
+
+async function playStage(n){
+  if(playing || n!==current) return;
+  playing=true; updateButtons();
+  const s=stages[n-1];
+  simStatus.textContent=`第 ${n} / 4 步 · ${s.name} …`;
+  simExplain.innerHTML=`<span class="ph">第 ${n} 步 · ${s.name}</span>${s.exp}`;
+  simBody.querySelector('.sim-empty')?.remove();
+  const stageEl=document.createElement('div');
+  stageEl.className='stage-messages';
+  stageEl.dataset.stage=String(n);
+  simBody.appendChild(stageEl);
+  for(const row of s.rows){
+    const rowEl=document.createElement('div');
+    rowEl.className='msg-row';
+    rowEl.innerHTML='<div class="msg-cell cl"></div><div class="msg-cell sv"></div>';
+    stageEl.appendChild(rowEl);
+    if(row.cl){
+      rowEl.querySelector('.cl').appendChild(bubble('cl',row.cl));
+      keepStageStartVisible(stageEl);
+      await sleep(620);
+    }
+    if(row.sv){
+      rowEl.querySelector('.sv').appendChild(bubble('sv',row.sv));
+      keepStageStartVisible(stageEl);
+      await sleep(620);
+    }
+  }
+  playing=false;
+  current=n+1;
+  updateButtons();
+  simStatus.textContent = current>stages.length
+    ? '会话完成 · 通知已处理'
+    : `第 ${n} 步完成 · 点「${current} · ${stages[current-1].name}」继续`;
+}
+
+function resetSim(){
+  playing=false; current=1;
+  simBody.innerHTML='<div class="sim-empty">// 点下方「1 · 初始化握手」开始，消息会逐条动画出现</div>';
+  simStatus.textContent='就绪 · 从第 1 步开始';
+  simExplain.innerHTML=introExp;
+  updateButtons();
+}
+
+stageBtns.forEach(b=> b.onclick=()=> playStage(+b.dataset.stage));
+simReset.onclick=resetSim;
+resetSim();
 </script>
 </body>
 </html>
