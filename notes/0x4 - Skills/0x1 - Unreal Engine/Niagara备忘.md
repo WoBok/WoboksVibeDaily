@@ -113,3 +113,30 @@ Random Range Float
    4. 输出到Output Module
    5. Output Module中Outputs的Type选择Vector
 4. 在 Update Mesh Orientation 模块的 Facing Direction 中选择刚才创建的Dynamic Input
+### 1. 添加朝向模块
+
+在 **Particle Update** 中添加 **Update Mesh Orientation** 模块。
+
+### 2. 设置朝向方式
+
+将 **Orientation Method** 设为 **Orient to Vector(s)**。
+
+### 3. 创建 Scratch Dynamic Input 输出水平方向向量
+
+新建一个 Scratch Dynamic Input，节点连接如下：
+
+1. **获取相机位置**
+   `Map Get` → 添加 `Module.Camera Query` 输入 → `Get Camera Properties CPU/GPU` → 取 **Camera Position World**
+2. **获取粒子位置**
+   `Map Get` → 添加 `Particles.Position`
+3. **求指向向量**
+   `Camera Position World` − `Particles.Position`
+4. **投影到水平面并归一化**
+   `Break Vector`（拆出上一步结果的 X / Y / Z）→ `Make Vector`，填入 **X、Y，Z 置 0** → `Normalize`
+5. **输出**
+   将结果连到 **Output Module**
+6. 在 Output Module 的 **Outputs** 中，将 **Type** 设为 **Vector**
+
+### 4. 应用到模块
+
+回到 **Update Mesh Orientation**，在 **Facing Direction** 中选择刚创建的这个 Dynamic Input。
