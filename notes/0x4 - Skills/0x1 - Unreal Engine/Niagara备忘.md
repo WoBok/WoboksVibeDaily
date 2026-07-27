@@ -104,15 +104,7 @@ Random Range Float
 - **Usage Bitmask** 要勾对阶段（Particle Spawn/Update 等），否则 Stack 里搜不到这个模块
 
 ## 水平面向相机
-1. Particle Update 添加 Update Mesh Orientation模块
-2. Orientation Method 选择 Orient To Vector(s)
-3. 创建ScratchModule输出水平方向向量
-   1. Map Get → Module.Camera Query → Get Camera Properties CPU/GPU → Camera Position World
-   2. Camera Position World - Particles.Position
-   3. Break Vector 上方结果， Make Vector 使用Break Vector的 x,y 分量，z保持0，进行Normalize
-   4. 输出到Output Module
-   5. Output Module中Outputs的Type选择Vector
-4. 在 Update Mesh Orientation 模块的 Facing Direction 中选择刚才创建的Dynamic Input
+
 ### 1. 添加朝向模块
 
 在 **Particle Update** 中添加 **Update Mesh Orientation** 模块。
