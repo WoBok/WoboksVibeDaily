@@ -132,3 +132,7 @@ Random Range Float
 ### 4. 应用到模块
 
 回到 **Update Mesh Orientation**，在 **Facing Direction** 中选择刚创建的这个 Dynamic Input。
+
+## 蓝图节点 Reinitialize System
+
+**Reinitialize System：** 强制该 Niagara 粒子系统组件按照原始 System 数据重新初始化（相当于重置粒子系统状态）。
