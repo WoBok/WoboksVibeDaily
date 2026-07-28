@@ -28,16 +28,11 @@ function assertValidCategoryPath(relativePath) {
     throw new PathGuardError('INVALID_CONTENT_PATH');
   }
 
-  const fileName = parts[parts.length - 1];
-  const directoryParts = path.extname(fileName) ? parts.slice(1, -1) : parts.slice(1);
-  if (directoryParts.length === 0) {
+  // Only the first directory below notes/ is a category. Deeper directories
+  // belong to that category and may contain article assets such as
+  // assets/images/example.png.
+  if (!isValidCategoryName(parts[1])) {
     throw new PathGuardError('INVALID_CATEGORY_PATH');
-  }
-
-  for (const part of directoryParts) {
-    if (!isValidCategoryName(part)) {
-      throw new PathGuardError('INVALID_CATEGORY_PATH');
-    }
   }
 }
 

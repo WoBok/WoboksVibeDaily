@@ -39,7 +39,21 @@ test('rejects hidden files and directories', () => {
 
 test('rejects invalid category directory names', () => {
   assert.strictEqual(codeOf(() => resolveContentPath('notes/random/a.md')), 'INVALID_CATEGORY_PATH');
+  assert.strictEqual(
+    codeOf(() => resolveContentPath('notes/random/assets/images/pic.png')),
+    'INVALID_CATEGORY_PATH'
+  );
   assert.strictEqual(codeOf(() => resolveContentPath('notes/a.md')), 'INVALID_CATEGORY_PATH');
+});
+
+test('allows asset directories inside a valid category', () => {
+  const { relativePath } = resolveContentPath(
+    'notes/0x0 - Inbox/assets/images/费曼学习法 - 01 - learning-pyramid-base.png'
+  );
+  assert.strictEqual(
+    relativePath,
+    'notes/0x0 - Inbox/assets/images/费曼学习法 - 01 - learning-pyramid-base.png'
+  );
 });
 
 test('articleOnly restricts extensions', () => {
