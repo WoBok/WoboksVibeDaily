@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="title" content="费曼学习法">
+  <meta name="date" content="2026-07-28">
+  <meta name="summary" content="通过选择目标、模拟教学、查漏补缺与精炼表达四个步骤，以通俗讲解倒逼理解并暴露知识盲区。">
+  <meta name="category" content="Inbox">
+  <meta name="tags" content="费曼学习法|学习方法|主动学习|输出式学习">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="费曼学习法及其四大核心步骤">
+  <title>费曼学习法</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #101010;
+      --text: #d7d7d7;
+      --muted: #c3c3c3;
+      --soft: #b7b7b7;
+      --line: #dedede;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--background);
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC",
+        Arial, sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.55;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    main {
+      width: min(760px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 23px 0 42px;
+    }
+
+    .lead {
+      margin: 0 0 15px;
+    }
+
+    .lead:first-child {
+      font-weight: 700;
+    }
+
+    .learning-figure {
+      width: 358px;
+      max-width: 100%;
+      margin: 30px auto 49px;
+    }
+
+    .pyramid-card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 358 / 279;
+      overflow: hidden;
+      border-radius: 40px;
+      background: #fff;
+      color: #111;
+      isolation: isolate;
+    }
+
+    .pyramid-card > img {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      filter: saturate(.96) contrast(1.02);
+    }
+
+    .pyramid-card::after {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, .95) 0 15%,
+        transparent 27% 74%,
+        rgba(255, 255, 255, .95) 86% 100%
+      );
+      pointer-events: none;
+    }
+
+    .diagram-title,
+    .group-label,
+    .tier,
+    .rate,
+    .diagram-footer {
+      position: absolute;
+      z-index: 2;
+      margin: 0;
+      white-space: nowrap;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      font-style: normal;
+      line-height: 1;
+    }
+
+    .diagram-title {
+      top: 7.3%;
+      right: 4%;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .group-label {
+      left: 2.8%;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .group-label.passive {
+      top: 33%;
+    }
+
+    .group-label.active {
+      top: 68%;
+    }
+
+    .tier {
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0, 48, 132, .35);
+    }
+
+    .rate {
+      right: 3.2%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tier::after {
+      position: absolute;
+      top: 50%;
+      left: calc(100% + 11px);
+      z-index: -1;
+      width: 122px;
+      border-top: 1px dashed #7890a5;
+      content: "";
+      opacity: .75;
+    }
+
+    .row-1 { top: 19.5%; }
+    .row-2 { top: 30.4%; }
+    .row-3 { top: 41.3%; }
+    .row-4 { top: 52.2%; }
+    .row-5 { top: 63.1%; }
+    .row-6 { top: 74%; }
+    .row-7 { top: 84.9%; }
+
+    .diagram-footer {
+      bottom: 4%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    figcaption {
+      width: 310px;
+      max-width: calc(100% - 28px);
+      margin: 12px auto 0;
+      color: #d0d0d0;
+      font-family: KaiTi, STKaiti, "Times New Roman", serif;
+      font-size: 13px;
+      font-style: italic;
+      font-weight: 500;
+      line-height: 1.7;
+    }
+
+    h1 {
+      margin: 0 0 24px;
+      color: #d0d0d0;
+      font-size: 24px;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .steps {
+      display: grid;
+      gap: 6px;
+    }
+
+    .step {
+      position: relative;
+      min-height: 148px;
+      padding: 0 0 9px 38px;
+    }
+
+    .step-number {
+      position: absolute;
+      top: 1px;
+      left: 0;
+      display: grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: #ededed;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    .step::before {
+      position: absolute;
+      top: 29px;
+      bottom: -2px;
+      left: 9px;
+      border-left: 2px dotted var(--line);
+      content: "";
+    }
+
+    .step h2 {
+      margin: 0;
+      color: #d4d4d4;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .step .aside {
+      margin: 12px 0 24px;
+      color: var(--soft);
+      font-family: KaiTi, STKaiti, "Times New Roman", serif;
+      font-size: 13px;
+      font-style: italic;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    .step .description {
+      margin: 0;
+    }
+
+    .step strong {
+      color: #e4e4e4;
+      font-weight: 800;
+    }
+
+    .conclusion {
+      margin: 30px 0 0;
+      color: #e4e4e4;
+      font-weight: 800;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        font-size: 15px;
+      }
+
+      main {
+        width: min(100% - 32px, 760px);
+        padding-top: 18px;
+      }
+
+      .learning-figure {
+        margin-top: 26px;
+      }
+
+      .pyramid-card {
+        border-radius: 30px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .step {
+        padding-left: 34px;
+      }
+
+      .step h2 {
+        font-size: 17px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="lead">费曼学习法（Feynman Technique）由诺贝尔物理学奖得主理查德·费曼（Richard Feynman）提出。它的核心逻辑非常简单：“如果你不能用简明扼要的语言给一个8岁小孩讲明白一个概念，说明你还没有真正理解它。”</p>
+    <p class="lead">它将传统的“输入型学习”转变为了输出驱动型学习，通过主动教授他人来倒逼自己梳理知识漏洞。</p>
+
+    <figure class="learning-figure">
+      <div class="pyramid-card" role="img" aria-label="学习金字塔：教授给他人的学习内容平均留存率最高">
+        <img src="assets/learning-pyramid-base.png" alt="">
+        <span class="diagram-title">学习内容平均留存率</span>
+        <span class="group-label passive">被动学习</span>
+        <span class="group-label active">主动学习</span>
+
+        <span class="tier row-1">听讲</span>
+        <span class="rate row-1">5%</span>
+        <span class="tier row-2">阅读</span>
+        <span class="rate row-2">10%</span>
+        <span class="tier row-3">视听</span>
+        <span class="rate row-3">20%</span>
+        <span class="tier row-4">演示</span>
+        <span class="rate row-4">30%</span>
+        <span class="tier row-5">讨论</span>
+        <span class="rate row-5">50%</span>
+        <span class="tier row-6">实践</span>
+        <span class="rate row-6">75%</span>
+        <span class="tier row-7">教授给他人</span>
+        <span class="rate row-7">90%</span>
+        <span class="diagram-footer">学习金字塔</span>
+      </div>
+      <figcaption>教授给他人是留存率最高的学习方式。来源：Shiny Zhu</figcaption>
+    </figure>
+
+    <section aria-labelledby="steps-title">
+      <h1 id="steps-title">费曼学习法的四大核心步骤</h1>
+
+      <div class="steps">
+        <article class="step">
+          <span class="step-number" aria-hidden="true">1</span>
+          <h2>明确概念（选择目标）</h2>
+          <p class="aside">确定你要学习的具体知识点</p>
+          <p class="description">在一张白纸顶部写下你要学习的概念名称（例如：“什么是区块链”、“光合作用的过程”）。搜集资料，初步阅读并理解它。</p>
+        </article>
+
+        <article class="step">
+          <span class="step-number" aria-hidden="true">2</span>
+          <h2>模拟教学（试图教会8岁小孩）</h2>
+          <p class="aside">用极简的大白话表达出来</p>
+          <p class="description">假想面前坐着一个完全没有专业背景的8岁儿童。用最简单的语言、<strong>不带任何专业术语</strong>，手写或口述把这个概念解释一遍。多用生动的<strong>类比</strong>（比如用“快递派送”类比“网络数据包传输”）。</p>
+        </article>
+
+        <article class="step">
+          <span class="step-number" aria-hidden="true">3</span>
+          <h2>卡壳回顾（查漏补缺）</h2>
+          <p class="aside">暴露知识盲区的核心环节</p>
+          <p class="description">在解释过程中，你一定会遇到讲不通、卡壳或者必须依靠专业术语才能蒙混过关的地方。<strong>这就是你的知识盲区。</strong>重新翻阅资料或教材，把卡壳的逻辑彻底补齐。</p>
+        </article>
+
+        <article class="step">
+          <span class="step-number" aria-hidden="true">4</span>
+          <h2>精炼与简化（提炼升华）</h2>
+          <p class="aside">将复杂转化为本能</p>
+          <p class="description">再次整理你的解释，删去冗长和繁琐的修饰，直到语言极致精炼、逻辑丝滑顺畅。当你能脱稿用几句通俗易懂的话讲清本质时，你就彻底掌握了它。</p>
+        </article>
+      </div>
+
+      <p class="conclusion">费曼学习法就是用“大白话讲给小孩听”来暴露知识盲区，以“教”倒逼“学”的终极输出式学习法。</p>
+    </section>
+  </main>
+</body>
+</html>
