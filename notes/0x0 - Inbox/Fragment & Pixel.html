@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="title" content="Fragment &amp; Pixel">
+<meta name="date" content="2026-07-29">
+<meta name="summary" content="以交互演示说明片元由光栅化生成、经着色与测试后竞争写入像素，并梳理深度测试、Overdraw、MSAA 与像素的关系。">
+<meta name="category" content="Inbox">
+<meta name="tags" content="计算机图形学|Fragment|Pixel|光栅化|深度测试|MSAA|Overdraw">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fragment 完全图解 · 片元与像素的关系</title>
+<style>
+:root{
+  --bg:#f5f1e8; --paper:#fffdf8; --ink:#33302b; --muted:#8a8177;
+  --line:#e7ded0; --terra:#c05b3c; --terra-soft:#f0d9cf; --sage:#7c8f6a;
+  --sage-soft:#e3e8da; --gold:#d2a24a; --gold-soft:#f3e8d2; --dark:#2f2a24;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",sans-serif;
+  line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 22px}
+/* ---------- hero ---------- */
+.hero{padding:64px 0 26px}
+.eyebrow{font-size:13px;letter-spacing:.28em;color:var(--terra);font-weight:700;text-transform:uppercase}
+.hero h1{font-size:clamp(30px,4.6vw,48px);line-height:1.25;margin:12px 0 14px;letter-spacing:.01em}
+.hero h1 .hl{color:var(--terra)}
+.hero p.sub{font-size:17px;color:var(--muted);max-width:760px}
+.navchips{display:flex;flex-wrap:wrap;gap:10px;margin-top:50px}
+.navchips a{font-size:13.5px;text-decoration:none;color:var(--ink);background:var(--paper);
+  border:1px solid var(--line);border-radius:999px;padding:7px 16px;transition:.2s}
+.navchips a:hover{border-color:var(--terra);color:var(--terra)}
+/* ---------- sections ---------- */
+section{margin:34px 0}
+.sec-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.18em;color:var(--terra);
+  background:var(--terra-soft);border-radius:6px;padding:4px 10px;margin-bottom:12px}
+h2{font-size:clamp(22px,3vw,30px);line-height:1.35;margin-bottom:14px}
+h3{font-size:18px;margin:20px 0 8px}
+p{margin:10px 0}
+.lead{font-size:17px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:26px 28px;
+  box-shadow:0 1px 3px rgba(70,58,45,.05)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid21{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+@media(max-width:840px){.grid2,.grid21{grid-template-columns:1fr}}
+.defbox{background:linear-gradient(180deg,#fffdf8,#fdf8ef);border:1.5px solid var(--gold);
+  border-radius:14px;padding:20px 24px;font-size:17px}
+.defbox b{color:var(--terra)}
+.kicker{font-size:13px;color:var(--muted);letter-spacing:.05em}
+mark{background:var(--gold-soft);color:inherit;padding:1px 5px;border-radius:5px}
+strong{color:#1f1c18}
+em{font-style:normal;color:var(--terra);font-weight:600}
+/* analogy cards */
+.cand{display:flex;gap:14px;align-items:flex-start;background:var(--paper);border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px}
+.cand .avatar{width:46px;height:46px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;font-size:15px}
+.cand h4{font-size:15px;margin-bottom:4px}
+.cand p{font-size:13.5px;color:var(--muted);margin:0}
+/* svg figure */
+.figure{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:18px;overflow-x:auto}
+.figure svg{display:block;min-width:720px;width:100%;height:auto}
+#pipeSvg{min-width:880px}
+.figcap{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}
+/* demo */
+.demo-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:6px 0 14px}
+.btn{cursor:pointer;border:none;background:var(--terra);color:#fff;font-size:14px;font-weight:600;
+  border-radius:999px;padding:9px 20px;transition:.18s;box-shadow:0 2px 6px rgba(192,91,60,.25)}
+.btn:hover{transform:translateY(-1px);background:#a94e33}
+.btn.ghost{background:transparent;color:var(--terra);border:1.5px solid var(--terra);box-shadow:none}
+.btn.ghost:hover{background:var(--terra-soft)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.step{background:transparent;color:var(--terra);border:1.5px solid var(--terra);box-shadow:none;padding:8px 16px;font-size:13.5px}
+.btn.step.on{background:var(--terra);color:#fff}
+.stage{border-left:3px solid var(--line);padding:8px 12px;margin:8px 0;border-radius:0 10px 10px 0;transition:.2s}
+.stage b{font-size:13.5px}
+.stage p{font-size:13px;color:var(--muted);margin:2px 0 0}
+.stage.on{border-left-color:var(--terra);background:var(--terra-soft)}
+.stage.on p{color:#7a4a35}
+#r2Svg{min-width:520px!important}
+#r2Svg .hit{cursor:pointer;fill:transparent}
+#r2Svg .hit:hover{fill:rgba(192,91,60,.10)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;background:var(--paper);
+  border:1px solid var(--line);border-radius:999px;padding:5px 14px;color:var(--muted)}
+.pill b{color:var(--ink);font-variant-numeric:tabular-nums}
+.pill.hot b{color:var(--terra)}
+canvas.democv{display:block;width:100%;max-width:100%;background:var(--paper);border:1px solid var(--line);
+  border-radius:14px;touch-action:none;cursor:crosshair}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.panel h4{font-size:14px;letter-spacing:.06em;color:var(--muted);margin-bottom:10px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13.5px}
+.kv dt{color:var(--muted);white-space:nowrap}
+.kv dd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid rgba(0,0,0,.12)}
+.log{height:190px;overflow-y:auto;background:var(--dark);color:#e9dfcb;border-radius:12px;
+  padding:12px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.7}
+.log .ok{color:#a8c68f}.log .bad{color:#e08a6d}.log .dim{color:#9a917f}.log .head{color:#d2a24a}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--terra);width:17px;height:17px;cursor:pointer}
+.slider-row{display:flex;align-items:center;gap:12px;font-size:13.5px;margin:6px 0}
+.slider-row label{min-width:120px;color:var(--muted)}
+.slider-row input[type=range]{flex:1;accent-color:var(--terra)}
+.slider-row output{font-family:ui-monospace,Menlo,monospace;min-width:44px;text-align:right}
+/* table */
+table.vs{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--paper);
+  border:1px solid var(--line);border-radius:14px;overflow:hidden}
+table.vs th,table.vs td{padding:13px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+table.vs th{background:#f3ede0;font-size:13px;letter-spacing:.06em;color:#6f665a}
+table.vs tr:last-child td{border-bottom:none}
+table.vs td:first-child{font-weight:700;white-space:nowrap;color:#6f665a}
+/* code */
+pre.code{background:var(--dark);color:#e9dfcb;border-radius:12px;padding:18px 20px;overflow-x:auto;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13.5px;line-height:1.75}
+.code .kw{color:#e0a08a}.code .ty{color:#a8c68f}.code .cm{color:#8f8572}.code .fn{color:#e5c07b}
+/* faq */
+details{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0}
+details summary{cursor:pointer;font-weight:700;font-size:15px}
+details p{font-size:14.5px;color:#55504a}
+/* memory card */
+.memorize{background:linear-gradient(135deg,#fdf6ea,#f9efe0);border:1.5px solid var(--gold);
+  border-radius:16px;padding:24px 28px;text-align:center}
+.memorize .big{font-size:clamp(18px,2.6vw,24px);font-weight:800;line-height:1.6}
+.memorize .big em{font-style:normal;background:var(--terra);color:#fff;padding:2px 10px;border-radius:8px}
+footer{margin:56px 0 36px;text-align:center;font-size:13px;color:var(--muted)}
+.callout{border-left:4px solid var(--terra);background:var(--terra-soft);border-radius:0 12px 12px 0;
+  padding:12px 18px;font-size:14.5px;margin:14px 0}
+.callout.sage{border-color:var(--sage);background:var(--sage-soft)}
+.callout.gold{border-color:var(--gold);background:var(--gold-soft)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <div class="eyebrow">GRAPHICS CONCEPT · 计算机图形学</div>
+  <h1>Fragment（片元）<br>像素的<span class="hl">「候选人」</span>，而不是像素本身</h1>
+  <nav class="navchips">
+    <a href="#what">① 什么是片元</a>
+    <a href="#pipeline">② 管线中的位置</a>
+    <a href="#demo1">③ 演示：光栅化实验室</a>
+    <a href="#demo2">④ 演示：片元争夺战</a>
+    <a href="#demo3">⑤ 演示：MSAA 放大镜</a>
+    <a href="#vs">⑥ 片元 vs 像素</a>
+    <a href="#shader">⑦ 代码里的片元</a>
+    <a href="#faq">⑧ 误区与速记</a>
+  </nav>
+</header>
+
+<!-- ================= ① 什么是片元 ================= -->
+<section id="what">
+  <span class="sec-tag">① 什么是 FRAGMENT</span>
+  <h2>一句话定义：片元是<b>「准备写入某个像素的一份完整数据包」</b></h2>
+  <div class="defbox">
+    <b>Fragment（片元）</b>是光栅化的产物：三角形覆盖到哪个像素位置，GPU 就在那里生成一个片元，
+    打包好该位置的全部信息——<b>插值颜色、深度 z、纹理坐标 UV、法线……</b>
+    但它<em>还不是像素</em>：要先通过模板、深度等层层测试，再经混合写入帧缓冲，才成为屏幕上那个<b>像素</b>。
+  </div>
+
+  <h3 style="margin-top:26px">🎯 一个类比：像素是「岗位」，片元是「候选人」</h3>
+  <div class="grid2" style="margin-top:14px">
+    <div class="cand">
+      <div class="avatar" style="background:var(--terra)">岗</div>
+      <div><h4>像素 Pixel = 一个编制岗位</h4>
+      <p>帧缓冲里的一个<mark>存储格子</mark>，对应屏幕上一个发光点。一个格子只存一个颜色值，谁来坐得竞争。</p></div>
+    </div>
+    <div class="cand">
+      <div class="avatar" style="background:var(--sage)">选</div>
+      <div><h4>片元 Fragment = 候选人</h4>
+      <p>每个被三角形覆盖的像素位置<mark>产出一位候选人</mark>，带着简历（颜色 / 深度 / UV / 法线）进入后续流程。</p></div>
+    </div>
+    <div class="cand">
+      <div class="avatar" style="background:var(--gold)">试</div>
+      <div><h4>测试 Tests = 层层面试</h4>
+      <p>裁剪测试、模板测试、<mark>深度测试</mark>逐轮淘汰；着色器里一句 <code>discard</code> 还能当场弃权。</p></div>
+    </div>
+    <div class="cand">
+      <div class="avatar" style="background:#9a6b4f">聘</div>
+      <div><h4>写入 &amp; 混合 = 上岗</h4>
+      <p>过关的片元才能写入：不透明直接覆盖；半透明与格子里的旧值<mark>Alpha 混合</mark>。</p></div>
+    </div>
+  </div>
+  <div class="callout">
+    <b>关键认知：</b>一个像素位置可能收到 <b>0 个、1 个、甚至 N 个</b>片元（多个三角形重叠于此），
+    但最终只有一个结果写进去。所以——<b>片元是过程数据，像素是最终存储</b>。
+  </div>
+</section>
+
+<!-- ================= ② 管线位置 ================= -->
+<section id="pipeline">
+  <span class="sec-tag">② 渲染管线中的位置</span>
+  <h2>片元在流水线的哪一站「诞生」？</h2>
+  <p class="lead">顶点着色器处理<b>顶点</b>，帧缓冲存<b>像素</b>。连接两者的<em>光栅化（Rasterization）</em>，正是片元的诞生地。</p>
+  <div class="figure">
+    <svg id="pipeSvg" viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+      <defs>
+        <marker id="arr" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto">
+          <path d="M0,0 L7.5,3 L0,6 Z" fill="#a89a83"/>
+        </marker>
+      </defs>
+
+      <!-- ===== 第一行：几何阶段 ===== -->
+      <text x="20" y="18" font-size="12" font-weight="600" fill="#a89a83">几何阶段 · 数据单位 = 顶点 / 图元</text>
+      <g text-anchor="middle">
+        <rect x="20" y="34" width="190" height="76" rx="13" fill="#f3ede0" stroke="#d8ccb4"/>
+        <text x="115" y="68" font-size="15" font-weight="700" fill="#6f665a">顶点数据</text>
+        <text x="115" y="90" font-size="11.5" fill="#a89a83">位置 · UV · 法线</text>
+
+        <rect x="250" y="34" width="190" height="76" rx="13" fill="#f3ede0" stroke="#d8ccb4"/>
+        <text x="345" y="68" font-size="15" font-weight="700" fill="#6f665a">顶点着色器</text>
+        <text x="345" y="90" font-size="11.5" fill="#a89a83">MVP 变换 · 逐顶点</text>
+
+        <rect x="480" y="34" width="190" height="76" rx="13" fill="#f3ede0" stroke="#d8ccb4"/>
+        <text x="575" y="68" font-size="15" font-weight="700" fill="#6f665a">图元装配</text>
+        <text x="575" y="90" font-size="11.5" fill="#a89a83">顶点 → 三角形</text>
+
+        <rect x="710" y="26" width="230" height="92" rx="13" fill="#c05b3c" stroke="#a94e33" stroke-width="2"/>
+        <text x="825" y="64" font-size="18" font-weight="800" fill="#fff">光栅化</text>
+        <text x="825" y="90" font-size="12.5" fill="#ffe3d6">✦ 片元在这里诞生 ✦</text>
+      </g>
+      <g stroke="#a89a83" stroke-width="2" marker-end="url(#arr)">
+        <line x1="210" y1="72" x2="242" y2="72"/>
+        <line x1="440" y1="72" x2="472" y2="72"/>
+        <line x1="670" y1="72" x2="702" y2="72"/>
+      </g>
+
+      <!-- ===== 中段：片元诞生说明 ===== -->
+      <line x1="825" y1="118" x2="825" y2="134" stroke="#c05b3c" stroke-width="2" stroke-dasharray="4 3"/>
+      <rect x="260" y="134" width="690" height="104" rx="14" fill="#fdf5f1" stroke="#e8c4b4" stroke-dasharray="6 5"/>
+      <text x="605" y="163" text-anchor="middle" font-size="13.5" font-weight="700" fill="#c05b3c">每覆盖一个像素 → 产出 1 个片元</text>
+      <g stroke-width="1.2">
+        <rect x="457" y="177" width="24" height="24" rx="5" fill="#c05b3c" stroke="#a94e33"/>
+        <rect x="491" y="177" width="24" height="24" rx="5" fill="#cd7355" stroke="#a94e33"/>
+        <rect x="525" y="177" width="24" height="24" rx="5" fill="#d98a6e" stroke="#a94e33"/>
+        <rect x="559" y="177" width="24" height="24" rx="5" fill="#e3a288" stroke="#a94e33"/>
+        <rect x="593" y="177" width="24" height="24" rx="5" fill="#eab9a2" stroke="#a94e33"/>
+        <rect x="627" y="177" width="24" height="24" rx="5" fill="#d2a24a" stroke="#a87e2e"/>
+        <rect x="661" y="177" width="24" height="24" rx="5" fill="#c7ae6b" stroke="#a87e2e"/>
+        <rect x="695" y="177" width="24" height="24" rx="5" fill="#a8b48e" stroke="#77875c"/>
+        <rect x="729" y="177" width="24" height="24" rx="5" fill="#7c8f6a" stroke="#5a6b4b"/>
+      </g>
+      <text x="605" y="224" text-anchor="middle" font-size="11.5" fill="#8a8177">每个片元携带：屏幕坐标 (x, y) · 插值颜色 · 深度 z · UV · 法线 …</text>
+
+      <!-- ===== 换行连线 ===== -->
+      <path d="M940,72 H958 Q974,72 974,88 V254 Q974,270 958,270 H40 Q24,270 24,286 V330 Q24,346 40,346 H48"
+            fill="none" stroke="#a89a83" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- ===== 第二行：片元阶段 ===== -->
+      <text x="52" y="294" font-size="12" font-weight="600" fill="#a89a83">片元阶段 · 数据单位 = 片元</text>
+      <g text-anchor="middle">
+        <rect x="52" y="308" width="200" height="76" rx="13" fill="#f2f5ec" stroke="#7c8f6a" stroke-width="2.5" stroke-dasharray="7 5"/>
+        <text x="152" y="340" font-size="14.5" font-weight="800" fill="#5a6b4b">⚡ Early-Z（可选）</text>
+        <text x="152" y="362" font-size="11" fill="#77875c">着色前先剔除被遮挡的片元</text>
+
+        <rect x="288" y="308" width="200" height="76" rx="13" fill="#e3e8da" stroke="#b6c2a3"/>
+        <text x="388" y="340" font-size="15" font-weight="700" fill="#5a6b4b">片元着色器</text>
+        <text x="388" y="362" font-size="11.5" fill="#8a9a76">逐片元算颜色</text>
+
+        <rect x="524" y="308" width="200" height="76" rx="13" fill="#f3e8d2" stroke="#dcc48e"/>
+        <text x="624" y="340" font-size="15" font-weight="700" fill="#8a6d2f">测试与混合</text>
+        <text x="624" y="362" font-size="11" fill="#b39a5e">模板 · 深度 · Blend</text>
+
+        <rect x="760" y="308" width="180" height="76" rx="13" fill="#2f2a24"/>
+        <text x="850" y="340" font-size="15" font-weight="700" fill="#f3ede0">帧缓冲</text>
+        <text x="850" y="362" font-size="11.5" fill="#d2a24a">像素在这里</text>
+      </g>
+      <g stroke="#a89a83" stroke-width="2" marker-end="url(#arr)">
+        <line x1="252" y1="346" x2="284" y2="346"/>
+        <line x1="488" y1="346" x2="520" y2="346"/>
+        <line x1="724" y1="346" x2="756" y2="346"/>
+      </g>
+    </svg>
+    <div class="figcap">▲ 上行以顶点为单位，下行以片元为单位；分界线就是光栅化</div>
+  </div>
+  <div class="callout sage">
+    <b>Early-Z 只是优化，不改变结果。</b>硬件把深度 / 模板测试提到着色之前，让注定被遮挡的片元根本不进片元着色器。
+    但只要着色器里出现 <code>discard</code> 或写 <code>gl_FragDepth</code>，片元的存亡与深度就得等着色算完才知道——
+    此时硬件自动退回 <b>Late-Z</b>，把测试放回着色之后。
+  </div>
+</section>
+
+<!-- ================= ③ 演示1 光栅化实验室 ================= -->
+<section id="demo1">
+  <span class="sec-tag">③ 动手演示 · 光栅化实验室</span>
+  <h2>看片元「出生」：三角形 → 一堆片元</h2>
+  <p class="lead">下面是放大的屏幕，每格 = 1 个像素。<b>拖动三个顶点</b>改变三角形，点<b>「▶ 光栅化」</b>看 GPU 逐格判断覆盖、
+  为每个被覆盖的像素<b>生成一个片元</b>，并用<em>重心坐标插值</em>算出它的颜色与深度。<b>点击任意片元</b>查看它的完整数据包。</p>
+
+  <div class="demo-head">
+    <button class="btn" id="r1Play">▶ 光栅化（动画）</button>
+    <button class="btn ghost" id="r1Reset">↺ 重置三角形</button>
+    <span class="pill hot">已生成片元 <b id="r1Count">0</b> 个</span>
+    <span class="pill">像素总数 <b>192</b></span>
+  </div>
+
+  <div class="grid21">
+    <canvas id="c1" class="democv"></canvas>
+    <div class="panel">
+      <h4>🔍 片元数据检查器</h4>
+      <div id="r1Info">
+        <p style="font-size:13.5px;color:var(--muted)">先点击「▶ 光栅化」，再点击任意彩色格子查看它的片元数据。</p>
+      </div>
+      <div class="callout sage" style="margin-top:16px;font-size:13px">
+        <b>注意看：</b>每个片元的颜色都不同——它是三个顶点颜色按<mark>重心坐标</mark>加权混合出来的。
+        这就是「顶点着色器给属性，片元着色器拿到的是<b>插值后</b>的属性」的含义。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ④ 演示2 片元争夺战 ================= -->
+<section id="demo2">
+  <span class="sec-tag">④ 动手演示 · 片元争夺战（深度测试）</span>
+  <h2>一个像素，两个候选人：谁上岗？</h2>
+  <p class="lead">两个三角形前后交叠，按 <b>A → B</b> 的顺序绘制：<b>A 橙色在前（z=0.30）、B 绿色在后（z=0.60）</b>。
+  重叠区的每个像素都会收到<em>两个片元</em>。开启「深度测试」，GPU 淘汰更远的那个；关掉它，后画的直接覆盖。
+  <b>点击任意像素</b>，右侧回放它的「面试记录」。</p>
+
+  <div class="demo-head" id="r2Steps">
+    <button class="btn step on" data-step="1">1 覆盖采样</button>
+    <button class="btn step" data-step="2">2 生成片元</button>
+    <button class="btn step" data-step="3">3 深度测试</button>
+    <button class="btn step" data-step="4">4 写入像素</button>
+    <button class="btn ghost" id="r2Auto">▶ 逐步播放</button>
+    <label class="toggle"><input type="checkbox" id="r2Depth" checked> 深度测试</label>
+  </div>
+  <div class="demo-head">
+    <span class="pill hot">生成片元 <b id="r2Gen">0</b></span>
+    <span class="pill">✅ 写入像素 <b id="r2Write">0</b></span>
+    <span class="pill">💀 被深度测试淘汰 <b id="r2Kill">0</b></span>
+    <span class="pill">🔁 写入后被覆盖 <b id="r2Over">0</b></span>
+    <span class="pill">重叠像素 <b id="r2Overlap">0</b></span>
+  </div>
+
+  <div class="grid21">
+    <div class="figure" style="padding:10px">
+      <svg id="r2Svg" viewBox="0 0 630 472"></svg>
+      <div class="figcap">▲ 每小格 = 1 个像素（中心点 = 覆盖采样点）· ● 圆 = A 片元 · ■ 方 = B 片元 · <b>点击任意像素</b>查看它的面试记录</div>
+    </div>
+    <div class="panel" id="r2Panel"></div>
+  </div>
+  <div class="callout" style="margin-top:16px">
+    <b>数一数：</b>重叠区有 N 个像素，却生成了 2N 个片元——这就是「片元 ≠ 像素」最直观的证据。
+    开深度测试，多出的 N 个片元被淘汰；关掉，它们写进去又被覆盖。<b>两种情况都白干了 N 份活</b>，
+    这就是性能杀手 <b>Overdraw</b>：算了，没用上。
+  </div>
+</section>
+
+<!-- ================= ⑤ 演示3 MSAA 放大镜 ================= -->
+<section id="demo3">
+  <span class="sec-tag">⑤ 动手演示 · MSAA 放大镜</span>
+  <h2>进阶一层：片元是「像素级」的，采样点才是「亚像素级」的</h2>
+  <p class="lead">开启 <b>4×MSAA</b> 后，每个像素内部有 <b>4 个采样点</b>。关键是：GPU <em>仍然只生成一个片元</em>，
+  颜色只算一次（默认在像素中心求值），但这个片元带着一张<b>覆盖掩码</b>，记录 4 个采样点里哪几个落在三角形内。
+  解析（resolve）时把 4 个采样点平均，就得到最终像素色。拖动滑块改变边缘的角度与位置，观察掩码与像素色的变化。</p>
+
+  <div class="grid2">
+    <div class="figure" style="padding:12px">
+      <svg id="r3Svg" viewBox="0 0 320 320" width="100%" style="min-width:0"></svg>
+      <div class="figcap">▲ 一个像素被放大：4 个采样点（按 D3D 标准 4×MSAA 旋转网格位置绘制），实心 = 被三角形覆盖</div>
+    </div>
+    <div class="panel">
+      <h4>⚙️ 边缘控制台</h4>
+      <div class="slider-row"><label>边缘角度</label><input type="range" id="r3Angle" min="0" max="180" value="32"><output id="r3AngleV">32°</output></div>
+      <div class="slider-row"><label>边缘位置</label><input type="range" id="r3Offset" min="-95" max="95" value="8"><output id="r3OffsetV">+8</output></div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <dl class="kv">
+        <dt>生成片元数</dt><dd id="r3FragN" style="color:var(--terra);font-weight:700">1</dd>
+        <dt>覆盖掩码</dt><dd id="r3Mask">[1 0 1 0]</dd>
+        <dt>覆盖率</dt><dd id="r3Cov">2/4 = 50%</dd>
+        <dt>最终像素色</dt><dd><span class="sw" id="r3Sw"></span><span id="r3RGB">—</span></dd>
+      </dl>
+      <div class="callout sage" style="margin-top:16px;font-size:13px" id="r3Note">
+        片元颜色 <b style="color:var(--terra)">■</b> × 50% + 背景色 × 50% → 混合出边缘像素的柔和过渡，这就是抗锯齿的原理。
+      </div>
+    </div>
+  </div>
+  <div class="callout sage">
+    <b>📐 真实硬件的采样位置不是均匀的 2×2 网格。</b>D3D 标准 4×MSAA 用<b>旋转网格</b>：(3/8, 1/8)、(7/8, 3/8)、(1/8, 5/8)、(5/8, 7/8)——全是 1/16 的奇数倍。
+    这样 x、y 方向各有 4 个互不相同的坐标，接近水平 / 垂直的边缘也能分出 5 级灰阶；均匀 2×2 网格在这类边缘上只有 3 级（0 / 50% / 100%）。
+    OpenGL 的位置由厂商自定，可用 <code>glGetMultisamplefv(GL_SAMPLE_POSITION)</code> 查询。上方演示已按 D3D 真实位置绘制。
+  </div>
+  <div class="callout gold">
+    <b>再看一遍数量关系：</b>无 MSAA 时，一个像素位置 = 0 或 1 个片元；4×MSAA 时仍是 <b>1 个片元</b>，
+    只是内部分成 4 个采样点各自记色。<b>「采样点」才是比像素更细的单位，片元始终挂在像素这一级。</b>
+    <br><span style="font-size:13px;color:#8a6d2f">补充：像素中心若落在三角形外，默认插值会外推出越界的属性值；此时用 <code>centroid</code> 限定符把求值点拉回覆盖区域内即可。</span>
+  </div>
+</section>
+
+<!-- ================= ⑥ 对照表 ================= -->
+<section id="vs">
+  <span class="sec-tag">⑥ FRAGMENT vs PIXEL</span>
+  <h2>三个演示之后，六个维度收个尾</h2>
+  <table class="vs">
+    <tr><th style="width:130px">维度</th><th>🧩 Fragment 片元</th><th>🖥️ Pixel 像素</th></tr>
+    <tr>
+      <td>本质</td>
+      <td>流水线里的一份<b>数据包 / 中间产物</b>（坐标 + 插值属性）</td>
+      <td>帧缓冲里的一个<b>存储单元</b>，对应屏幕上的发光点</td>
+    </tr>
+    <tr>
+      <td>出身</td>
+      <td>由<b>光栅化</b>现场生成——三角形覆盖到哪，就在哪生成一个</td>
+      <td>由渲染目标分辨率决定，绘制前就已存在：1920×1080 = 2,073,600 个</td>
+    </tr>
+    <tr>
+      <td>数量关系</td>
+      <td>一个像素位置对应 <b>0 / 1 / N</b> 个片元（重叠图元、半透明叠加）</td>
+      <td>每个像素位永远只存<b>一个</b>最终颜色值</td>
+    </tr>
+    <tr>
+      <td>生死</td>
+      <td>随时可能「死亡」：被 <code>discard</code> 或模板 / 深度测试淘汰 → <b>像素保持不变</b></td>
+      <td>始终存在；无片元写入时保持旧值（或清屏色）</td>
+    </tr>
+    <tr>
+      <td>携带信息</td>
+      <td>屏幕坐标、深度 z、插值颜色、UV、法线、覆盖掩码……</td>
+      <td>最终 RGBA 颜色（深度 / 模板在各自缓冲的对应格）</td>
+    </tr>
+    <tr>
+      <td>谁处理它</td>
+      <td><b>片元着色器</b>（Fragment Shader，D3D 里叫 Pixel Shader）</td>
+      <td>显示控制器扫描帧缓冲，驱动物理像素发光</td>
+    </tr>
+  </table>
+  <div class="callout gold" style="margin-top:16px">
+    <b>为什么 OpenGL 叫 Fragment Shader，DirectX 叫 Pixel Shader？</b>
+    两者指同一个阶段。D3D 沿用「处理的多半就是最终像素」的习惯叫法；OpenGL 的命名更严谨——
+    多重采样、深度剔除、<code>discard</code> 之下，<b>着色器处理的对象未必会成为像素</b>。
+  </div>
+</section>
+
+<!-- ================= ⑦ 着色器代码 ================= -->
+<section id="shader">
+  <span class="sec-tag">⑦ 代码里的片元长什么样</span>
+  <h2>一段最真实的片元着色器（GLSL）</h2>
+  <p class="lead">片元着色器的每一个 <code>in</code> 变量，都是光栅化<b>为本片元插值好</b>的；它输出的，是<b>这个候选人</b>想写入像素的颜色。</p>
+  <pre class="code"><span class="cm">// ========== 片元着色器：每个片元跑一次 ==========</span>
+<span class="kw">in</span> <span class="ty">vec3</span> vColor;   <span class="cm">// ← 光栅化用重心坐标插值出的「本位置」颜色</span>
+<span class="kw">in</span> <span class="ty">vec2</span> vUV;      <span class="cm">// ← 插值出的纹理坐标</span>
+<span class="kw">in</span> <span class="ty">float</span> vDepth; <span class="cm">// ← 插值出的深度（也可读 gl_FragCoord.z）</span>
+
+<span class="kw">uniform</span> <span class="ty">sampler2D</span> uTexture;
+<span class="kw">out</span> <span class="ty">vec4</span> FragColor;
+
+<span class="ty">void</span> <span class="fn">main</span>() {
+    <span class="ty">vec4</span> tex = <span class="fn">texture</span>(uTexture, vUV);
+    <span class="kw">if</span> (tex.a &lt; 0.1) <span class="fn">discard</span>;      <span class="cm">// ✂ 这个片元就地「自杀」：像素保持不变！</span>
+    FragColor = <span class="ty">vec4</span>(tex.rgb * vColor, tex.a);
+    <span class="cm">// ↑ 注意：这里只是「提交申请」。后面还有模板测试、</span>
+    <span class="cm">//   深度测试、Alpha 混合，层层过关后才真正写入像素。</span>
+}</pre>
+</section>
+
+<!-- ================= ⑧ FAQ + 速记 ================= -->
+<section id="faq">
+  <span class="sec-tag">⑧ 常见误区 & 一分钟速记</span>
+  <h2>把最后几个坑填平</h2>
+
+  <details open>
+    <summary>❓ 片元就是像素吗？为什么很多教程混着叫？</summary>
+    <p>不是。最简单的情况下（无 MSAA、无重叠、不透明），一个像素恰好收到一个片元且必然写入，两者 1:1，所以口头上常混用。
+    但只要涉及<b>重叠图元、半透明、深度剔除、<code>discard</code>、多重采样</b>，这个 1:1 立刻破裂——演示 ④⑤ 已经让你亲眼看到。</p>
+  </details>
+  <details>
+    <summary>❓ 片元着色器为什么比顶点着色器贵那么多？</summary>
+    <p>量级差得远。一个三角形只有 3 个顶点，却可能覆盖<b>几十万个像素</b>，也就是几十万个片元，每个都要跑一遍着色器。
+    而且 GPU 以 <b>2×2 的 Quad</b> 为单位调度片元（纹理 mipmap 需要相邻像素的导数），
+    三角形边缘凑不满一个 Quad 时，补上的 helper 片元照算不误、算完丢弃。
+    所以「减少 Overdraw」「避免过密的小三角形」「用 Early-Z 提前剔除」都是重要优化方向。</p>
+  </details>
+  <details>
+    <summary>❓ 半透明物体为什么要从远到近排序绘制？</summary>
+    <p>因为 Alpha 混合<b>不满足交换律</b>：同一个像素，片元到达顺序不同，混合结果就不同。
+    而且半透明片元通常只写颜色不写深度，深度测试帮不上忙，先后次序全靠 CPU 侧排序保证。</p>
+  </details>
+  <details>
+    <summary>❓ UE5 / 引擎里哪里能直接看到「片元」的影子？</summary>
+    <p>材质编辑器最终编译出来的就是 Pixel Shader：<b>Opacity Mask</b> 对应 <code>discard</code>，
+    <b>Pixel Depth Offset</b> 直接改片元深度。视图模式里的 <b>Quad Overdraw / Shader Complexity</b> 热力图，
+    本质就是「每个像素被多少片元反复处理」的可视化。</p>
+  </details>
+
+  <div class="memorize" style="margin-top:26px">
+    <div class="kicker" style="margin-bottom:8px">🧠 一分钟速记</div>
+    <div class="big">
+      像素是<em>岗位</em>，片元是<em>候选人</em>：<br>
+      光栅化<em>生产</em>候选人，测试环节<em>淘汰</em>候选人，<br>
+      混合与写入决定<em>谁最终上岗</em>。
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ================= helpers ================= */
+function fit(cv,W,H){
+  cv._w=W; cv._h=H;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return ctx;
+}
+function evPos(cv,e){
+  const r=cv.getBoundingClientRect();
+  return {x:(e.clientX-r.left)*(cv._w/r.width), y:(e.clientY-r.top)*(cv._h/r.height)};
+}
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function bary(p,a,b,c){
+  const d00=(b.x-a.x)*(b.x-a.x)+(b.y-a.y)*(b.y-a.y);
+  const d01=(b.x-a.x)*(c.x-a.x)+(b.y-a.y)*(c.y-a.y);
+  const d11=(c.x-a.x)*(c.x-a.x)+(c.y-a.y)*(c.y-a.y);
+  const d20=(p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y);
+  const d21=(p.x-a.x)*(c.x-a.x)+(p.y-a.y)*(c.y-a.y);
+  const den=d00*d11-d01*d01;
+  if(Math.abs(den)<1e-9) return null;
+  const v=(d11*d20-d01*d21)/den, w=(d00*d21-d01*d20)/den, u=1-v-w;
+  return {u,v,w};
+}
+const mix=(c1,c2,t)=>({r:Math.round(c1.r+(c2.r-c1.r)*t), g:Math.round(c1.g+(c2.g-c1.g)*t), b:Math.round(c1.b+(c2.b-c1.b)*t)});
+const css=c=>`rgb(${c.r},${c.g},${c.b})`;
+
+/* ================= DEMO 1: 光栅化实验室 ================= */
+(function(){
+  const W=680,H=540, x0=20,y0=30, cell=40, cols=16, rows=12;
+  const cv=document.getElementById('c1'), ctx=fit(cv,W,H);
+  const DEF={a:{x:150,y:130},b:{x:560,y:170},c:{x:320,y:450}};
+  const VCOL=[{r:192,g:91,b:60},{r:210,g:162,b:74},{r:124,g:143,b:106}];
+  const VZ=[0.15,0.45,0.85];
+  let A={...DEF.a},B={...DEF.b},C={...DEF.c};
+  let frags=[], shown=0, playing=false, sel=-1, drag=-1;
+
+  const $=id=>document.getElementById(id);
+  const countEl=$('r1Count'), infoEl=$('r1Info'), playBtn=$('r1Play');
+
+  function compute(){
+    frags=[];
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const p={x:x0+c*cell+cell/2, y:y0+r*cell+cell/2};
+      const bc=bary(p,A,B,C); if(!bc) continue;
+      if(bc.u>=-1e-6&&bc.v>=-1e-6&&bc.w>=-1e-6){
+        const z=bc.u*VZ[0]+bc.v*VZ[1]+bc.w*VZ[2];
+        const col={r:Math.round(bc.u*VCOL[0].r+bc.v*VCOL[1].r+bc.w*VCOL[2].r),
+                   g:Math.round(bc.u*VCOL[0].g+bc.v*VCOL[1].g+bc.w*VCOL[2].g),
+                   b:Math.round(bc.u*VCOL[0].b+bc.v*VCOL[1].b+bc.w*VCOL[2].b)};
+        frags.push({c,r,x:p.x,y:p.y,u:bc.u,v:bc.v,w:bc.w,z,col});
+      }
+    }
+    countEl.textContent=playing?0:frags.length;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // cells
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      ctx.fillStyle='#fdfaf3';
+      ctx.fillRect(x0+c*cell,y0+r*cell,cell,cell);
+      ctx.fillStyle='#cfc3ac';
+      ctx.beginPath();ctx.arc(x0+c*cell+cell/2,y0+r*cell+cell/2,1.6,0,7);ctx.fill();
+    }
+    // fragments
+    for(let i=0;i<shown;i++){
+      const f=frags[i], X=x0+f.c*cell+3, Y=y0+f.r*cell+3;
+      rr(ctx,X,Y,cell-6,cell-6,7); ctx.fillStyle=css(f.col); ctx.fill();
+      if(i===sel){ ctx.lineWidth=3; ctx.strokeStyle='#2f2a24'; ctx.stroke(); }
+    }
+    // grid lines
+    ctx.strokeStyle='#e0d6c3'; ctx.lineWidth=1; ctx.beginPath();
+    for(let c=0;c<=cols;c++){ctx.moveTo(x0+c*cell,y0);ctx.lineTo(x0+c*cell,y0+rows*cell);}
+    for(let r=0;r<=rows;r++){ctx.moveTo(x0,y0+r*cell);ctx.lineTo(x0+cols*cell,y0+r*cell);}
+    ctx.stroke();
+    // triangle
+    ctx.strokeStyle='#33302b'; ctx.lineWidth=2; ctx.setLineDash([6,5]);
+    ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.lineTo(C.x,C.y);ctx.closePath();ctx.stroke();
+    ctx.setLineDash([]);
+    // vertices
+    [[A,'V1',VCOL[0]],[B,'V2',VCOL[1]],[C,'V3',VCOL[2]]].forEach(([V,t,col])=>{
+      ctx.beginPath();ctx.arc(V.x,V.y,13,0,7);ctx.fillStyle=css(col);ctx.fill();
+      ctx.lineWidth=2.5;ctx.strokeStyle='#fffdf8';ctx.stroke();
+      ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(t,V.x,V.y+0.5);
+    });
+  }
+
+  function play(){
+    compute(); if(playing) return;
+    playing=true; shown=0; sel=-1; playBtn.disabled=true;
+    infoEl.innerHTML='<p style="font-size:13.5px;color:var(--muted)">光栅化进行中…</p>';
+    const t=setInterval(()=>{
+      shown=Math.min(frags.length,shown+2);
+      countEl.textContent=shown;
+      draw();
+      if(shown>=frags.length){
+        clearInterval(t); playing=false; playBtn.disabled=false;
+        countEl.textContent=frags.length;
+        infoEl.innerHTML='<p style="font-size:13.5px;color:var(--sage);font-weight:600">✅ 完成！现在点击任意彩色格子，查看该片元的数据包。</p>';
+      }
+    },24);
+    draw();
+  }
+
+  function showInfo(f,i){
+    sel=i;
+    infoEl.innerHTML=`
+    <dl class="kv">
+      <dt>所属像素格</dt><dd>(${f.c}, ${f.r})</dd>
+      <dt>屏幕坐标</dt><dd>(${f.x.toFixed(0)}, ${f.y.toFixed(0)}) px</dd>
+      <dt>重心坐标</dt><dd>(${f.u.toFixed(2)}, ${f.v.toFixed(2)}, ${f.w.toFixed(2)})</dd>
+      <dt>插值深度 z</dt><dd>${f.z.toFixed(3)}</dd>
+      <dt>插值颜色</dt><dd><span class="sw" style="background:${css(f.col)}"></span>rgb(${f.col.r}, ${f.col.g}, ${f.col.b})</dd>
+      <dt>状态</dt><dd style="color:var(--sage);font-weight:700">已生成 → 等待测试</dd>
+    </dl>`;
+  }
+
+  playBtn.onclick=play;
+  $('r1Reset').onclick=()=>{
+    A={...DEF.a};B={...DEF.b};C={...DEF.c};
+    frags=[];shown=0;sel=-1;playing=false;playBtn.disabled=false;
+    countEl.textContent='0';
+    infoEl.innerHTML='<p style="font-size:13.5px;color:var(--muted)">先点击「▶ 光栅化」，再点击任意彩色格子查看它的片元数据。</p>';
+    draw();
+  };
+
+  cv.addEventListener('pointerdown',e=>{
+    const p=evPos(cv,e);
+    const verts=[A,B,C];
+    for(let i=0;i<3;i++) if(Math.hypot(p.x-verts[i].x,p.y-verts[i].y)<18){drag=i;cv.setPointerCapture(e.pointerId);return;}
+    // click fragment?
+    for(let i=0;i<shown;i++){
+      const f=frags[i];
+      if(p.x>=x0+f.c*cell&&p.x<x0+(f.c+1)*cell&&p.y>=y0+f.r*cell&&p.y<y0+(f.r+1)*cell){showInfo(f,i);draw();return;}
+    }
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(drag<0)return;
+    const p=evPos(cv,e), verts=[A,B,C];
+    verts[drag].x=Math.max(10,Math.min(W-10,p.x));
+    verts[drag].y=Math.max(10,Math.min(H-10,p.y));
+    compute(); shown=frags.length; sel=-1; draw();
+    countEl.textContent=frags.length;
+  });
+  cv.addEventListener('pointerup',()=>{drag=-1;});
+  cv.addEventListener('pointercancel',()=>{drag=-1;});
+
+  compute(); shown=frags.length; countEl.textContent=frags.length; draw();
+})();
+
+/* ================= DEMO 2: 片元争夺战 ================= */
+(function(){
+  const svgNS='http://www.w3.org/2000/svg';
+  const cols=10,rows=7,cell=58,ox=40,oy=26;
+  const svg=document.getElementById('r2Svg');
+  const CA='#c05b3c',CB='#7c8f6a',CLEAR='#f3ede0';
+  const ZA=0.30,ZB=0.60;
+  const TA=[[90,96],[560,140],[280,410]],TB=[[140,380],[360,60],[600,340]];
+  const $=id=>document.getElementById('r2'+id);
+  const depthOn=()=>$('Depth').checked;
+  let step=1,sel=null,autoTimer=null;
+
+  function mk(t,a){const n=document.createElementNS(svgNS,t);for(const k in a)n.setAttribute(k,a[k]);return n;}
+  function inside(p,t){const[a,b,c]=t;
+    const d1=(p[0]-c[0])*(a[1]-c[1])-(a[0]-c[0])*(p[1]-c[1]);
+    const d2=(p[0]-a[0])*(b[1]-a[1])-(b[0]-a[0])*(p[1]-a[1]);
+    const d3=(p[0]-b[0])*(c[1]-b[1])-(c[0]-b[0])*(p[1]-b[1]);
+    const neg=d1<0||d2<0||d3<0,pos=d1>0||d2>0||d3>0;return!(neg&&pos);}
+
+  const pixels=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const x=ox+c*cell,y=oy+r*cell,cx=x+cell/2,cy=y+cell/2;
+    pixels.push({c,r,x,y,cx,cy,a:inside([cx,cy],TA),b:inside([cx,cy],TB)});
+  }
+  const overlap=pixels.filter(p=>p.a&&p.b).length;
+  const totalFrag=pixels.reduce((n,p)=>n+(p.a?1:0)+(p.b?1:0),0);
+  function winner(p){
+    if(depthOn()){if(p.b&&!p.a)return'B';if(p.a)return'A';return'clear';}
+    if(p.b)return'B';if(p.a)return'A';return'clear';
+  }
+
+  const gRes=mk('g',{}),gGrid=mk('g',{}),gTri=mk('g',{}),gSam=mk('g',{}),gFrag=mk('g',{}),gHit=mk('g',{});
+  [gRes,gGrid,gTri,gSam,gFrag,gHit].forEach(g=>svg.appendChild(g));
+  const selRect=mk('rect',{width:cell-6,height:cell-6,rx:8,fill:'none',stroke:'#c05b3c','stroke-width':3,'pointer-events':'none'});
+  svg.appendChild(selRect);
+
+  pixels.forEach(p=>{
+    p.res=mk('rect',{x:p.x,y:p.y,width:cell,height:cell,fill:CLEAR,opacity:0});
+    gRes.appendChild(p.res);
+    gGrid.appendChild(mk('rect',{x:p.x,y:p.y,width:cell,height:cell,fill:'none',stroke:'#ddd2bd','stroke-width':1}));
+    p.sam=mk('circle',{cx:p.cx,cy:p.cy,r:3.2,fill:'#8a8177'});
+    gSam.appendChild(p.sam);
+    if(p.a){p.fa=mk('circle',{cx:p.cx-(p.b?9:0),cy:p.cy,r:7.5,fill:CA,stroke:'#fffdf8','stroke-width':2,opacity:0});gFrag.appendChild(p.fa);}
+    if(p.b){p.fb=mk('rect',{x:p.cx-7+(p.a?9:0),y:p.cy-7,width:14,height:14,rx:3,fill:CB,stroke:'#fffdf8','stroke-width':2,opacity:0});gFrag.appendChild(p.fb);}
+    p.loser=mk('text',{x:p.cx+9,y:p.cy+5,'text-anchor':'middle','font-size':'15','font-weight':'800',fill:'#a9341f',opacity:0});
+    p.loser.textContent='✗';
+    gFrag.appendChild(p.loser);
+    const hit=mk('rect',{x:p.x,y:p.y,width:cell,height:cell,'class':'hit'});
+    hit.addEventListener('click',()=>{sel=p;drawSel();panel();});
+    gHit.appendChild(hit);
+  });
+  for(let c=0;c<cols;c++){const t=mk('text',{x:ox+c*cell+cell/2,y:oy-9,'text-anchor':'middle','font-size':'11',fill:'#a89a83'});t.textContent=c;gGrid.appendChild(t);}
+  for(let r=0;r<rows;r++){const t=mk('text',{x:ox-12,y:oy+r*cell+cell/2+4,'text-anchor':'middle','font-size':'11',fill:'#a89a83'});t.textContent=r;gGrid.appendChild(t);}
+  [[TA,CA,'▲A 橙 z=0.30'],[TB,CB,'▲B 绿 z=0.60']].forEach(([T,col,label])=>{
+    gTri.appendChild(mk('polygon',{points:T.map(p=>p.join(',')).join(' '),fill:'none',stroke:col,'stroke-width':2.5}));
+    const t=mk('text',{x:T[0][0],y:T[0][1]-12,'text-anchor':'middle','font-size':'13','font-weight':'700',fill:col});
+    t.textContent=label;gTri.appendChild(t);
+  });
+
+  function drawSel(){if(!sel)return;selRect.setAttribute('x',sel.x+3);selRect.setAttribute('y',sel.y+3);}
+  function texts(p){
+    const on=depthOn();
+    const cov=p.a&&p.b?'采样点同时落在 <b>A（橙）和 B（绿）</b>内':p.a?'采样点落在 A（橙）内':p.b?'采样点落在 B（绿）内':'采样点不在任何三角形内';
+    const cand=p.a&&p.b?`产生 <b>2 个片元</b>：A（z=${ZA}）与 B（z=${ZB}），竞争同一像素`:p.a?`产生 1 个片元 A（z=${ZA}）`:p.b?`产生 1 个片元 B（z=${ZB}）`:'不产生片元，像素保持旧值';
+    let tst;
+    if(!on) tst=p.a&&p.b?'深度测试<b>关闭</b>：B 后画 → 直接覆盖 A（顺序即命运）':(p.a||p.b)?'唯一候选，直接写入':'无候选，不测试';
+    else tst=p.a&&p.b?`A 的 z=${ZA} &lt; B 的 z=${ZB} → <b>A 通过，B 淘汰 💀</b>`:p.a?'A 是唯一候选，通过':p.b?'B 是唯一候选，通过':'无候选，无需测试';
+    const w=winner(p);
+    const wr=w==='A'?`写入 <b>A 的橙色</b> <span class="sw" style="background:${CA}"></span>`:w==='B'?`写入 <b>B 的绿色</b> <span class="sw" style="background:${CB}"></span>`:'保留清屏背景色';
+    return[cov,cand,tst,wr];
+  }
+  function panel(){
+    if(!sel)return;
+    const[cov,cand,tst,wr]=texts(sel);
+    $('Panel').innerHTML=`<h4>📍 Pixel (${sel.c}, ${sel.r}) 的面试记录</h4>
+      <div class="stage ${step===1?'on':''}"><b>① 覆盖采样</b><p>${cov}</p></div>
+      <div class="stage ${step===2?'on':''}"><b>② 片元候选</b><p>${cand}</p></div>
+      <div class="stage ${step===3?'on':''}"><b>③ 深度测试</b><p>${tst}</p></div>
+      <div class="stage ${step===4?'on':''}"><b>④ 写入像素</b><p>${wr}</p></div>
+      <p style="font-size:12px;color:var(--muted);margin-top:12px">💡 点击左侧任意像素切换观察对象。</p>`;
+  }
+  function updateStep(s){
+    step=s;
+    document.querySelectorAll('#r2Steps .step').forEach(b=>b.classList.toggle('on',+b.dataset.step===s));
+    gSam.setAttribute('opacity',s<=2?1:0.25);
+    gTri.setAttribute('opacity',s===4?0.22:1);
+    const on=depthOn();
+    pixels.forEach(p=>{
+      const w=winner(p);
+      p.res.setAttribute('fill',w==='A'?CA:w==='B'?CB:CLEAR);
+      p.res.setAttribute('opacity',s<3?0:(s===3?(w==='clear'?0.25:0.4):(w==='clear'?0.35:0.85)));
+      const fragVis=(s===2||s===3);
+      const loserOn=on&&p.a&&p.b&&s>=3;
+      if(p.fa)p.fa.setAttribute('opacity',fragVis?1:0);
+      if(p.fb)p.fb.setAttribute('opacity',fragVis?(loserOn?0.3:1):0);
+      p.loser.setAttribute('opacity',loserOn?1:0);
+    });
+    $('Gen').textContent=s>=2?totalFrag:0;
+    $('Write').textContent=s>=4?pixels.filter(p=>winner(p)!=='clear').length:0;
+    $('Kill').textContent=s>=3&&on?overlap:0;
+    $('Over').textContent=s>=4&&!on?overlap:0;
+    $('Overlap').textContent=overlap;
+    panel();
+  }
+  function stopAuto(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;$('Auto').textContent='▶ 逐步播放';}}
+  document.querySelectorAll('#r2Steps .step').forEach(b=>b.addEventListener('click',()=>{stopAuto();updateStep(+b.dataset.step);}));
+  $('Auto').addEventListener('click',()=>{
+    if(autoTimer){stopAuto();return;}
+    updateStep(1);$('Auto').textContent='⏸ 停止播放';
+    autoTimer=setInterval(()=>{if(step>=4){stopAuto();return;}updateStep(step+1);},1200);
+  });
+  $('Depth').addEventListener('change',()=>updateStep(step));
+
+  sel=pixels.find(p=>p.a&&p.b)||pixels[0];
+  drawSel();updateStep(1);
+})();
+
+/* ================= DEMO 3: MSAA 放大镜 ================= */
+(function(){
+  const svg=document.getElementById('r3Svg');
+  const FRAG={r:192,g:91,b:60}, BG={r:243,g:237,b:224};
+  const PX=60,PY=60,PS=200, CX=160,CY=160;
+  const SAMPLES=[{x:135,y:85},{x:235,y:135},{x:85,y:185},{x:185,y:235}];  // D3D 标准 4×MSAA 旋转网格：(3/8,1/8)(7/8,3/8)(1/8,5/8)(5/8,7/8)
+  const $=id=>document.getElementById(id);
+  function clip(poly,n,p0){
+    const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i], b=poly[(i+1)%poly.length];
+      const da=(a.x-p0.x)*n.x+(a.y-p0.y)*n.y;
+      const db=(b.x-p0.x)*n.x+(b.y-p0.y)*n.y;
+      if(da<=0) out.push(a);
+      if((da<0&&db>0)||(da>0&&db<0)){
+        const t=da/(da-db);
+        out.push({x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t});
+      }
+    }
+    return out;
+  }
+  function update(){
+    const ang=+$('r3Angle').value, off=+$('r3Offset').value;
+    $('r3AngleV').textContent=ang+'°';
+    $('r3OffsetV').textContent=(off>=0?'+':'')+off;
+    const th=ang*Math.PI/180, n={x:Math.cos(th),y:Math.sin(th)};
+    const p0={x:CX+n.x*off, y:CY+n.y*off};
+    const inside=p=>((p.x-p0.x)*n.x+(p.y-p0.y)*n.y)<=0;
+    const rect=[{x:PX,y:PY},{x:PX+PS,y:PY},{x:PX+PS,y:PY+PS},{x:PX,y:PY+PS}];
+    const poly=clip(rect,n,p0);
+    const mask=SAMPLES.map(s=>inside(s)?1:0);
+    const cov=mask.reduce((a,b)=>a+b,0);
+    const fragN=cov>0?1:0;
+    const res=mix(BG,FRAG,cov/4);
+    // draw
+    const t={x:-n.y,y:n.x};
+    const l1={x:p0.x-t.x*260,y:p0.y-t.y*260}, l2={x:p0.x+t.x*260,y:p0.y+t.y*260};
+    let s='';
+    s+=`<rect x="${PX}" y="${PY}" width="${PS}" height="${PS}" fill="#f3ede0" stroke="#c9bda4" stroke-width="2"/>`;
+    if(poly.length>2)
+      s+=`<polygon points="${poly.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="rgba(192,91,60,.30)"/>`;
+    s+=`<line x1="${l1.x.toFixed(1)}" y1="${l1.y.toFixed(1)}" x2="${l2.x.toFixed(1)}" y2="${l2.y.toFixed(1)}" stroke="#a94e33" stroke-width="2.5"/>`;
+    SAMPLES.forEach((p,i)=>{
+      const on=mask[i];
+      s+=`<circle cx="${p.x}" cy="${p.y}" r="13" fill="${on?'#c05b3c':'#fffdf8'}" stroke="${on?'#a94e33':'#b7ab97'}" stroke-width="2"/>`;
+      s+=`<text x="${p.x}" y="${p.y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="${on?'#fff':'#8a8177'}">${i+1}</text>`;
+    });
+    s+=`<g opacity=".6"><line x1="151" y1="160" x2="169" y2="160" stroke="#33302b" stroke-width="1.6"/><line x1="160" y1="151" x2="160" y2="169" stroke="#33302b" stroke-width="1.6"/></g>`;
+    s+=`<text x="160" y="40" text-anchor="middle" font-size="12" fill="#8a8177">▼ 三角形边缘（阴影区 = 三角形内部）</text>`;
+    s+=`<text x="160" y="300" text-anchor="middle" font-size="11.5" fill="#8a8177">✕ 像素中心 = 片元着色器唯一一次求值的位置</text>`;
+    svg.innerHTML=s;
+    // panel
+    $('r3FragN').textContent=fragN;
+    $('r3Mask').textContent='['+mask.join(' ')+']';
+    $('r3Cov').textContent=`${cov}/4 = ${cov*25}%`;
+    $('r3Sw').style.background=css(res);
+    $('r3RGB').textContent=`rgb(${res.r}, ${res.g}, ${res.b})`;
+    const note=$('r3Note');
+    if(cov===0) note.innerHTML='4 个采样点全部未覆盖 → <b>不生成片元</b>，像素保持背景色。';
+    else if(cov===4) note.innerHTML='全覆盖：像素色 = 片元色，此时与不开 MSAA 的结果相同。';
+    else note.innerHTML=`片元颜色 <b style="color:var(--terra)">■</b> × ${cov*25}% + 背景色 × ${100-cov*25}% → 混合出边缘像素的柔和过渡，这就是抗锯齿的原理。`;
+  }
+  $('r3Angle').oninput=update; $('r3Offset').oninput=update;
+  update();
+})();
+</script>
+</body>
+</html>

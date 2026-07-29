@@ -716,8 +716,16 @@ let simUserScrolled=false;
 simBody.addEventListener('wheel',e=>{
   if(Math.abs(e.deltaY)<=Math.abs(e.deltaX) || simBody.scrollHeight<=simBody.clientHeight) return;
   const scale=e.deltaMode===1 ? 16 : e.deltaMode===2 ? simBody.clientHeight : 1;
+  const delta=e.deltaY*scale;
+  const maxScrollTop=simBody.scrollHeight-simBody.clientHeight;
+  const atTop=simBody.scrollTop<=0;
+  const atBottom=simBody.scrollTop>=maxScrollTop-1;
+
+  // 内层已经到达滚动边界时，不拦截滚轮，让页面继续向上或向下滚动。
+  if((delta<0 && atTop) || (delta>0 && atBottom)) return;
+
   simUserScrolled=true;
-  simBody.scrollTop+=e.deltaY*scale;
+  simBody.scrollTop=Math.max(0,Math.min(maxScrollTop,simBody.scrollTop+delta));
   e.preventDefault();
 },{passive:false});
 
