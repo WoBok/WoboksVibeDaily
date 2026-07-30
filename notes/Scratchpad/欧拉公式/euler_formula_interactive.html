@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>欧拉公式交互演示</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #191919;
+      --panel: #232323;
+      --panel-2: #2d2d2d;
+      --text: #f4f4f4;
+      --muted: #b8b8b8;
+      --grid: #3a3a3a;
+      --axis: #737373;
+      --accent: #ff7a2f;
+      --guide: #c8c8c8;
+      --border: #4a4a4a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #0f0f0f;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    .demo {
+      width: min(980px, 100%);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--panel);
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
+      min-height: 470px;
+    }
+
+    .explain {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 38px 34px 24px;
+      border-right: 1px solid var(--border);
+    }
+
+    .formula {
+      text-align: center;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(28px, 4vw, 42px);
+      font-style: italic;
+      line-height: 1.35;
+      letter-spacing: 0.01em;
+    }
+
+    .formula sup {
+      font-size: 0.58em;
+      vertical-align: 0.72em;
+    }
+
+    .details {
+      display: grid;
+      gap: 12px;
+      text-align: center;
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: clamp(17px, 2.2vw, 22px);
+      line-height: 1.55;
+    }
+
+    .details .muted {
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.86em;
+    }
+
+    .controls {
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: auto 88px 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .theta-label {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      font-style: italic;
+    }
+
+    .angle-box {
+      width: 88px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+      text-align: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .degree-mark {
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .hint {
+      margin: -8px 0 0;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .plot-wrap {
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: #252525;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      max-height: 520px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .grid-line { stroke: var(--grid); stroke-width: 1; }
+    .axis-line { stroke: var(--axis); stroke-width: 1.5; }
+    .unit-circle { fill: none; stroke: var(--accent); stroke-width: 3; }
+    .projection { stroke: var(--guide); stroke-width: 2; stroke-dasharray: 7 7; opacity: 0.8; }
+    .vector { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+    .angle-arc { fill: none; stroke: var(--guide); stroke-width: 2; stroke-dasharray: 6 5; }
+    .point { fill: var(--accent); stroke: #161616; stroke-width: 3; cursor: grab; }
+    .point:active { cursor: grabbing; }
+    .tick-label, .axis-label, .projection-label, .angle-label {
+      fill: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+    .tick-label { font-size: 13px; fill: var(--muted); }
+    .axis-label { font-size: 16px; font-weight: 650; }
+    .projection-label { font-size: 15px; font-weight: 650; }
+    .angle-label { font-size: 15px; font-weight: 700; }
+    .badge { fill: var(--accent); }
+    .badge-text { fill: #151515; font-size: 15px; font-weight: 750; }
+
+    @media (max-width: 760px) {
+      body { padding: 12px; }
+      .content { grid-template-columns: 1fr; }
+      .explain { border-right: 0; border-bottom: 1px solid var(--border); }
+      .controls { grid-template-columns: auto 78px 1fr auto; }
+      .plot-wrap { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="demo" aria-label="欧拉公式交互演示">
+    <section class="content">
+      <div class="explain">
+        <div class="formula" aria-label="e 的 i theta 次方等于 cos theta 加 i sin theta">
+          e<sup>iθ</sup> = cos θ + i sin θ
+        </div>
+
+        <div class="details" aria-live="polite">
+          <div id="numericFormula"></div>
+          <div id="radianText"></div>
+          <div id="coordinateText" class="muted"></div>
+        </div>
+
+        <div class="controls">
+          <label class="theta-label" for="angleInput">θ</label>
+          <input id="angleNumber" class="angle-box" type="number" min="0" max="360" step="1" value="58" aria-label="角度数值" />
+          <input id="angleInput" type="range" min="0" max="360" step="1" value="58" aria-label="角度滑块" />
+          <span class="degree-mark">°</span>
+        </div>
+        <p class="hint">拖动滑块，或直接拖动圆上的橙色点。</p>
+      </div>
+
+      <div class="plot-wrap">
+        <svg id="plot" viewBox="0 0 520 520" role="img" aria-labelledby="plotTitle plotDesc">
+          <title id="plotTitle">欧拉公式单位圆</title>
+          <desc id="plotDesc">橙色向量随角度旋转，虚线显示余弦和正弦投影。</desc>
+
+          <g id="grid"></g>
+
+          <line class="axis-line" x1="30" y1="260" x2="490" y2="260"></line>
+          <line class="axis-line" x1="260" y1="30" x2="260" y2="490"></line>
+          <text class="axis-label" x="474" y="246">Re</text>
+          <text class="axis-label" x="272" y="44">Im</text>
+
+          <circle class="unit-circle" cx="260" cy="260" r="170"></circle>
+
+          <line id="projX" class="projection"></line>
+          <line id="projY" class="projection"></line>
+          <path id="angleArc" class="angle-arc"></path>
+          <line id="vector" class="vector" x1="260" y1="260"></line>
+
+          <text id="cosLabel" class="projection-label"></text>
+          <text id="sinLabel" class="projection-label"></text>
+
+          <g id="angleBadge">
+            <rect class="badge" x="0" y="0" width="94" height="36" rx="18"></rect>
+            <text id="angleBadgeText" class="badge-text" x="47" y="23" text-anchor="middle"></text>
+          </g>
+
+          <circle id="point" class="point" r="10"></circle>
+        </svg>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const slider = document.getElementById('angleInput');
+      const numberInput = document.getElementById('angleNumber');
+      const numericFormula = document.getElementById('numericFormula');
+      const radianText = document.getElementById('radianText');
+      const coordinateText = document.getElementById('coordinateText');
+
+      const svg = document.getElementById('plot');
+      const grid = document.getElementById('grid');
+      const vector = document.getElementById('vector');
+      const point = document.getElementById('point');
+      const projX = document.getElementById('projX');
+      const projY = document.getElementById('projY');
+      const angleArc = document.getElementById('angleArc');
+      const cosLabel = document.getElementById('cosLabel');
+      const sinLabel = document.getElementById('sinLabel');
+      const angleBadge = document.getElementById('angleBadge');
+      const angleBadgeText = document.getElementById('angleBadgeText');
+
+      const cx = 260;
+      const cy = 260;
+      const radius = 170;
+      let dragging = false;
+
+      function trimNumber(value) {
+        if (Math.abs(value) < 0.005) return '0';
+        const fixed = value.toFixed(2);
+        return fixed.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+      }
+
+      function signedImaginary(value) {
+        const abs = trimNumber(Math.abs(value));
+        return `${value >= 0 ? '+' : '−'} ${abs}i`;
+      }
+
+      function polarPoint(angleDeg, r = radius) {
+        const rad = angleDeg * Math.PI / 180;
+        return {
+          x: cx + r * Math.cos(rad),
+          y: cy - r * Math.sin(rad)
+        };
+      }
+
+      function arcPath(angleDeg) {
+        const arcRadius = 58;
+        const start = polarPoint(0, arcRadius);
+        const end = polarPoint(angleDeg, arcRadius);
+        const normalized = ((angleDeg % 360) + 360) % 360;
+        const largeArc = normalized > 180 ? 1 : 0;
+
+        if (normalized === 0 || normalized === 360) return '';
+
+        return `M ${start.x} ${start.y} A ${arcRadius} ${arcRadius} 0 ${largeArc} 0 ${end.x} ${end.y}`;
+      }
+
+      function render(angleDeg) {
+        const normalized = Math.max(0, Math.min(360, Number(angleDeg) || 0));
+        const rad = normalized * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const p = polarPoint(normalized);
+
+        slider.value = normalized;
+        numberInput.value = Math.round(normalized);
+
+        numericFormula.innerHTML =
+          `e<sup>i${Math.round(normalized)}°</sup> = cos(${Math.round(normalized)}°) + i sin(${Math.round(normalized)}°) ≈ ` +
+          `${trimNumber(cos)} ${signedImaginary(sin)}`;
+
+        radianText.textContent = `θ = ${Math.round(normalized)}° ≈ ${rad.toFixed(2)} rad`;
+        coordinateText.textContent =
+          `该点在单位圆上，对应坐标为 (cos θ, sin θ) = (${trimNumber(cos)}, ${trimNumber(sin)})。`;
+
+        vector.setAttribute('x2', p.x);
+        vector.setAttribute('y2', p.y);
+        point.setAttribute('cx', p.x);
+        point.setAttribute('cy', p.y);
+
+        projX.setAttribute('x1', p.x);
+        projX.setAttribute('y1', p.y);
+        projX.setAttribute('x2', p.x);
+        projX.setAttribute('y2', cy);
+
+        projY.setAttribute('x1', p.x);
+        projY.setAttribute('y1', p.y);
+        projY.setAttribute('x2', cx);
+        projY.setAttribute('y2', p.y);
+
+        angleArc.setAttribute('d', arcPath(normalized));
+
+        cosLabel.textContent = `cos θ = ${trimNumber(cos)}`;
+        cosLabel.setAttribute('x', (cx + p.x) / 2);
+        cosLabel.setAttribute('y', cy + (sin >= 0 ? 24 : -12));
+        cosLabel.setAttribute('text-anchor', 'middle');
+
+        sinLabel.textContent = `sin θ = ${trimNumber(sin)}`;
+        sinLabel.setAttribute('x', cx + (cos >= 0 ? -14 : 14));
+        sinLabel.setAttribute('y', (cy + p.y) / 2);
+        sinLabel.setAttribute('text-anchor', cos >= 0 ? 'end' : 'start');
+
+        const badgeX = Math.max(12, Math.min(414, p.x + (cos >= 0 ? 14 : -108)));
+        const badgeY = Math.max(12, Math.min(472, p.y + (sin >= 0 ? 12 : -48)));
+        angleBadge.setAttribute('transform', `translate(${badgeX} ${badgeY})`);
+        angleBadgeText.textContent = `θ = ${Math.round(normalized)}°`;
+      }
+
+      function svgPointFromEvent(event) {
+        const point = svg.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        return point.matrixTransform(svg.getScreenCTM().inverse());
+      }
+
+      function setFromPointer(event) {
+        const p = svgPointFromEvent(event);
+        const dx = p.x - cx;
+        const dy = cy - p.y;
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (angle < 0) angle += 360;
+        render(Math.round(angle));
+      }
+
+      function buildGrid() {
+        const positions = [90, 175, 260, 345, 430];
+        const labels = ['−1', '−0.5', '0', '0.5', '1'];
+
+        positions.forEach((pos, index) => {
+          const vertical = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          vertical.setAttribute('class', 'grid-line');
+          vertical.setAttribute('x1', pos);
+          vertical.setAttribute('y1', 30);
+          vertical.setAttribute('x2', pos);
+          vertical.setAttribute('y2', 490);
+          grid.appendChild(vertical);
+
+          const horizontal = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          horizontal.setAttribute('class', 'grid-line');
+          horizontal.setAttribute('x1', 30);
+          horizontal.setAttribute('y1', pos);
+          horizontal.setAttribute('x2', 490);
+          horizontal.setAttribute('y2', pos);
+          grid.appendChild(horizontal);
+
+          if (index !== 2) {
+            const xText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xText.setAttribute('class', 'tick-label');
+            xText.setAttribute('x', pos);
+            xText.setAttribute('y', 280);
+            xText.setAttribute('text-anchor', 'middle');
+            xText.textContent = labels[index];
+            grid.appendChild(xText);
+
+            const yText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yText.setAttribute('class', 'tick-label');
+            yText.setAttribute('x', 270);
+            yText.setAttribute('y', pos + 4);
+            yText.textContent = labels[4 - index];
+            grid.appendChild(yText);
+          }
+        });
+      }
+
+      slider.addEventListener('input', event => render(event.target.value));
+
+      numberInput.addEventListener('input', event => {
+        const value = Math.max(0, Math.min(360, Number(event.target.value) || 0));
+        render(value);
+      });
+
+      point.addEventListener('pointerdown', event => {
+        dragging = true;
+        point.setPointerCapture(event.pointerId);
+        setFromPointer(event);
+      });
+
+      svg.addEventListener('pointermove', event => {
+        if (dragging) setFromPointer(event);
+      });
+
+      svg.addEventListener('pointerup', () => { dragging = false; });
+      svg.addEventListener('pointercancel', () => { dragging = false; });
+
+      buildGrid();
+      render(58);
+    })();
+  </script>
+</body>
+</html>

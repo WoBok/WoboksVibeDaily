@@ -1,0 +1,1456 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从复数平面、极坐标、复数乘法、幂级数、矩阵与二维图形变换理解欧拉公式。">
+  <title>欧拉公式：纯虚指数就是旋转</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f7f4ed;
+      --paper-deep: #eee8dc;
+      --surface: rgba(255, 255, 255, 0.72);
+      --ink: #20252b;
+      --muted: #626973;
+      --line: #d7d0c3;
+      --blue: #285f8f;
+      --blue-soft: rgba(40, 95, 143, 0.12);
+      --orange: #c85a36;
+      --orange-soft: rgba(200, 90, 54, 0.12);
+      --green: #397663;
+      --green-soft: rgba(57, 118, 99, 0.12);
+      --shadow: 0 18px 48px rgba(54, 45, 32, 0.08);
+      --radius: 18px;
+      --sans: "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+      --serif: "Iowan Old Style", "Noto Serif SC", "Songti SC", "SimSun", serif;
+      --math: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(32, 37, 43, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(32, 37, 43, 0.025) 1px, transparent 1px),
+        var(--paper);
+      background-size: 28px 28px;
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.82;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: minmax(180px, 230px) minmax(0, 860px);
+      gap: clamp(28px, 5vw, 72px);
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 36px 0 96px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 28px;
+      align-self: start;
+      padding: 18px 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .toc strong {
+      display: block;
+      margin-bottom: 12px;
+      color: var(--ink);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+    }
+
+    .toc ol {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .toc a {
+      display: block;
+      padding: 7px 10px;
+      border-left: 2px solid transparent;
+      text-decoration: none;
+    }
+
+    .toc a:hover,
+    .toc a:focus-visible {
+      border-left-color: var(--orange);
+      color: var(--ink);
+      background: var(--orange-soft);
+      outline: none;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      min-height: 430px;
+      padding: clamp(32px, 7vw, 68px);
+      border: 1px solid rgba(32, 37, 43, 0.08);
+      border-radius: 28px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::before,
+    .hero::after {
+      position: absolute;
+      border: 1px solid rgba(40, 95, 143, 0.18);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .hero::before {
+      width: 390px;
+      height: 390px;
+      right: -130px;
+      top: -120px;
+    }
+
+    .hero::after {
+      width: 250px;
+      height: 250px;
+      right: -60px;
+      top: -50px;
+      border-color: rgba(200, 90, 54, 0.22);
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: var(--orange);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: var(--ink);
+      font-family: var(--serif);
+      line-height: 1.25;
+      text-wrap: balance;
+    }
+
+    h1 {
+      position: relative;
+      max-width: 650px;
+      margin: 0;
+      font-size: clamp(40px, 8vw, 72px);
+      font-weight: 700;
+      letter-spacing: -0.045em;
+    }
+
+    h1 span {
+      color: var(--orange);
+    }
+
+    .hero-lead {
+      position: relative;
+      max-width: 640px;
+      margin: 28px 0 0;
+      color: var(--muted);
+      font-size: clamp(18px, 2.4vw, 22px);
+      line-height: 1.65;
+    }
+
+    .hero-formula {
+      position: relative;
+      display: inline-block;
+      margin-top: 34px;
+      padding: 10px 16px;
+      border-left: 3px solid var(--orange);
+      background: var(--orange-soft);
+      font-family: var(--math);
+      font-size: clamp(22px, 4vw, 32px);
+      line-height: 1.3;
+    }
+
+    .core-sentence {
+      margin: 54px 0 0;
+      padding: 0 0 0 22px;
+      border-left: 4px solid var(--blue);
+      font-family: var(--serif);
+      font-size: clamp(21px, 3vw, 28px);
+      line-height: 1.6;
+    }
+
+    section {
+      padding-top: 76px;
+      scroll-margin-top: 20px;
+    }
+
+    .section-number {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--orange);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+    }
+
+    h2 {
+      margin: 0 0 26px;
+      font-size: clamp(30px, 5vw, 44px);
+      letter-spacing: -0.025em;
+    }
+
+    h3 {
+      margin: 38px 0 12px;
+      font-size: clamp(21px, 3vw, 27px);
+    }
+
+    p {
+      margin: 14px 0;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 19px;
+    }
+
+    .math {
+      font-family: var(--math);
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    .formula {
+      overflow-x: auto;
+      margin: 22px 0;
+      padding: 20px 24px;
+      border-left: 3px solid var(--blue);
+      background: var(--blue-soft);
+      font-family: var(--math);
+      font-size: clamp(19px, 3.4vw, 25px);
+      line-height: 1.55;
+      white-space: nowrap;
+    }
+
+    .formula.orange {
+      border-left-color: var(--orange);
+      background: var(--orange-soft);
+    }
+
+    .formula.green {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin: 24px 0;
+    }
+
+    .concept {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.46);
+    }
+
+    .concept h3 {
+      margin: 0 0 8px;
+      font-family: var(--sans);
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .concept p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .key-point {
+      margin: 28px 0;
+      padding: 22px 24px;
+      border: 1px solid rgba(200, 90, 54, 0.25);
+      border-radius: var(--radius);
+      background: var(--orange-soft);
+    }
+
+    .key-point strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--orange);
+    }
+
+    .key-point p {
+      margin: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin: 24px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, 0.35);
+      font-size: 15px;
+    }
+
+    th,
+    td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+    }
+
+    .demo {
+      margin: 34px 0;
+      padding: clamp(18px, 4vw, 28px);
+      border: 1px solid rgba(32, 37, 43, 0.09);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.68);
+      box-shadow: 0 12px 34px rgba(54, 45, 32, 0.06);
+    }
+
+    .demo-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px 18px;
+      margin-bottom: 18px;
+    }
+
+    .demo-header h3 {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 18px;
+    }
+
+    .demo-output {
+      color: var(--muted);
+      font-family: var(--math);
+      font-size: 15px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px 22px;
+      margin-bottom: 18px;
+    }
+
+    .control {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .control strong {
+      color: var(--ink);
+      font-weight: 650;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--orange);
+      cursor: pointer;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 10;
+      border-radius: 12px;
+      background:
+        linear-gradient(rgba(32, 37, 43, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(32, 37, 43, 0.025) 1px, transparent 1px),
+        rgba(247, 244, 237, 0.72);
+      background-size: 24px 24px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .swatch {
+      width: 20px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--blue);
+    }
+
+    .swatch.orange {
+      background: var(--orange);
+    }
+
+    .swatch.green {
+      background: var(--green);
+    }
+
+    .derivation {
+      display: grid;
+      gap: 12px;
+      margin: 26px 0;
+      counter-reset: derive;
+    }
+
+    .derivation > div {
+      position: relative;
+      padding: 14px 18px 14px 52px;
+      border-bottom: 1px solid var(--line);
+      font-family: var(--math);
+      font-size: clamp(17px, 2.8vw, 21px);
+      counter-increment: derive;
+    }
+
+    .derivation > div::before {
+      position: absolute;
+      left: 8px;
+      top: 14px;
+      width: 28px;
+      color: var(--orange);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      content: counter(derive, decimal-leading-zero);
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 18px;
+      margin: 28px 0;
+      text-align: center;
+    }
+
+    .map-box {
+      padding: 22px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.46);
+    }
+
+    .map-box strong {
+      display: block;
+      font-family: var(--math);
+      font-size: 22px;
+    }
+
+    .map-box span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .map-arrow {
+      color: var(--orange);
+      font-size: 28px;
+    }
+
+    .matrix-line {
+      display: grid;
+      grid-template-columns: auto auto auto;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 22px 0;
+      font-family: var(--math);
+      font-size: clamp(17px, 3vw, 23px);
+    }
+
+    .matrix {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(48px, auto));
+      gap: 5px 14px;
+      padding: 7px 16px;
+      text-align: center;
+    }
+
+    .matrix::before,
+    .matrix::after {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      border-top: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      content: "";
+    }
+
+    .matrix::before {
+      left: 0;
+      border-left: 2px solid currentColor;
+    }
+
+    .matrix::after {
+      right: 0;
+      border-right: 2px solid currentColor;
+    }
+
+    .matrix-values {
+      margin-top: 14px;
+      color: var(--muted);
+      text-align: center;
+      font-family: var(--math);
+      font-size: 15px;
+    }
+
+    .summary {
+      display: grid;
+      gap: 0;
+      margin: 28px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 0.7fr) minmax(0, 2fr);
+      gap: 20px;
+      padding: 17px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .summary-row strong {
+      font-family: var(--serif);
+      font-size: 18px;
+    }
+
+    .summary-row span {
+      color: var(--muted);
+    }
+
+    .closing {
+      margin-top: 72px;
+      padding: clamp(28px, 6vw, 52px);
+      border-radius: 24px;
+      color: #f8f5ee;
+      background: var(--ink);
+    }
+
+    .closing h2 {
+      color: inherit;
+    }
+
+    .closing p {
+      color: rgba(248, 245, 238, 0.76);
+    }
+
+    .closing .formula {
+      border-left-color: #df7958;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    footer {
+      padding: 34px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 820px) {
+      .page {
+        display: block;
+        width: min(100% - 28px, 860px);
+        padding-top: 14px;
+      }
+
+      .toc {
+        position: static;
+        overflow-x: auto;
+        padding: 8px 0 18px;
+      }
+
+      .toc strong {
+        display: none;
+      }
+
+      .toc ol {
+        display: flex;
+        width: max-content;
+      }
+
+      .toc a {
+        border: 0;
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+      }
+
+      .toc a:hover,
+      .toc a:focus-visible {
+        border-left-color: transparent;
+        border-bottom-color: var(--orange);
+      }
+
+      .hero {
+        min-height: 0;
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        font-size: 16px;
+      }
+
+      .hero {
+        padding: 28px 24px 34px;
+        border-radius: 20px;
+      }
+
+      section {
+        padding-top: 62px;
+      }
+
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .map {
+        grid-template-columns: 1fr;
+      }
+
+      .map-arrow {
+        transform: rotate(90deg);
+      }
+
+      .summary-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+
+      .matrix-line {
+        gap: 7px;
+      }
+
+      .matrix {
+        grid-template-columns: repeat(2, minmax(36px, auto));
+        gap: 4px 7px;
+        padding: 6px 10px;
+      }
+
+      canvas {
+        aspect-ratio: 4 / 3;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        display: block;
+        width: 100%;
+        padding: 0;
+      }
+
+      .toc,
+      .controls {
+        display: none;
+      }
+
+      .hero,
+      .demo {
+        box-shadow: none;
+      }
+
+      section,
+      .demo,
+      .concept {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="toc" aria-label="目录">
+      <strong>阅读路径</strong>
+      <ol>
+        <li><a href="#complex">01　复数与平面</a></li>
+        <li><a href="#polar">02　两套坐标</a></li>
+        <li><a href="#multiply">03　从 i 到旋转</a></li>
+        <li><a href="#euler">04　为何是指数</a></li>
+        <li><a href="#matrix">05　矩阵与图形学</a></li>
+        <li><a href="#model">06　最终心智模型</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <header class="hero">
+        <p class="eyebrow">EULER'S FORMULA · ROTATION FIRST</p>
+        <h1>纯虚指数，<br><span>就是旋转</span></h1>
+        <p class="hero-lead">
+          更准确地说：单位复数 <span class="math">e<sup>iθ</sup></span>
+          作为乘数，会把任意复数逆时针旋转 <span class="math">θ</span>，并保持长度不变。
+        </p>
+        <div class="hero-formula" aria-label="e 的 i theta 次方等于 cosine theta 加 i sine theta">
+          e<sup>iθ</sup> = cos θ + i sin θ
+        </div>
+        <p class="core-sentence">
+          指数把<strong>角度相加</strong>翻译成<strong>旋转复合</strong>：
+          <span class="math">e<sup>i(α+β)</sup>=e<sup>iα</sup>e<sup>iβ</sup></span>。
+        </p>
+      </header>
+
+      <section id="complex">
+        <span class="section-number">01 · THE COMPLEX PLANE</span>
+        <h2>先把复数看成平面上的箭头</h2>
+        <p class="lead">
+          复数 <span class="math">z=a+bi</span> 同时是一个数、一个点
+          <span class="math">(a,b)</span>，也是从原点指向该点的向量。
+        </p>
+        <div class="formula">i² = −1　　z = a + bi，a,b ∈ ℝ</div>
+        <p>
+          横轴是实轴，纵轴是虚轴；<span class="math">a</span> 决定横坐标，
+          <span class="math">b</span> 决定纵坐标。这里的二维几何不是比喻，而是复数运算本身的结构。
+        </p>
+
+        <div class="split">
+          <article class="concept">
+            <h3>加法：向量平移</h3>
+            <p>(a+bi)+(c+di)=(a+c)+(b+d)i，对应两个坐标分别相加。</p>
+          </article>
+          <article class="concept">
+            <h3>乘法：几何变换</h3>
+            <p>复数还可以作为乘数，对另一个复数实施旋转和缩放。</p>
+          </article>
+        </div>
+
+        <h3>最小的旋转算子：i</h3>
+        <div class="formula green">
+          i(a+bi) = −b + ai　　⇔　　(a,b) → (−b,a)
+        </div>
+        <p>
+          变换前后的长度相同，因为
+          <span class="math">a²+b²=(−b)²+a²</span>；方向逆时针转过
+          <span class="math">90°</span>。所以乘以 <span class="math">i</span>
+          就是旋转四分之一圈，连续乘四次则回到原位。
+        </p>
+      </section>
+
+      <section id="polar">
+        <span class="section-number">02 · TWO COORDINATE SYSTEMS</span>
+        <h2>同一个复数，两套坐标</h2>
+        <p>
+          代数形式回答“横向和纵向各有多少”；极坐标形式回答“有多长、朝哪里”。
+          对非零复数 <span class="math">z</span>：
+        </p>
+        <div class="formula">
+          z = a+bi = ρ(cos θ+i sin θ)
+        </div>
+        <p>
+          两套参数由投影连接：
+          <span class="math">a=ρ cos θ</span>、
+          <span class="math">b=ρ sin θ</span>；
+          反过来 <span class="math">ρ=√(a²+b²)</span>、
+          <span class="math">θ=atan2(b,a)</span>。
+        </p>
+
+        <div class="demo">
+          <div class="demo-header">
+            <h3>同一个 z 的代数形式与极坐标形式</h3>
+            <output class="demo-output" id="unit-output" for="unit-radius unit-theta" aria-live="polite">z = 1.000+1.732i = 2(cos 60°+i sin 60°)</output>
+          </div>
+          <div class="controls">
+            <label class="control" for="unit-radius">
+              <strong>模 ρ</strong>
+              <input id="unit-radius" type="range" min="0.4" max="2" step="0.05" value="2">
+            </label>
+            <label class="control" for="unit-theta">
+              <strong>角度 θ</strong>
+              <input id="unit-theta" type="range" min="-3.141593" max="3.141593" step="0.01" value="1.047198">
+            </label>
+          </div>
+          <canvas id="unit-canvas" role="img" aria-label="同一个复数的直角坐标和极坐标表示"></canvas>
+          <div class="legend">
+            <span><i class="swatch"></i>向量长度 ρ 与方向 θ</span>
+            <span><i class="swatch orange"></i>坐标投影 a 与 b</span>
+          </div>
+        </div>
+
+        <p>
+          这不是复数的两种“类型”，而是同一个点的两套坐标。极坐标中的
+          <span class="math">θ</span> 相差 <span class="math">2kπ</span>
+          仍表示同一方向；后文所有角度默认使用弧度。
+        </p>
+      </section>
+
+      <section id="multiply">
+        <span class="section-number">03 · FROM i TO ROTATION</span>
+        <h2>从乘以 i，推广到任意角度</h2>
+        <p class="lead">
+          “乘以 <span class="math">i</span> 旋转 90°”是正确的。
+          先把 <span class="math">i</span> 看成单位圆上
+          <span class="math">π/2</span> 方向的复数：
+        </p>
+        <div class="formula">
+          i = cos(π/2)+i sin(π/2)
+        </div>
+        <div class="formula orange">
+          z·i = ρ[cos(θ+π/2)+i sin(θ+π/2)]
+        </div>
+        <p>
+          这里使用的是复数的三角形式与和角公式，还没有使用欧拉公式，因此不存在循环论证。
+          一般地，单位复数
+          <span class="math">q<sub>φ</sub>=cos φ+i sin φ</span>
+          的模为 1、辐角为 <span class="math">φ</span>。把任意
+          <span class="math">z=ρ(cos θ+i sin θ)</span> 乘以它：
+        </p>
+        <div class="formula green">
+          q<sub>φ</sub>z = ρ[cos(θ+φ)+i sin(θ+φ)]
+        </div>
+        <p>
+          模保持为 <span class="math">ρ</span>，辐角增加
+          <span class="math">φ</span>。所以单位复数在乘法中就是旋转算子。
+        </p>
+
+        <div class="demo">
+          <div class="demo-header">
+            <h3>旋转复合：角度相加</h3>
+            <output class="demo-output" id="multiply-output" for="base-angle factor-angle" aria-live="polite">40° + 55° = 95°</output>
+          </div>
+          <div class="controls">
+            <label class="control" for="base-angle">
+              <strong>z 的辐角 α</strong>
+              <input id="base-angle" type="range" min="-180" max="180" step="1" value="40">
+            </label>
+            <label class="control" for="factor-angle">
+              <strong>旋转角 φ</strong>
+              <input id="factor-angle" type="range" min="-180" max="180" step="1" value="55">
+            </label>
+          </div>
+          <canvas id="multiply-canvas" role="img" aria-label="原复数乘以单位复数后旋转指定角度"></canvas>
+          <div class="legend">
+            <span><i class="swatch"></i>z：原向量</span>
+            <span><i class="swatch green"></i>φ：施加的旋转</span>
+            <span><i class="swatch orange"></i>q<sub>φ</sub>z：旋转结果</span>
+          </div>
+        </div>
+
+        <p>
+          如果乘数的模不是 1，例如 <span class="math">s q<sub>φ</sub></span>，
+          则在旋转 <span class="math">φ</span> 的同时把长度统一缩放
+          <span class="math">s</span> 倍。旋转是复数乘法的核心，缩放是模带来的附加效果。
+        </p>
+      </section>
+
+      <section id="euler">
+        <span class="section-number">04 · WHY EXPONENTIAL</span>
+        <h2>为什么旋转算子恰好是指数</h2>
+        <p class="lead">
+          上一节已经得到旋转算子
+          <span class="math">q<sub>θ</sub>=cos θ+i sin θ</span>。
+          现在只需证明它与 <span class="math">e<sup>iθ</sup></span> 是同一个复数。
+        </p>
+        <div class="formula green">
+          e<sup>z</sup> = 1 + z + z²/2! + z³/3! + ···
+        </div>
+        <p>
+          把 <span class="math">z=iθ</span> 代入并按实部、虚部分组：
+        </p>
+
+        <div class="derivation" aria-label="欧拉公式幂级数推导">
+          <div>e<sup>iθ</sup> = 1+iθ+(iθ)²/2!+(iθ)³/3!+···</div>
+          <div>= (1−θ²/2!+θ⁴/4!−···) + i(θ−θ³/3!+θ⁵/5!−···)</div>
+          <div>= cos θ + i sin θ</div>
+        </div>
+
+        <p>
+          偶数次幂组成余弦，奇数次幂组成正弦；根源是
+          <span class="math">1,i,−1,−i</span> 的四步循环。因此：
+        </p>
+
+        <div class="formula orange">
+          e<sup>iθ</sup> = cos θ+i sin θ = q<sub>θ</sub>
+        </div>
+
+        <div class="key-point">
+          <strong>“纯虚指数就是旋转”的准确含义</strong>
+          <p>
+            <span class="math">e<sup>iθ</sup></span> 是单位圆上角度为
+            <span class="math">θ</span> 的复数；当它作为乘数作用于
+            <span class="math">z</span> 时，<span class="math">e<sup>iθ</sup>z</span>
+            就是把 <span class="math">z</span> 逆时针旋转
+            <span class="math">θ</span>。
+          </p>
+        </div>
+
+        <div class="map" aria-label="角度加法到单位复数乘法的映射">
+          <div class="map-box">
+            <strong>θ ∈ ℝ</strong>
+            <span>角度使用加法</span>
+          </div>
+          <div class="map-arrow">→</div>
+          <div class="map-box">
+            <strong>e<sup>iθ</sup> ∈ {|z|=1}</strong>
+            <span>旋转使用乘法</span>
+          </div>
+        </div>
+        <div class="formula">
+          e<sup>i(α+β)</sup> = e<sup>iα</sup>e<sup>iβ</sup>
+        </div>
+        <p>
+          左边相加角度，右边复合旋转，这正是指数的加法变乘法性质。
+          三个特殊角也获得直接的几何解释：
+          <span class="math">e<sup>iπ/2</sup>=i</span> 是四分之一圈，
+          <span class="math">e<sup>iπ</sup>=−1</span> 是半圈，
+          <span class="math">e<sup>i2π</sup>=1</span> 是一整圈。
+        </p>
+      </section>
+
+      <section id="matrix">
+        <span class="section-number">05 · MATRIX AND GRAPHICS</span>
+        <h2>复数乘法与旋转矩阵是同一件事</h2>
+        <p>
+          令 <span class="math">z=x+iy</span>，乘数
+          <span class="math">w=u+iv</span>。展开：
+        </p>
+        <div class="formula">
+          wz = (ux−vy) + i(vx+uy)
+        </div>
+        <p>把实部和虚部分别作为坐标，就得到矩阵形式：</p>
+        <div class="matrix-line" aria-label="复数乘法的二乘二矩阵表示">
+          <span>［x′　y′］<sup>T</sup> =</span>
+          <span class="matrix">
+            <span>u</span><span>−v</span>
+            <span>v</span><span>u</span>
+          </span>
+          <span>［x　y］<sup>T</sup></span>
+        </div>
+
+        <p>
+          若 <span class="math">w=s(cos φ+i sin φ)</span>，那么
+          <span class="math">u=s cos φ</span>、<span class="math">v=s sin φ</span>：
+        </p>
+        <div class="matrix-line" aria-label="缩放 s 与旋转 phi 的矩阵">
+          <span>［x′　y′］<sup>T</sup> = s</span>
+          <span class="matrix">
+            <span>cos φ</span><span>−sin φ</span>
+            <span>sin φ</span><span>cos φ</span>
+          </span>
+          <span>［x　y］<sup>T</sup></span>
+        </div>
+
+        <div class="demo">
+          <div class="demo-header">
+            <h3>二维图形变换</h3>
+            <output class="demo-output" id="graphics-output" for="graphics-angle graphics-scale" aria-live="polite">旋转 35°，统一缩放 1.10×</output>
+          </div>
+          <div class="controls">
+            <label class="control" for="graphics-angle">
+              <strong>旋转角 φ</strong>
+              <input id="graphics-angle" type="range" min="-180" max="180" step="1" value="35">
+            </label>
+            <label class="control" for="graphics-scale">
+              <strong>统一缩放 s</strong>
+              <input id="graphics-scale" type="range" min="0.45" max="1.55" step="0.05" value="1.1">
+            </label>
+          </div>
+          <canvas id="graphics-canvas" role="img" aria-label="原始二维图形与经过复数乘法旋转缩放后的图形"></canvas>
+          <div class="matrix-values" id="matrix-values" aria-live="polite">
+            变换矩阵 = [[0.901, −0.631], [0.631, 0.901]]
+          </div>
+          <div class="legend">
+            <span><i class="swatch"></i>原图形</span>
+            <span><i class="swatch orange"></i>变换后</span>
+            <span><i class="swatch green"></i>旋转中心</span>
+          </div>
+        </div>
+
+        <h3>图形学中最实用的写法</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>任务</th>
+                <th>复数写法</th>
+                <th>含义</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>绕原点旋转并缩放</td>
+                <td><span class="math">z′ = se<sup>iφ</sup>z</span></td>
+                <td>所有点乘以同一个复数</td>
+              </tr>
+              <tr>
+                <td>绕中心 c 变换</td>
+                <td><span class="math">z′ = c+se<sup>iφ</sup>(z−c)</span></td>
+                <td>移到原点、变换、再移回</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="key-point">
+          <strong>为什么复数在二维图形学中好用</strong>
+          <p>
+            一个复数只需两个实数，就能紧凑表示统一缩放与旋转；连续变换只需继续相乘。
+            它保持形状相似，但不能单独表达非均匀缩放、镜像或错切，这些情况需要一般矩阵。
+          </p>
+        </div>
+      </section>
+
+      <section id="model">
+        <span class="section-number">06 · MENTAL MODEL</span>
+        <h2>把整条认知链压缩成六句话</h2>
+        <div class="summary">
+          <div class="summary-row"><strong>1　复数</strong><span>是平面上的点，也是二维向量。</span></div>
+          <div class="summary-row"><strong>2　两套坐标</strong><span><span class="math">a+bi</span> 表示分量，<span class="math">ρ(cos θ+i sin θ)</span> 表示长度与方向。</span></div>
+          <div class="summary-row"><strong>3　乘以 i</strong><span>保持长度，把向量逆时针旋转 90°。</span></div>
+          <div class="summary-row"><strong>4　单位复数</strong><span><span class="math">cos θ+i sin θ</span> 作为乘数就是旋转 θ。</span></div>
+          <div class="summary-row"><strong>5　欧拉公式</strong><span>证明这个旋转算子恰好等于纯虚指数 <span class="math">e<sup>iθ</sup></span>。</span></div>
+          <div class="summary-row"><strong>6　矩阵对应</strong><span>复数乘法就是二维统一缩放与旋转矩阵。</span></div>
+        </div>
+      </section>
+
+      <aside class="closing">
+        <h2>最终结论</h2>
+        <p>
+          欧拉公式不是把指数与三角函数偶然拼在一起，而是认出了同一个旋转算子：
+          几何语言写成 <span class="math">cos θ+i sin θ</span>，
+          指数语言写成 <span class="math">e<sup>iθ</sup></span>。
+        </p>
+        <div class="formula">
+          e<sup>iθ</sup>z = 把 z 逆时针旋转 θ
+        </div>
+      </aside>
+
+      <footer>
+        一份以旋转为主线的欧拉公式笔记。
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const rootStyle = getComputedStyle(document.documentElement);
+      const palette = {
+        ink: rootStyle.getPropertyValue("--ink").trim(),
+        muted: rootStyle.getPropertyValue("--muted").trim(),
+        line: rootStyle.getPropertyValue("--line").trim(),
+        blue: rootStyle.getPropertyValue("--blue").trim(),
+        orange: rootStyle.getPropertyValue("--orange").trim(),
+        green: rootStyle.getPropertyValue("--green").trim(),
+        blueSoft: rootStyle.getPropertyValue("--blue-soft").trim(),
+        orangeSoft: rootStyle.getPropertyValue("--orange-soft").trim()
+      };
+
+      const font = '"Segoe UI", "Microsoft YaHei UI", sans-serif';
+      const redrawers = [];
+
+      function prepareCanvas(canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(280, rect.width);
+        const height = Math.max(210, rect.height);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        return { ctx, width, height };
+      }
+
+      function drawGrid(ctx, width, height, step) {
+        ctx.save();
+        ctx.strokeStyle = palette.line;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.42;
+        for (let x = step; x < width; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = step; y < height; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawAxes(ctx, cx, cy, width, height) {
+        ctx.save();
+        ctx.strokeStyle = palette.line;
+        ctx.fillStyle = palette.muted;
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.moveTo(20, cy);
+        ctx.lineTo(width - 18, cy);
+        ctx.moveTo(cx, height - 18);
+        ctx.lineTo(cx, 18);
+        ctx.stroke();
+        ctx.font = `12px ${font}`;
+        ctx.textAlign = "right";
+        ctx.fillText("Re", width - 20, cy - 8);
+        ctx.textAlign = "left";
+        ctx.fillText("Im", cx + 8, 28);
+        ctx.restore();
+      }
+
+      function drawArrow(ctx, x1, y1, x2, y2, color, width = 3) {
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const head = 10;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(
+          x2 - head * Math.cos(angle - Math.PI / 6),
+          y2 - head * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+          x2 - head * Math.cos(angle + Math.PI / 6),
+          y2 - head * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawPoint(ctx, x, y, color, radius = 5) {
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawLabel(ctx, text, x, y, color, align = "left") {
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.font = `600 13px ${font}`;
+        ctx.textAlign = align;
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, x, y);
+        ctx.restore();
+      }
+
+      function formatSigned(value) {
+        const normalized = Math.abs(value) < 0.0005 ? 0 : value;
+        return normalized.toFixed(3);
+      }
+
+      const unitRadius = document.getElementById("unit-radius");
+      const unitTheta = document.getElementById("unit-theta");
+      const unitOutput = document.getElementById("unit-output");
+      const unitCanvas = document.getElementById("unit-canvas");
+
+      function drawUnitCircle() {
+        const { ctx, width, height } = prepareCanvas(unitCanvas);
+        const rho = Number(unitRadius.value);
+        const theta = Number(unitTheta.value);
+        const cx = width / 2;
+        const cy = height / 2;
+        const unitScale = Math.min(width * 0.14, height * 0.18);
+        const vectorLength = unitScale * rho;
+        const real = rho * Math.cos(theta);
+        const imaginary = rho * Math.sin(theta);
+        const px = cx + Math.cos(theta) * vectorLength;
+        const py = cy - Math.sin(theta) * vectorLength;
+
+        drawGrid(ctx, width, height, 36);
+        drawAxes(ctx, cx, cy, width, height);
+
+        ctx.save();
+        ctx.strokeStyle = palette.line;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 5]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, unitScale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        drawLabel(ctx, "ρ=1", cx + unitScale + 8, cy + 16, palette.muted);
+
+        ctx.save();
+        ctx.strokeStyle = palette.orange;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px, cy);
+        ctx.moveTo(px, py);
+        ctx.lineTo(cx, py);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = palette.orange;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, unitScale * 0.34, 0, -theta, theta >= 0);
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow(ctx, cx, cy, px, py, palette.blue, 3.5);
+        drawPoint(ctx, px, py, palette.blue, 6);
+
+        const rightSide = Math.cos(theta) >= 0;
+        const upperSide = Math.sin(theta) >= 0;
+        drawLabel(
+          ctx,
+          `z = ${formatSigned(real)} ${imaginary < 0 ? "−" : "+"} ${Math.abs(imaginary).toFixed(3)}i`,
+          px + (rightSide ? 10 : -10),
+          py + (upperSide ? -14 : 16),
+          palette.ink,
+          rightSide ? "left" : "right"
+        );
+        drawLabel(ctx, `a=${formatSigned(real)}`, px, cy + 18, palette.orange, "center");
+        drawLabel(ctx, `b=${formatSigned(imaginary)}`, cx + 10, py, palette.orange, "left");
+        drawLabel(ctx, "θ", cx + unitScale * 0.38, cy - 14, palette.orange);
+        drawLabel(
+          ctx,
+          `ρ=${rho.toFixed(2)}`,
+          cx + (px - cx) * 0.52,
+          cy + (py - cy) * 0.52 - 12,
+          palette.blue,
+          "center"
+        );
+
+        const degrees = theta * 180 / Math.PI;
+        unitOutput.textContent =
+          `z = ${formatSigned(real)} ${imaginary < 0 ? "−" : "+"} ${Math.abs(imaginary).toFixed(3)}i = ${rho.toFixed(2)}(cos ${degrees.toFixed(1)}° + i sin ${degrees.toFixed(1)}°)`;
+        unitCanvas.setAttribute(
+          "aria-label",
+          `复数的模为 ${rho.toFixed(2)}、辐角为 ${degrees.toFixed(1)} 度，直角坐标为 ${formatSigned(real)} 和 ${formatSigned(imaginary)}`
+        );
+      }
+
+      [unitRadius, unitTheta].forEach((input) => {
+        input.addEventListener("input", drawUnitCircle);
+      });
+      redrawers.push(drawUnitCircle);
+
+      const baseAngle = document.getElementById("base-angle");
+      const factorAngle = document.getElementById("factor-angle");
+      const multiplyOutput = document.getElementById("multiply-output");
+      const multiplyCanvas = document.getElementById("multiply-canvas");
+
+      function drawComplexMultiplication() {
+        const { ctx, width, height } = prepareCanvas(multiplyCanvas);
+        const alphaDeg = Number(baseAngle.value);
+        const betaDeg = Number(factorAngle.value);
+        const alpha = alphaDeg * Math.PI / 180;
+        const beta = betaDeg * Math.PI / 180;
+        const productAngle = alpha + beta;
+        const cx = width / 2;
+        const cy = height / 2;
+        const baseLength = Math.min(width * 0.27, height * 0.34);
+
+        drawGrid(ctx, width, height, 36);
+        drawAxes(ctx, cx, cy, width, height);
+
+        const zx = cx + Math.cos(alpha) * baseLength;
+        const zy = cy - Math.sin(alpha) * baseLength;
+        const productX = cx + Math.cos(productAngle) * baseLength;
+        const productY = cy - Math.sin(productAngle) * baseLength;
+
+        drawArrow(ctx, cx, cy, zx, zy, palette.blue, 3);
+        drawArrow(ctx, cx, cy, productX, productY, palette.orange, 4);
+        drawPoint(ctx, productX, productY, palette.orange, 6);
+
+        drawLabel(ctx, "z", zx + 8, zy - 10, palette.blue);
+        drawLabel(ctx, "qφz", productX + 8, productY - 12, palette.orange);
+
+        ctx.save();
+        ctx.strokeStyle = palette.green;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseLength * 0.34, -alpha, -productAngle, beta > 0);
+        ctx.stroke();
+        ctx.restore();
+        drawLabel(
+          ctx,
+          `φ=${betaDeg}°`,
+          cx + Math.cos(alpha + beta / 2) * baseLength * 0.48,
+          cy - Math.sin(alpha + beta / 2) * baseLength * 0.48,
+          palette.green,
+          "center"
+        );
+
+        multiplyOutput.textContent =
+          `${alphaDeg}° ${betaDeg < 0 ? "−" : "+"} ${Math.abs(betaDeg)}° = ${alphaDeg + betaDeg}°`;
+        multiplyCanvas.setAttribute(
+          "aria-label",
+          `原复数角度 ${alphaDeg} 度，乘以单位复数后旋转 ${betaDeg} 度，结果角度 ${alphaDeg + betaDeg} 度`
+        );
+      }
+
+      [baseAngle, factorAngle].forEach((input) => {
+        input.addEventListener("input", drawComplexMultiplication);
+      });
+      redrawers.push(drawComplexMultiplication);
+
+      const graphicsAngle = document.getElementById("graphics-angle");
+      const graphicsScale = document.getElementById("graphics-scale");
+      const graphicsOutput = document.getElementById("graphics-output");
+      const graphicsCanvas = document.getElementById("graphics-canvas");
+      const matrixValues = document.getElementById("matrix-values");
+
+      const shape = [
+        [-1.05, -0.62],
+        [0.15, -0.62],
+        [0.15, -0.2],
+        [0.82, -0.2],
+        [0.82, 0.62],
+        [-1.05, 0.62]
+      ];
+
+      function drawPolygon(ctx, points, cx, cy, unit, stroke, fill, lineWidth, dash = []) {
+        ctx.save();
+        ctx.strokeStyle = stroke;
+        ctx.fillStyle = fill;
+        ctx.lineWidth = lineWidth;
+        ctx.setLineDash(dash);
+        ctx.beginPath();
+        points.forEach(([x, y], index) => {
+          const px = cx + x * unit;
+          const py = cy - y * unit;
+          if (index === 0) {
+            ctx.moveTo(px, py);
+          } else {
+            ctx.lineTo(px, py);
+          }
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawGraphicsTransform() {
+        const { ctx, width, height } = prepareCanvas(graphicsCanvas);
+        const angleDeg = Number(graphicsAngle.value);
+        const angle = angleDeg * Math.PI / 180;
+        const scale = Number(graphicsScale.value);
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const cx = width / 2;
+        const cy = height / 2;
+        const unit = Math.min(width * 0.18, height * 0.25);
+
+        drawGrid(ctx, width, height, 36);
+        drawAxes(ctx, cx, cy, width, height);
+
+        const transformed = shape.map(([x, y]) => [
+          scale * (cos * x - sin * y),
+          scale * (sin * x + cos * y)
+        ]);
+
+        drawPolygon(ctx, shape, cx, cy, unit, palette.blue, palette.blueSoft, 2, [7, 5]);
+        drawPolygon(ctx, transformed, cx, cy, unit, palette.orange, palette.orangeSoft, 3);
+
+        drawPoint(ctx, cx, cy, palette.green, 5);
+        ctx.save();
+        ctx.strokeStyle = palette.green;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 10, cy);
+        ctx.lineTo(cx + 10, cy);
+        ctx.moveTo(cx, cy - 10);
+        ctx.lineTo(cx, cy + 10);
+        ctx.stroke();
+        ctx.restore();
+
+        const a = scale * cos;
+        const b = -scale * sin;
+        const c = scale * sin;
+        const d = scale * cos;
+
+        graphicsOutput.textContent = `旋转 ${angleDeg}°，统一缩放 ${scale.toFixed(2)}×`;
+        matrixValues.textContent =
+          `变换矩阵 = [[${formatSigned(a)}, ${formatSigned(b)}], [${formatSigned(c)}, ${formatSigned(d)}]]`;
+        graphicsCanvas.setAttribute(
+          "aria-label",
+          `图形绕原点旋转 ${angleDeg} 度并统一缩放 ${scale.toFixed(2)} 倍`
+        );
+      }
+
+      [graphicsAngle, graphicsScale].forEach((input) => {
+        input.addEventListener("input", drawGraphicsTransform);
+      });
+      redrawers.push(drawGraphicsTransform);
+
+      let resizeFrame = 0;
+      const resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => {
+          redrawers.forEach((draw) => draw());
+        });
+      });
+
+      [unitCanvas, multiplyCanvas, graphicsCanvas].forEach((canvas) => {
+        resizeObserver.observe(canvas);
+      });
+
+      redrawers.forEach((draw) => draw());
+    })();
+  </script>
+</body>
+</html>

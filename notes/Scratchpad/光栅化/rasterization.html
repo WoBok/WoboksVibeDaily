@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>光栅化到底在干什么</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E8ECEC;
+  --card:#F5F7F6;
+  --ink:#16202A;
+  --ink-2:#4A5763;
+  --ink-3:#7C8790;
+  --rule:rgba(22,32,42,.09);
+  --rule-2:rgba(22,32,42,.18);
+  --pos:#0E7C6B;
+  --neg:#B4325E;
+  --indigo:#2E4A87;
+  --amber:#8A6A12;
+  --display:"Space Grotesk","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  --body:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  --mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:var(--body);
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--rule) 1px,transparent 1px),linear-gradient(90deg,var(--rule) 1px,transparent 1px);
+  background-size:26px 26px;
+  line-height:1.85;
+  font-size:17px;
+}
+.wrap{max-width:820px;margin:0 auto;padding:0 20px 96px}
+
+/* ---------- hero ---------- */
+header{padding:88px 0 40px}
+.eyebrow{
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-3);display:flex;align-items:center;gap:10px;margin:0 0 18px
+}
+.eyebrow::before{content:"";width:34px;height:1px;background:var(--ink-3)}
+h1{
+  font-family:var(--display);font-weight:700;
+  font-size:clamp(2.3rem,7vw,3.6rem);line-height:1.12;letter-spacing:-.02em;
+  margin:0 0 22px
+}
+.lede{font-size:clamp(1.02rem,2.4vw,1.18rem);color:var(--ink-2);margin:0 0 12px;max-width:60ch}
+.lede strong{color:var(--ink);font-weight:600}
+
+/* ---------- figures ---------- */
+figure{margin:34px 0;background:var(--card);border:1px solid var(--rule-2);border-radius:2px;padding:20px}
+figure.plain{background:none;border:none;padding:0}
+figcaption{
+  font-family:var(--mono);font-size:.76rem;color:var(--ink-3);
+  margin-top:14px;line-height:1.7;letter-spacing:.01em
+}
+canvas,svg{display:block;max-width:100%}
+
+.hero-fig{margin:44px 0 0;padding:18px}
+#heroCv{width:100%;height:auto}
+.hero-bar{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-top:14px;flex-wrap:wrap}
+button.ghost{
+  font-family:var(--mono);font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;
+  background:none;border:1px solid var(--rule-2);color:var(--ink-2);
+  padding:6px 14px;border-radius:2px;cursor:pointer;transition:background .15s,color .15s
+}
+button.ghost:hover{background:var(--ink);color:var(--card);border-color:var(--ink)}
+button.ghost:focus-visible,svg:focus-visible,input:focus-visible{outline:2px solid var(--indigo);outline-offset:3px}
+
+/* ---------- sections ---------- */
+section{padding-top:64px}
+.stage{
+  font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--pos);margin:0 0 8px
+}
+h2{
+  font-family:var(--display);font-weight:500;
+  font-size:clamp(1.5rem,4vw,2.05rem);line-height:1.3;letter-spacing:-.01em;margin:0 0 20px
+}
+h3{font-family:var(--display);font-weight:500;font-size:1.12rem;margin:34px 0 10px}
+p{margin:0 0 18px;max-width:62ch}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.92em;background:rgba(46,74,135,.08);padding:1px 5px;border-radius:2px}
+.formula{
+  font-family:var(--mono);font-size:.95rem;background:var(--ink);color:#DDE4E6;
+  padding:18px 20px;border-radius:2px;overflow-x:auto;margin:24px 0;line-height:1.7
+}
+.formula em{color:#7FD3C4;font-style:normal}
+ul{padding-left:1.1em;margin:0 0 18px;max-width:62ch}
+li{margin-bottom:10px}
+li::marker{color:var(--ink-3)}
+
+/* ---------- probe widget ---------- */
+.probe{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.probe-svg{flex:1 1 340px;min-width:280px}
+.probe-svg svg{width:100%;height:auto;touch-action:none;cursor:crosshair}
+.readout{flex:1 1 210px;min-width:200px}
+.rrow{display:flex;align-items:center;gap:9px;font-size:.86rem;font-family:var(--mono);padding:7px 0;border-bottom:1px solid var(--rule)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.rval{margin-left:auto;font-variant-numeric:tabular-nums}
+.verdict{margin:16px 0;padding:10px 12px;border-radius:2px;font-size:.9rem;text-align:center;font-weight:600}
+.wlabel{font-family:var(--mono);font-size:.78rem;color:var(--ink-3);display:flex;margin-top:12px}
+.wlabel span{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.bar{height:5px;background:var(--rule-2);border-radius:0;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%}
+
+/* ---------- perspective widget ---------- */
+.duo{display:flex;gap:18px;flex-wrap:wrap}
+.duo>div{flex:1 1 260px;min-width:240px}
+.duo h4{font-family:var(--mono);font-size:.76rem;font-weight:500;letter-spacing:.06em;margin:0 0 8px}
+.duo canvas{width:100%;height:auto;border:1px solid var(--rule-2)}
+.slider{display:flex;align-items:center;gap:14px;margin-top:20px;font-family:var(--mono);font-size:.78rem;color:var(--ink-2)}
+input[type=range]{flex:1;accent-color:var(--indigo);height:2px}
+.slider span{min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------- table ---------- */
+table{width:100%;border-collapse:collapse;margin:26px 0;font-size:.94rem}
+th,td{text-align:left;padding:11px 12px 11px 0;border-bottom:1px solid var(--rule-2);vertical-align:top}
+th{font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:400}
+td:first-child{font-weight:600;white-space:nowrap;padding-right:20px}
+
+footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--rule-2);font-family:var(--mono);font-size:.76rem;color:var(--ink-3)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:560px){body{font-size:16px}header{padding-top:56px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Rasterization</p>
+  <h1>光栅化到底在干什么</h1>
+  <p class="lede">给定一个三角形，它只回答两个问题：<strong>哪些采样点在它里面</strong>，以及<strong>每个点上的属性等于多少</strong>。</p>
+  <p class="lede">第一个是覆盖测试，第二个是属性插值。整个光栅化就这两件事，剩下的全是让它跑得快的工程细节。</p>
+
+  <figure class="hero-fig">
+    <canvas id="heroCv" height="300" aria-label="扫描线自左向右扫过采样网格，位于三角形内部的采样点被依次点亮"></canvas>
+    <div class="hero-bar">
+      <figcaption style="margin:0">扫描线经过之处，逐个采样点接受测试 · 命中的点变成片元</figcaption>
+      <button class="ghost" id="rescan">重新扫描</button>
+    </div>
+  </figure>
+</header>
+
+<section>
+  <p class="stage">Step 01 · 覆盖测试</p>
+  <h2>三条边把平面切成两半</h2>
+  <p>判断点在不在三角形内，最朴素的想法是射线求交，但硬件用的是更妙的办法：<strong>三条边各自把平面切成两半，点如果在三条边的同一侧，就在三角形内部。</strong></p>
+  <p>"在哪一侧"用叉积（有向面积）来算。对边 AB 和点 P：</p>
+  <div class="formula"><em>E</em><sub>AB</sub>(P) = (B<sub>x</sub> − A<sub>x</sub>)(P<sub>y</sub> − A<sub>y</sub>) − (B<sub>y</sub> − A<sub>y</sub>)(P<sub>x</sub> − A<sub>x</sub>)</div>
+  <p>它的符号告诉你 P 在 AB 的左边还是右边，它的绝对值是三角形 ABP 面积的两倍。拖动下面的探针试试（也可以用方向键微调）：</p>
+
+  <figure>
+    <div class="probe">
+      <div class="probe-svg">
+        <svg id="sv" viewBox="0 0 420 320" tabindex="0" role="img" aria-label="可拖动探针，实时显示三条边缘函数的值与符号">
+          <path d="M60 50L360 140L140 290Z" fill="#2E4A87" fill-opacity="0.07"/>
+          <path d="M-40 20L440 164" stroke="#2E4A87" stroke-width="0.8" stroke-dasharray="4 4" fill="none" opacity="0.45"/>
+          <path d="M470 195L30 325" stroke="#0E7C6B" stroke-width="0.8" stroke-dasharray="4 4" fill="none" opacity="0.45"/>
+          <path d="M158 410L42 -30" stroke="#8A6A12" stroke-width="0.8" stroke-dasharray="4 4" fill="none" opacity="0.45"/>
+          <path d="M60 50L360 140" stroke="#2E4A87" stroke-width="2" fill="none"/>
+          <path d="M360 140L140 290" stroke="#0E7C6B" stroke-width="2" fill="none"/>
+          <path d="M140 290L60 50" stroke="#8A6A12" stroke-width="2" fill="none"/>
+          <circle cx="60" cy="50" r="5" fill="#2E4A87"/>
+          <circle cx="360" cy="140" r="5" fill="#0E7C6B"/>
+          <circle cx="140" cy="290" r="5" fill="#8A6A12"/>
+          <text x="46" y="42" font-family="IBM Plex Mono, monospace" font-size="13" fill="#4A5763">A</text>
+          <text x="370" y="134" font-family="IBM Plex Mono, monospace" font-size="13" fill="#4A5763">B</text>
+          <text x="124" y="308" font-family="IBM Plex Mono, monospace" font-size="13" fill="#4A5763">C</text>
+          <circle id="pt" cx="170" cy="150" r="8" fill="#7C8790" stroke="#F5F7F6" stroke-width="2.5"/>
+        </svg>
+      </div>
+      <div class="readout">
+        <div class="rrow"><span class="dot" style="background:#2E4A87"></span>E_AB<span class="rval" id="e0">0</span></div>
+        <div class="rrow"><span class="dot" style="background:#0E7C6B"></span>E_BC<span class="rval" id="e1">0</span></div>
+        <div class="rrow"><span class="dot" style="background:#8A6A12"></span>E_CA<span class="rval" id="e2">0</span></div>
+        <div class="verdict" id="verdict">—</div>
+        <div style="font-family:var(--mono);font-size:.74rem;color:var(--ink-3);letter-spacing:.04em">重心坐标 = E ÷ 总面积</div>
+        <div class="wlabel">w_A<span id="wa">0</span></div><div class="bar"><i id="ba" style="background:#0E7C6B"></i></div>
+        <div class="wlabel">w_B<span id="wb">0</span></div><div class="bar"><i id="bb" style="background:#2E4A87"></i></div>
+        <div class="wlabel">w_C<span id="wc">0</span></div><div class="bar"><i id="bc" style="background:#8A6A12"></i></div>
+      </div>
+    </div>
+    <figcaption>三个符号一致 = 在内部 · 走到外面时，对应的重心坐标会变成负数</figcaption>
+  </figure>
+
+  <p>这个公式对硬件极其友好，因为它是<strong>线性的</strong>：<code>E(x+1, y) = E(x, y) − (By − Ay)</code>。横向走一个像素只需要一次加法，不用重算乘法。整块像素的边缘函数值可以一次性并行算出来，这也是为什么光栅化能做成固定功能硬件。</p>
+</section>
+
+<section>
+  <p class="stage">Step 02 · 遍历与归属</p>
+  <h2>扫哪些点，边界归谁</h2>
+  <p>不可能对全屏每个点都算三次边缘函数，所以先求三角形的<strong>包围盒</strong>，只在盒内遍历。另一个必须处理的问题是：两个三角形共享一条边时，压在边上的采样点算谁的？</p>
+
+  <figure>
+    <svg viewBox="0 0 680 310" role="img" aria-label="左图展示包围盒内逐点测试，实心点为通过测试的片元、空心点为被剔除；右图展示共享边上的采样点按填充规则只归属一个三角形">
+      <text x="131" y="48" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#4A5763">包围盒 + 逐点测试</text>
+      <text x="505" y="48" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12.5" fill="#4A5763">填充规则定归属</text>
+
+      <g stroke="rgba(22,32,42,.16)" stroke-width="0.5" fill="none">
+        <path d="M40 70V252M66 70V252M92 70V252M118 70V252M144 70V252M170 70V252M196 70V252M222 70V252"/>
+        <path d="M40 70H222M40 96H222M40 122H222M40 148H222M40 174H222M40 200H222M40 226H222M40 252H222"/>
+      </g>
+      <g fill="#2E4A87" fill-opacity="0.16" stroke="#2E4A87" stroke-opacity="0.4" stroke-width="0.5">
+        <rect x="92" y="96" width="26" height="26"/><rect x="118" y="96" width="26" height="26"/>
+        <rect x="92" y="122" width="26" height="26"/><rect x="118" y="122" width="26" height="26"/><rect x="144" y="122" width="26" height="26"/><rect x="170" y="122" width="26" height="26"/>
+        <rect x="118" y="148" width="26" height="26"/><rect x="144" y="148" width="26" height="26"/><rect x="170" y="148" width="26" height="26"/>
+        <rect x="118" y="174" width="26" height="26"/><rect x="144" y="174" width="26" height="26"/>
+        <rect x="118" y="200" width="26" height="26"/>
+      </g>
+      <rect x="92" y="70" width="130" height="182" fill="none" stroke="#B4325E" stroke-width="1.2" stroke-dasharray="5 4"/>
+      <path d="M92 80L209 148L118 239Z" fill="none" stroke="#2E4A87" stroke-width="1.5"/>
+      <g fill="#2E4A87">
+        <circle cx="105" cy="109" r="2.5"/><circle cx="131" cy="109" r="2.5"/>
+        <circle cx="105" cy="135" r="2.5"/><circle cx="131" cy="135" r="2.5"/><circle cx="157" cy="135" r="2.5"/><circle cx="183" cy="135" r="2.5"/>
+        <circle cx="131" cy="161" r="2.5"/><circle cx="157" cy="161" r="2.5"/><circle cx="183" cy="161" r="2.5"/>
+        <circle cx="131" cy="187" r="2.5"/><circle cx="157" cy="187" r="2.5"/><circle cx="131" cy="213" r="2.5"/>
+      </g>
+      <g fill="none" stroke="#7C8790" stroke-width="0.9">
+        <circle cx="105" cy="83" r="2"/><circle cx="131" cy="83" r="2"/><circle cx="157" cy="83" r="2"/><circle cx="183" cy="83" r="2"/><circle cx="209" cy="83" r="2"/>
+        <circle cx="157" cy="109" r="2"/><circle cx="183" cy="109" r="2"/><circle cx="209" cy="109" r="2"/>
+        <circle cx="209" cy="135" r="2"/>
+        <circle cx="105" cy="161" r="2"/><circle cx="209" cy="161" r="2"/>
+        <circle cx="105" cy="187" r="2"/><circle cx="183" cy="187" r="2"/><circle cx="209" cy="187" r="2"/>
+        <circle cx="105" cy="213" r="2"/><circle cx="157" cy="213" r="2"/><circle cx="183" cy="213" r="2"/><circle cx="209" cy="213" r="2"/>
+      </g>
+      <text x="131" y="276" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#7C8790">虚线框内才做测试</text>
+      <text x="131" y="293" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#7C8790">空心点 = 测试后被剔除</text>
+
+      <path d="M410 90H610V250H410Z" fill="none" stroke="rgba(22,32,42,.16)" stroke-width="0.5"/>
+      <path d="M410 90H610L410 250Z" fill="#2E4A87" fill-opacity="0.16"/>
+      <path d="M610 90V250L410 250Z" fill="#0E7C6B" fill-opacity="0.14"/>
+      <path d="M610 90L410 250" stroke="#16202A" stroke-width="1.2" fill="none"/>
+      <g fill="#2E4A87"><circle cx="560" cy="130" r="4"/><circle cx="510" cy="170" r="4"/><circle cx="460" cy="210" r="4"/></g>
+      <text x="428" y="126" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#4A5763">归属这一侧</text>
+      <text x="505" y="276" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#7C8790">压在边上的点只判给一侧</text>
+      <text x="505" y="293" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#7C8790">否则会重复绘制或出现裂缝</text>
+    </svg>
+    <figcaption>包围盒决定测试范围，填充规则决定边界所有权</figcaption>
+  </figure>
+
+  <h3>填充规则（top-left rule）</h3>
+  <p>当采样点恰好落在边上时，边缘函数等于 0，两个三角形都会认为"我覆盖了它"。硬件的约定是——只有当这条边是三角形的<strong>上边或左边</strong>时，边上的点才算被覆盖。这样共享边只会被画一次，既不会重复着色（透明混合会出现深色缝），也不会漏画（出现背景色裂缝）。</p>
+
+  <h3>分层遍历与 2×2 quad</h3>
+  <p>现代 GPU 不是逐行扫描，而是分层分块：先用大块（如 32×32）测试整块是否完全在外或完全在内，完全在外直接跳过，完全在内则跳过逐点测试，只有跨边界的块才细分下去。</p>
+  <p>最小的着色单位是 <strong>2×2 的 quad</strong>——即使只有一个采样点被覆盖，也会凑齐四个一起着色，因为纹理采样需要相邻像素的差分来选 mipmap 层级。这就是细长三角形（sliver）性能差的根因：覆盖 1 个点却要付 4 个点的着色成本。</p>
+</section>
+
+<section>
+  <p class="stage">Step 03 · 属性插值</p>
+  <h2>重心坐标，以及那个必须除掉的 w</h2>
+  <p>覆盖测试算出的三个边缘函数值除以三角形总面积，就直接是<strong>重心坐标</strong> w_A、w_B、w_C（和为 1）。它们既是"点在三角形内"的判据，又是插值权重——一套计算，两个用途，这是边缘函数法最漂亮的地方。</p>
+  <p>但直接用重心坐标插值屏幕空间的属性是<strong>错的</strong>。三维空间里均匀分布的纹理，投影到屏幕后不再均匀（远处更密），必须先除以 w：插值 <code>u/w</code> 和 <code>1/w</code>，再相除还原。</p>
+
+  <figure>
+    <div class="duo">
+      <div>
+        <h4 style="color:var(--neg)">仿射插值 · 直接插 u、v</h4>
+        <canvas id="c1" width="320" height="240" aria-label="仿射插值渲染的棋盘，格子沿对角线折断且不随距离收缩"></canvas>
+      </div>
+      <div>
+        <h4 style="color:var(--pos)">透视校正 · 插 u/w 与 1/w</h4>
+        <canvas id="c2" width="320" height="240" aria-label="透视校正插值渲染的棋盘，格子随距离收缩且对角线连续"></canvas>
+      </div>
+    </div>
+    <label class="slider">透视强度 w<input type="range" id="pw" min="1" max="8" step="0.5" value="5"><span id="pv">5.0</span></label>
+    <figcaption>拉到 1 时两图完全一致 · 越往大拉，左图的格子越不收缩，并沿对角线明显折断</figcaption>
+  </figure>
+
+  <p>左图那道折痕，是因为两个三角形各自独立地做线性插值，在共享边上斜率对不上。这就是初代 PlayStation 那种著名的纹理扭动，它的硬件没有透视除法。</p>
+  <p>在着色器里，<code>varying</code> / <code>in</code> 变量默认就是透视校正的；加上 <code>noperspective</code> 限定符就退回左边那种效果。</p>
+</section>
+
+<section>
+  <p class="stage">Step 04 · 走样</p>
+  <h2>锯齿是二元判定的必然产物</h2>
+  <p>覆盖测试是个<strong>二元判定</strong>：采样点要么在里面要么在外面，没有中间状态。一条斜边穿过像素时，被硬生生量化成"全有"或"全无"，这就是锯齿的来源——本质是用点采样去逼近一个连续的覆盖率函数。</p>
+  <ul>
+    <li><strong>提高采样密度。</strong>SSAA 整体超采样；MSAA 只在覆盖测试上超采样（一个像素 4 个采样点，着色仍只跑一次），最后按覆盖到的采样点数量加权平均。所以 MSAA 只能救几何边缘，救不了纹理内部和着色器里算出来的高频。</li>
+    <li><strong>改用后处理估算。</strong>FXAA / SMAA 从最终图像里猜边缘；TAA 把采样点在时间上抖动、跨帧累积，本质是把 4× 超采样摊到 4 帧里做。</li>
+  </ul>
+</section>
+
+<section>
+  <p class="stage">Recap</p>
+  <h2>整条链路</h2>
+  <table>
+    <thead><tr><th>步骤</th><th>做什么</th><th>关键点</th></tr></thead>
+    <tbody>
+      <tr><td>包围盒</td><td>圈定候选范围</td><td>分层分块，整块跳过</td></tr>
+      <tr><td>边缘函数</td><td>三次叉积定符号</td><td>线性可增量，天然并行</td></tr>
+      <tr><td>填充规则</td><td>边界点定归属</td><td>不重不漏</td></tr>
+      <tr><td>重心坐标</td><td>E ÷ 总面积</td><td>与覆盖测试共用结果</td></tr>
+      <tr><td>透视校正</td><td>插 u/w、1/w 再相除</td><td>屏幕空间线性 ≠ 世界空间线性</td></tr>
+      <tr><td>输出</td><td>生成片元（2×2 quad）</td><td>交给着色器和深度测试</td></tr>
+    </tbody>
+  </table>
+  <p>理解了边缘函数是<strong>线性函数</strong>这一点，前面几乎所有工程设计就都能自洽推出来：因为线性，所以能增量；因为能增量，所以能分块并行；因为它的值就是有向面积，所以顺带白送重心坐标。</p>
+</section>
+
+<footer>光栅化原理 · 覆盖测试 + 属性插值</footer>
+</div>
+
+<script>
+/* ---------------- hero: 扫描线 ---------------- */
+(function(){
+  var cv=document.getElementById('heroCv'),ctx=cv.getContext('2d');
+  var dpr=window.devicePixelRatio||1,cell=18,W=0,H=300,tri=[],cells=[],t0=0,raf=null;
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function layout(){
+    W=cv.clientWidth||cv.parentNode.clientWidth;
+    cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    tri=[[W*0.08,H*0.16],[W*0.78,H*0.44],[W*0.34,H*0.94]];
+    cells=[];
+    var cols=Math.floor(W/cell),rows=Math.floor(H/cell);
+    var a=tri[0],b=tri[1],c=tri[2];
+    var ar=(b[0]-a[0])*(c[1]-a[1])-(c[0]-a[0])*(b[1]-a[1]);
+    for(var j=0;j<rows;j++)for(var i=0;i<cols;i++){
+      var px=(i+0.5)*cell,py=(j+0.5)*cell;
+      var l1=((px-a[0])*(c[1]-a[1])-(c[0]-a[0])*(py-a[1]))/ar;
+      var l2=((b[0]-a[0])*(py-a[1])-(px-a[0])*(b[1]-a[1]))/ar;
+      if(l1>=0&&l2>=0&&1-l1-l2>=0)cells.push([i,j,px,py]);
+    }
+  }
+  function frame(ts){
+    if(!t0)t0=ts;
+    var p=Math.min(1,(ts-t0)/1900),sweep=p*W;
+    paint(sweep,p<1);
+    if(p<1)raf=requestAnimationFrame(frame);
+  }
+  function paint(sweep,live){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(22,32,42,.10)';ctx.lineWidth=1;ctx.beginPath();
+    for(var x=0;x<=W;x+=cell){ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,H);}
+    for(var y=0;y<=H;y+=cell){ctx.moveTo(0,y+.5);ctx.lineTo(W,y+.5);}
+    ctx.stroke();
+    ctx.fillStyle='rgba(124,135,144,.55)';
+    for(var gx=cell/2;gx<W;gx+=cell)for(var gy=cell/2;gy<H;gy+=cell){
+      ctx.fillRect(gx-.75,gy-.75,1.5,1.5);
+    }
+    ctx.fillStyle='rgba(46,74,135,.20)';
+    cells.forEach(function(c){
+      if(c[2]<=sweep)ctx.fillRect(c[0]*cell+1,c[1]*cell+1,cell-2,cell-2);
+    });
+    ctx.fillStyle='#2E4A87';
+    cells.forEach(function(c){
+      if(c[2]<=sweep){ctx.beginPath();ctx.arc(c[2],c[3],2.2,0,6.284);ctx.fill();}
+    });
+    ctx.strokeStyle='#16202A';ctx.lineWidth=1.6;ctx.beginPath();
+    ctx.moveTo(tri[0][0],tri[0][1]);ctx.lineTo(tri[1][0],tri[1][1]);ctx.lineTo(tri[2][0],tri[2][1]);ctx.closePath();ctx.stroke();
+    ctx.fillStyle='#16202A';
+    tri.forEach(function(v){ctx.beginPath();ctx.arc(v[0],v[1],4,0,6.284);ctx.fill();});
+    if(live){
+      ctx.strokeStyle='#B4325E';ctx.lineWidth=1.4;
+      ctx.beginPath();ctx.moveTo(sweep,0);ctx.lineTo(sweep,H);ctx.stroke();
+    }
+  }
+  function run(){
+    if(raf)cancelAnimationFrame(raf);
+    layout();t0=0;
+    if(reduce){paint(W,false);return;}
+    raf=requestAnimationFrame(frame);
+  }
+  document.getElementById('rescan').addEventListener('click',run);
+  window.addEventListener('resize',function(){layout();paint(W,false);});
+  run();
+})();
+
+/* ---------------- 边缘函数探针 ---------------- */
+(function(){
+  var sv=document.getElementById('sv'),pt=document.getElementById('pt');
+  var A=[60,50],B=[360,140],C=[140,290];
+  var cA=[14,124,107],cB=[46,74,135],cC=[138,106,18];
+  function E(p,q,x,y){return (q[0]-p[0])*(y-p[1])-(q[1]-p[1])*(x-p[0]);}
+  var area=E(A,B,C[0],C[1]),px=170,py=150;
+  function upd(x,y){
+    px=Math.max(4,Math.min(416,x));py=Math.max(4,Math.min(316,y));
+    pt.setAttribute('cx',px);pt.setAttribute('cy',py);
+    var e0=E(A,B,px,py),e1=E(B,C,px,py),e2=E(C,A,px,py);
+    var wA=e1/area,wB=e2/area,wC=e0/area,inside=e0>=0&&e1>=0&&e2>=0;
+    [['e0',e0],['e1',e1],['e2',e2]].forEach(function(r){
+      var el=document.getElementById(r[0]);
+      el.textContent=(r[1]>=0?'+':'')+Math.round(r[1]);
+      el.style.color=r[1]>=0?'#0E7C6B':'#B4325E';
+    });
+    var v=document.getElementById('verdict');
+    v.textContent=inside?'符号一致 → 在三角形内':'符号不一致 → 在三角形外';
+    v.style.background=inside?'rgba(14,124,107,.12)':'rgba(180,50,94,.10)';
+    v.style.color=inside?'#0E7C6B':'#B4325E';
+    [['wa','ba',wA],['wb','bb',wB],['wc','bc',wC]].forEach(function(r){
+      document.getElementById(r[0]).textContent=r[2].toFixed(3);
+      document.getElementById(r[1]).style.width=Math.max(0,Math.min(1,r[2]))*100+'%';
+    });
+    pt.setAttribute('fill',inside?'rgb('+Math.round(cA[0]*wA+cB[0]*wB+cC[0]*wC)+','+
+      Math.round(cA[1]*wA+cB[1]*wB+cC[1]*wC)+','+Math.round(cA[2]*wA+cB[2]*wB+cC[2]*wC)+')':'#7C8790');
+  }
+  var drag=false;
+  function loc(ev){var r=sv.getBoundingClientRect(),s=420/r.width;
+    return [(ev.clientX-r.left)*s,(ev.clientY-r.top)*s];}
+  sv.addEventListener('pointerdown',function(e){drag=true;sv.setPointerCapture(e.pointerId);var p=loc(e);upd(p[0],p[1]);});
+  sv.addEventListener('pointermove',function(e){if(drag){var p=loc(e);upd(p[0],p[1]);}});
+  sv.addEventListener('pointerup',function(){drag=false;});
+  sv.addEventListener('keydown',function(e){
+    var d={ArrowLeft:[-6,0],ArrowRight:[6,0],ArrowUp:[0,-6],ArrowDown:[0,6]}[e.key];
+    if(d){e.preventDefault();upd(px+d[0],py+d[1]);}
+  });
+  upd(170,150);
+})();
+
+/* ---------------- 透视校正对比 ---------------- */
+(function(){
+  function draw(cv,persp,wF){
+    var ctx=cv.getContext('2d'),W=320,H=240,img=ctx.createImageData(W,H),d=img.data;
+    var V=[[40,220,1,0,1],[280,220,1,1,1],[110,30,wF,0,0],[210,30,wF,1,0]];
+    [[0,1,2],[1,3,2]].forEach(function(t){
+      var a=V[t[0]],b=V[t[1]],c=V[t[2]];
+      var ar=(b[0]-a[0])*(c[1]-a[1])-(c[0]-a[0])*(b[1]-a[1]);
+      if(!ar)return;
+      var x0=Math.max(0,Math.floor(Math.min(a[0],b[0],c[0]))),x1=Math.min(W-1,Math.ceil(Math.max(a[0],b[0],c[0])));
+      var y0=Math.max(0,Math.floor(Math.min(a[1],b[1],c[1]))),y1=Math.min(H-1,Math.ceil(Math.max(a[1],b[1],c[1])));
+      for(var y=y0;y<=y1;y++)for(var x=x0;x<=x1;x++){
+        var qx=x+0.5,qy=y+0.5;
+        var l1=((qx-a[0])*(c[1]-a[1])-(c[0]-a[0])*(qy-a[1]))/ar;
+        var l2=((b[0]-a[0])*(qy-a[1])-(qx-a[0])*(b[1]-a[1]))/ar;
+        var l0=1-l1-l2;
+        if(l0<0||l1<0||l2<0)continue;
+        var u,v;
+        if(persp){
+          var iw=l0/a[2]+l1/b[2]+l2/c[2];
+          u=(l0*a[3]/a[2]+l1*b[3]/b[2]+l2*c[3]/c[2])/iw;
+          v=(l0*a[4]/a[2]+l1*b[4]/b[2]+l2*c[4]/c[2])/iw;
+        }else{
+          u=l0*a[3]+l1*b[3]+l2*c[3];
+          v=l0*a[4]+l1*b[4]+l2*c[4];
+        }
+        var k=((Math.floor(u*8)+Math.floor(v*8))%2+2)%2,i=(y*W+x)*4;
+        if(k){d[i]=46;d[i+1]=74;d[i+2]=135;}else{d[i]=201;d[i+1]=212;d[i+2]=232;}
+        d[i+3]=255;
+      }
+    });
+    ctx.putImageData(img,0,0);
+  }
+  var s=document.getElementById('pw');
+  function go(){
+    var w=+s.value;
+    document.getElementById('pv').textContent=w.toFixed(1);
+    draw(document.getElementById('c1'),false,w);
+    draw(document.getElementById('c2'),true,w);
+  }
+  s.addEventListener('input',go);go();
+})();
+</script>
+</body>
+</html>

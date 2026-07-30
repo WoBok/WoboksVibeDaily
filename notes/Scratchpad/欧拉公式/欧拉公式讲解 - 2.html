@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>欧拉公式 · 虚数指数就是旋转</title>
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]'], ['$$', '$$']],
+    packages: {'[+]': ['ams']}
+  },
+  svg: { fontCache: 'global', scale: 1.02 },
+  options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] }
+};
+</script>
+<script async id="mjs" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+        onerror="var s=document.createElement('script');s.async=true;s.src='https://unpkg.com/mathjax@3/es5/tex-svg.js';document.head.appendChild(s);"></script>
+<style>
+:root{
+  --bg:#070910;
+  --bg2:#0b0f1a;
+  --panel:#0e1421;
+  --panel2:#121a2b;
+  --line:rgba(255,255,255,.075);
+  --line2:rgba(255,255,255,.14);
+  --tx:#e8edf7;
+  --tx2:#9aa8c2;
+  --tx3:#6b7a95;
+  --amber:#f5a524;
+  --cyan:#38bdf8;
+  --violet:#a78bfa;
+  --pink:#f472b6;
+  --green:#4ade80;
+  --sans:"Inter","HarmonyOS Sans SC","PingFang SC","Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+  --serif:Georgia,"Songti SC","Noto Serif SC","SimSun",serif;
+  --mono:"JetBrains Mono","SFMono-Regular",Consolas,"Cascadia Mono",monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--tx);
+  font-family:var(--sans); font-size:16.5px; line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(900px 480px at 78% -8%, rgba(56,189,248,.10), transparent 62%),
+    radial-gradient(760px 420px at 12% 4%, rgba(167,139,250,.10), transparent 60%);
+  background-attachment:fixed;
+}
+::selection{background:rgba(167,139,250,.32)}
+
+/* ---------- header ---------- */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  backdrop-filter:blur(14px); background:rgba(7,9,16,.74);
+  border-bottom:1px solid var(--line);
+}
+.topbar .inner{
+  max-width:1080px; margin:0 auto; padding:10px 24px;
+  display:flex; align-items:center; gap:14px; font-size:13px; color:var(--tx2);
+}
+.topbar b{color:var(--tx); font-weight:600; letter-spacing:.02em}
+.topbar .eq{font-family:var(--serif); font-style:italic; color:var(--cyan); letter-spacing:.03em}
+.prog{position:absolute; left:0; bottom:-1px; height:2px; width:0%;
+  background:linear-gradient(90deg,var(--amber),var(--pink),var(--violet),var(--cyan));}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1080px; margin:0 auto; padding:0 24px 120px}
+.col{max-width:720px}
+section{padding:46px 0 8px; scroll-margin-top:70px}
+hr.sep{border:0;height:1px;background:linear-gradient(90deg,var(--line2),transparent);margin:0}
+
+/* ---------- hero ---------- */
+.hero{padding:78px 0 26px}
+.kicker{
+  font-size:11.5px; letter-spacing:.24em; text-transform:uppercase;
+  color:var(--tx3); margin-bottom:22px; font-weight:600;
+}
+.hero h1{
+  font-family:var(--serif); font-weight:400; font-size:clamp(30px,5.2vw,52px);
+  line-height:1.25; margin:0 0 8px; letter-spacing:.01em;
+}
+.hero .formula{
+  margin:26px 0 30px; padding:26px 0;
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  text-align:center; font-size:1.25em;
+}
+.thesis{
+  font-size:18px; line-height:1.95; color:var(--tx);
+  border-left:2px solid var(--violet); padding-left:20px; margin:0 0 4px;
+}
+.thesis em{font-style:normal;color:var(--violet);font-weight:600}
+
+/* ---------- headings ---------- */
+h2{
+  font-family:var(--serif); font-weight:400; font-size:clamp(21px,3vw,28px);
+  margin:0 0 6px; letter-spacing:.01em; line-height:1.4;
+}
+h2 .num{
+  font-family:var(--mono); font-size:12px; color:var(--pink);
+  letter-spacing:.14em; display:block; margin-bottom:10px; font-style:normal;
+}
+h3{font-size:15.5px; font-weight:650; color:var(--tx); margin:32px 0 8px; letter-spacing:.01em}
+p{margin:14px 0}
+strong{color:#fff; font-weight:650}
+.dim{color:var(--tx2)}
+.small{font-size:14.5px; line-height:1.8}
+a{color:var(--cyan)}
+
+/* ---------- callouts ---------- */
+.key{
+  margin:26px 0; padding:18px 22px; border-radius:3px;
+  background:linear-gradient(90deg,rgba(167,139,250,.13),rgba(167,139,250,.02));
+  border-left:2px solid var(--violet);
+  font-size:16.5px;
+}
+.key .lb{
+  display:block; font-size:10.5px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--violet); font-weight:700; margin-bottom:6px;
+}
+.note{
+  margin:24px 0; padding:16px 20px; border-radius:3px;
+  background:rgba(245,165,36,.06); border-left:2px solid var(--amber);
+  font-size:14.5px; line-height:1.8; color:var(--tx2);
+}
+.note b{color:var(--amber); font-weight:650}
+.note strong{color:#fff}
+
+/* ---------- figures ---------- */
+.fig{
+  margin:34px 0; background:var(--panel); border:1px solid var(--line);
+  border-radius:6px; overflow:hidden;
+}
+.fig .head{
+  padding:13px 18px; border-bottom:1px solid var(--line);
+  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  background:rgba(255,255,255,.014);
+}
+.fig .head .tag{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.13em;
+  color:var(--pink); font-weight:600;
+}
+.fig .head .ttl{font-size:14px; font-weight:650}
+.fig .head .sub{font-size:12.5px; color:var(--tx3)}
+.fig canvas{display:block; width:100%; touch-action:none; cursor:crosshair}
+.fig .foot{
+  padding:13px 18px; border-top:1px solid var(--line);
+  font-size:13px; color:var(--tx2); line-height:1.75;
+  background:rgba(255,255,255,.012);
+}
+.ctrls{
+  padding:13px 18px; display:flex; flex-wrap:wrap; gap:16px 22px; align-items:center;
+  border-top:1px solid var(--line); font-size:12.5px;
+}
+.ctrl{display:flex; align-items:center; gap:9px}
+.ctrl label{color:var(--tx3); font-size:12px; min-width:max-content}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:118px; height:2px;
+  background:var(--line2); border-radius:2px; outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background:var(--tx); cursor:pointer; border:2px solid var(--panel);
+  box-shadow:0 0 0 1px var(--line2);
+}
+input[type=range]::-moz-range-thumb{
+  width:13px;height:13px;border-radius:50%;background:var(--tx);cursor:pointer;border:2px solid var(--panel);
+}
+button.btn{
+  background:rgba(255,255,255,.05); color:var(--tx2); border:1px solid var(--line2);
+  padding:5px 12px; border-radius:3px; font-size:12px; cursor:pointer;
+  font-family:var(--sans); transition:.15s;
+}
+button.btn:hover{background:rgba(255,255,255,.1); color:var(--tx)}
+button.btn.on{background:rgba(167,139,250,.18); border-color:rgba(167,139,250,.5); color:#e9e2ff}
+.rd{
+  font-family:var(--mono); font-size:12.5px; color:var(--tx2);
+  padding:11px 18px; border-top:1px solid var(--line);
+  display:flex; flex-wrap:wrap; gap:6px 26px;
+}
+.rd b{color:var(--tx); font-weight:500}
+.rd .v{color:var(--violet)} .rd .a{color:var(--amber)} .rd .c{color:var(--cyan)}
+.var{font-family:var(--serif); font-style:italic}
+
+/* ---------- table ---------- */
+table{border-collapse:collapse; width:100%; margin:26px 0; font-size:14.5px}
+th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line)}
+th{color:var(--tx3); font-weight:600; font-size:11.5px; letter-spacing:.13em; text-transform:uppercase}
+td:first-child{color:var(--tx); font-family:var(--serif)}
+tbody tr:hover{background:rgba(255,255,255,.018)}
+
+.steps{counter-reset:s; list-style:none; padding:0; margin:20px 0}
+.steps li{
+  counter-increment:s; position:relative; padding-left:34px; margin:14px 0; line-height:1.8;
+}
+.steps li::before{
+  content:counter(s); position:absolute; left:0; top:2px;
+  width:21px; height:21px; border-radius:50%; border:1px solid var(--line2);
+  font-family:var(--mono); font-size:11px; color:var(--tx3);
+  display:flex; align-items:center; justify-content:center;
+}
+
+.end{
+  margin-top:64px; padding:34px 0 0; border-top:1px solid var(--line2);
+  font-family:var(--serif); font-size:19px; line-height:1.85;
+}
+.end .hl{color:var(--cyan)}
+.end .hl2{color:var(--amber)}
+
+#mjwarn{
+  display:none; margin:20px 0; padding:12px 16px; font-size:13px;
+  background:rgba(244,114,182,.1); border-left:2px solid var(--pink); color:var(--tx2);
+}
+mjx-container[display="true"]{margin:1.1em 0 !important}
+mjx-container{color:var(--tx)}
+
+@media(max-width:640px){
+  body{font-size:16px}
+  .wrap{padding:0 18px 80px}
+  .hero{padding:52px 0 18px}
+  .ctrls{gap:12px 16px}
+  input[type=range]{width:92px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <b>欧拉公式</b>
+    <span class="eq">e<sup>iθ</sup> = cos θ + i sin θ</span>
+    <span style="margin-left:auto;color:var(--tx3)">虚数指数就是旋转</span>
+  </div>
+  <div class="prog" id="prog"></div>
+</div>
+
+<div class="wrap">
+<div class="col">
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="kicker">从虚数到旋转 · 一条完整的路</div>
+  <h1>指数增长与旋转，<br>是同一条法则的两个方向</h1>
+
+  <div class="formula">\[ e^{i\theta}=\cos\theta+i\sin\theta \]</div>
+
+  <p class="thesis">
+    指数的意思是：<em>变化率正比于当前的量</em>。<br>
+    乘 \(i\) 的意思是：<em>把方向转 90°</em>。<br>
+    把两者合在一起 —— 变化永远垂直于自身 —— 那么长度就不可能改变，<strong>运动只能是绕圈</strong>。
+  </p>
+
+  <p class="dim small" style="margin-top:22px">
+    下面这条路线只走一遍，不绕路：<br>
+    \(i\) 的定义 → 复平面与两种坐标 → 乘法＝缩放＋旋转 → 乘 \(i\)＝转 90° → 旋转矩阵 → 为什么必须是指数 → \(e^{i\theta}\) → 统一。
+  </p>
+
+  <div id="mjwarn">公式未能渲染。本文档使用 MathJax 排版数学式，请在联网状态下打开。</div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 1 ================= -->
+<section id="s1">
+  <h2><span class="num">01 / 虚数</span>它不是"想象出来的数"，是"转 90°"的名字</h2>
+
+  <p>在实数里，任何数的平方都 \(\ge 0\)。所以方程 \(x^2=-1\) 无解。数学的做法不是绕开，而是<strong>造一个新元素并给它唯一一条规则</strong>：</p>
+
+  \[ i^2=-1 \]
+
+  <p>这就是虚数单位 \(i\) 的<strong>全部定义</strong>。它不由别的东西推出来，它是被规定的。加进来之后，实数的加减乘除法则原封不动继续用。</p>
+
+  <div class="note">
+    <b>一个必须避开的坑：</b>不要把 \(i\) 写成 \(\sqrt{-1}\) 然后照搬 \(\sqrt{a}\sqrt{b}=\sqrt{ab}\)，否则
+    \(-1=i^2=\sqrt{-1}\sqrt{-1}=\sqrt{(-1)(-1)}=\sqrt{1}=1\)。
+    那条根号法则只对非负实数成立。<strong>合法的定义只有 \(i^2=-1\) 这一条</strong>。顺带一提，\(-i\) 同样满足 \((-i)^2=-1\)，选哪一个叫 \(i\) 纯属定向约定 —— 这个约定后面会决定"逆时针"。
+  </div>
+
+  <h3>换一个视角：i 其实是个动作</h3>
+
+  <p>在数轴上，<strong>乘以一个数 = 一个变换</strong>。乘 \(2\) 是拉长两倍，乘 \(\tfrac12\) 是压缩，乘 \(-1\) 是<strong>掉头 180°</strong>。</p>
+
+  <p>现在问：<strong>什么操作做两次，等于掉头 180°？</strong></p>
+
+  <p>答案显然是<strong>转 90°</strong>。而 \(i\) 正是那个"做两次等于乘 \(-1\)"的东西（\(i\cdot i=-1\)）。所以 \(i\) 一点也不虚 —— 它是<strong>旋转 90° 这个动作的名字</strong>。它只是没法待在数轴上：数轴是一条线，转 90° 必须跳出这条线。</p>
+
+  <div class="key">
+    <span class="lb">Key</span>
+    \(i\) 不在实数轴上，不是因为它不存在，而是因为<strong>它把整条直线抬进了平面</strong>。虚数的引入，本质上是一次维度扩张。
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ================= 2 ================= -->
+<section id="s2">
+  <h2><span class="num">02 / 复数</span>同一个数，两副坐标</h2>
+
+  <p>既然要用平面，就给平面上每个点一个名字。取定实轴与虚轴，点 \((a,b)\) 记作</p>
+
+  \[ z=a+bi,\qquad a,b\in\mathbb{R} \]
+
+  <p>这是<strong>代数形式（直角坐标形式）</strong>。它对<strong>加法</strong>极友好：\((a_1+b_1i)+(a_2+b_2i)=(a_1+a_2)+(b_1+b_2)i\) —— 就是向量的分量相加。</p>
+
+  <p>但同一个点也可以用"多远 + 多少度"来说：</p>
+
+  \[ z=\rho(\cos\theta+i\sin\theta),\qquad \rho=|z|=\sqrt{a^2+b^2},\quad \theta=\arg z \]
+
+  <p>这是<strong>三角形式（极坐标形式）</strong>。它对<strong>乘法</strong>极友好 —— 下一节就会看到为什么。两者互换：</p>
+
+  \[ a=\rho\cos\theta,\quad b=\rho\sin\theta \qquad\Longleftrightarrow\qquad \rho=\sqrt{a^2+b^2},\quad \theta=\operatorname{atan2}(b,a) \]
+</section>
+
+<!-- FIG A -->
+<div class="fig">
+  <div class="head">
+    <span class="tag">图 A</span>
+    <span class="ttl">一个数，两副坐标</span>
+    <span class="sub">拖动紫色点 · 观察 (a, b) 与 (ρ, θ) 同时变化</span>
+  </div>
+  <canvas id="cvA" style="height:400px"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><button class="btn" id="aGrid">切换网格：直角 ↔ 极坐标</button></div>
+    <div class="ctrl"><button class="btn" id="aSnap">回到 1 + i</button></div>
+  </div>
+  <div class="rd" id="rdA"></div>
+  <div class="foot">
+    两组数字描述的<strong>是同一个点</strong>。直角坐标把点看成"横竖两段位移"，极坐标把点看成"一次拉伸 + 一次转动"。欧拉公式最终要做的事，就是把右边那个括号写成一个<strong>指数</strong>。
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 3 ================= -->
+<section id="s3">
+  <h2><span class="num">03 / 乘法</span>模相乘，角相加</h2>
+
+  <p>把两个三角形式硬乘开，只用分配律和两条和角公式：</p>
+
+  \[
+  \begin{aligned}
+  z_1z_2&=\rho_1(\cos\theta_1+i\sin\theta_1)\cdot\rho_2(\cos\theta_2+i\sin\theta_2)\\[4pt]
+  &=\rho_1\rho_2\big[(\cos\theta_1\cos\theta_2-\sin\theta_1\sin\theta_2)+i(\sin\theta_1\cos\theta_2+\cos\theta_1\sin\theta_2)\big]\\[4pt]
+  &=\rho_1\rho_2\big[\cos(\theta_1+\theta_2)+i\sin(\theta_1+\theta_2)\big]
+  \end{aligned}
+  \]
+
+  <p>第二行到第三行，用的正是和角公式 \(\cos(\alpha+\beta)\)、\(\sin(\alpha+\beta)\)。结论干净得惊人：</p>
+
+  <div class="key">
+    <span class="lb">乘法法则</span>
+    \[ |z_1z_2|=|z_1|\,|z_2|,\qquad \arg(z_1z_2)=\arg z_1+\arg z_2 \]
+    <strong>复数乘法 = 缩放 + 旋转。</strong>模负责缩放，辐角负责旋转。
+  </div>
+
+  <div class="note">
+    <b>请注意方向：</b>这里不是"用和角公式算出了复数乘法"，而是<strong>复数乘法解释了和角公式</strong>。所谓 \(\cos(\alpha+\beta)\) 的展开式，无非是在说一句话：<strong>先转 \(\alpha\) 再转 \(\beta\)，等于一次转 \(\alpha+\beta\)</strong>。那一堆需要背的三角恒等式，其实只是"旋转可以合成"的坐标写法。
+  </div>
+</section>
+
+<!-- FIG B -->
+<div class="fig">
+  <div class="head">
+    <span class="tag">图 B</span>
+    <span class="ttl">缩放 + 旋转</span>
+    <span class="sub">拖动 z₁（橙）与 z₂（青），紫色是乘积</span>
+  </div>
+  <canvas id="cvB" style="height:420px"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><button class="btn" id="bI">令 z₂ = i</button></div>
+    <div class="ctrl"><button class="btn" id="bN1">令 z₂ = −1</button></div>
+    <div class="ctrl"><button class="btn" id="bU">令 |z₂| = 1（纯旋转）</button></div>
+    <div class="ctrl"><button class="btn" id="bSpin">▶ 连续乘 i</button></div>
+  </div>
+  <div class="rd" id="rdB"></div>
+  <div class="foot">
+    把 \(z_2\) 拖到单位圆上（\(\rho_2=1\)）时，乘积与 \(z_1\) <strong>一样长</strong>，只是被转了 \(\theta_2\) —— 这就是"纯旋转"。模只要一离开 1，就同时发生了缩放。
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 4 ================= -->
+<section id="s4">
+  <h2><span class="num">04 / 乘 i</span>为什么它恰好是转 90°</h2>
+
+  <p>这件事不需要"宣布"，它可以直接算出来。取任意 \(z=a+bi\)：</p>
+
+  \[ i\,z=i(a+bi)=ai+bi^2=-b+ai \]
+
+  <p>换成坐标看：</p>
+
+  \[ (a,\,b)\ \longmapsto\ (-b,\,a) \]
+
+  <p>这正是平面上<strong>逆时针旋转 90°</strong> 的标准公式。验证一下：\((1,0)\mapsto(0,1)\)，即 \(1\mapsto i\)；\((0,1)\mapsto(-1,0)\)，即 \(i\mapsto-1\)。完全吻合。</p>
+
+  <p>从三角形式看更直接：\(i=1\cdot(\cos 90^\circ+i\sin 90^\circ)\)，模为 1、辐角 90°。按第 3 节的法则，乘它就是"模不变、角加 90°"。</p>
+
+  <p>而且它自洽：转两次 90° 就是转 180°，也就是乘 \(-1\)，即 \(i^2=-1\) —— 回到了 \(i\) 的定义。整个逻辑闭合了。</p>
+
+  \[ 1\ \xrightarrow{\ \times i\ }\ i\ \xrightarrow{\ \times i\ }\ -1\ \xrightarrow{\ \times i\ }\ -i\ \xrightarrow{\ \times i\ }\ 1 \]
+
+  <p class="small dim">四步回到原点 —— 这就是 \(i^n\) 以 4 为周期的原因，也是"旋转必然带来周期性"的第一次露面。</p>
+</section>
+
+<hr class="sep">
+
+<!-- ================= 5 ================= -->
+<section id="s5">
+  <h2><span class="num">05 / 旋转矩阵</span>同一件事的矩阵写法</h2>
+
+  <p>固定一个 \(z=a+bi\)，考虑映射 \(w\mapsto zw\)。它对 \(\mathbb{R}^2\) 是<strong>线性的</strong>（分配律 + 实数可提），所以必然对应一个 \(2\times2\) 矩阵。只需看两个基向量去了哪：</p>
+
+  \[ z\cdot 1=a+bi\ \to\ \binom{a}{b},\qquad z\cdot i=-b+ai\ \to\ \binom{-b}{a} \]
+
+  <p>把这两列拼起来，就得到了乘以 \(z\) 的矩阵：</p>
+
+  \[ M_z=\begin{pmatrix} a & -b\\ b & a\end{pmatrix} \]
+
+  <p>代入 \(a=\rho\cos\theta,\ b=\rho\sin\theta\)：</p>
+
+  \[
+  M_z=\rho\begin{pmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \ \ \cos\theta\end{pmatrix}=\rho\,R(\theta)
+  \]
+
+  <p><strong>这正是缩放矩阵乘旋转矩阵。</strong>特别地取 \(z=i\)（\(a=0,b=1\)）：</p>
+
+  \[ J=\begin{pmatrix}0&-1\\1&\ \ 0\end{pmatrix},\qquad J^2=\begin{pmatrix}-1&0\\0&-1\end{pmatrix}=-I \]
+
+  <p>\(J^2=-I\) 与 \(i^2=-1\) 是同一句话的两种字体。</p>
+
+  <div class="key">
+    <span class="lb">同构</span>
+    复数域 \(\mathbb{C}\) 与所有形如 \(\begin{pmatrix}a&-b\\b&a\end{pmatrix}\) 的矩阵集合<strong>同构</strong>：复数加法 ↔ 矩阵加法，复数乘法 ↔ 矩阵乘法。于是
+    \(R(\theta_1)R(\theta_2)=R(\theta_1+\theta_2)\) 与第 3 节的"角相加"是<strong>同一条定理</strong>。
+  </div>
+
+  <p class="small dim">这个视角的价值：它说明"复数"并不神秘。你可以完全不谈 \(i\)，只谈这一类特殊矩阵，得到的结构一模一样。所谓虚数，就是"缩放旋转"这个几何操作的代数记号。</p>
+</section>
+
+<!-- FIG E -->
+<div class="fig">
+  <div class="head">
+    <span class="tag">图 C</span>
+    <span class="ttl">乘以 z 作用在整个平面上</span>
+    <span class="sub">白色单位方格 → 被 M<sub>z</sub> 拉伸并旋转</span>
+  </div>
+  <canvas id="cvE" style="height:360px"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>ρ（缩放）</label><input type="range" id="eR" min="0.25" max="1.9" step="0.01" value="1"></div>
+    <div class="ctrl"><label>θ（旋转）</label><input type="range" id="eT" min="0" max="6.2832" step="0.005" value="0.9"></div>
+    <div class="ctrl"><button class="btn" id="eI">= i</button></div>
+  </div>
+  <div class="rd" id="rdE"></div>
+  <div class="foot">
+    方格永远保持<strong>正方形</strong>（只是变大变小、转了个角度）—— 这正是矩阵 \(\begin{pmatrix}a&-b\\b&a\end{pmatrix}\) 的特殊之处：它是"共形"的，不产生任何剪切或畸变。一般的 \(2\times2\) 矩阵做不到。
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 6 ================= -->
+<section id="s6">
+  <h2><span class="num">06 / 关键一跃</span>为什么这里非得是"指数"不可</h2>
+
+  <p>到这里，所有几何事实都齐了。但为什么冒出来的是 \(e\)？这一步是整条推理的枢纽。</p>
+
+  <p>先想清楚<strong>指数函数到底是什么</strong>。抛开一切公式，指数函数唯一的身份特征是：</p>
+
+  <div class="key">
+    <span class="lb">指数的本质</span>
+    \[ f(x+y)=f(x)\,f(y) \]
+    <strong>它把加法翻译成乘法。</strong>这就是指数函数的定义性方程 —— 满足它（且连续）的非零函数，只能是 \(f(x)=e^{kx}\)。
+  </div>
+
+  <p>现在回头看第 3 节的结论。令</p>
+
+  \[ f(\theta)=\cos\theta+i\sin\theta \]
+
+  <p>（即单位圆上辐角为 \(\theta\) 的那个复数）。第 3 节说：两个单位复数相乘，模仍是 1，角相加。翻译成 \(f\)：</p>
+
+  \[ f(\theta_1)\,f(\theta_2)=f(\theta_1+\theta_2) \]
+
+  <p><strong>这就是指数的函数方程，一字不差。</strong>所以 \(f\) 必然是某个指数 \(f(\theta)=e^{k\theta}\)。剩下只需定出 \(k\)，求个导并代入 \(\theta=0\)：</p>
+
+  \[ f'(\theta)=-\sin\theta+i\cos\theta \ \Longrightarrow\ f'(0)=i,\qquad \text{而}\ (e^{k\theta})'\big|_0=k \]
+
+  \[ \Longrightarrow\ k=i \ \Longrightarrow\ \boxed{\,e^{i\theta}=\cos\theta+i\sin\theta\,} \]
+
+  <div class="key">
+    <span class="lb">这一步说明了什么</span>
+    欧拉公式<strong>不是巧合，也不是定义，而是被逼出来的</strong>。既然复数乘法让"角度相加"，而指数是唯一把加法变乘法的函数，那么<strong>角度就必须住在指数的位置上</strong>。写成 \(e^{i\theta}\) 不是一种记号选择，是唯一的选择。
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ================= 7 ================= -->
+<section id="s7">
+  <h2><span class="num">07 / 微分方程</span>从 (eˣ)′ = eˣ 看清"旋转"</h2>
+
+  <p>上一节给了逻辑上的必然性。这一节给出<strong>动力学上的图像</strong>，也是全文最核心的一段。</p>
+
+  <p>\(e^x\) 真正的定义性质是那条微分方程：</p>
+
+  \[ \frac{d}{dx}e^{x}=e^{x},\qquad e^0=1 \]
+
+  <p>一句话读它：<strong>变化率等于当前值</strong>。推广一步：</p>
+
+  \[ f'(t)=k\,f(t),\quad f(0)=1 \qquad\Longrightarrow\qquad f(t)=e^{kt} \]
+
+  <p>这里的 \(k\) 是<strong>"每单位时间，相对于当前位置要往哪个方向、变多少"</strong>。注意 —— 现在 \(k\) 可以是复数，而复数是<strong>带方向的乘子</strong>。于是分两种情形：</p>
+
+  <ul class="steps">
+    <li><strong>\(k\) 是正实数。</strong>变化与自身<strong>同向</strong>。越大 → 变得越快 → 越大。这就是指数增长。\(k<0\) 则是指数衰减。</li>
+    <li><strong>\(k=i\)。</strong>由第 4 节，乘 \(i\) 就是转 90°，所以 \(f'=if\) 的意思是：<strong>速度永远垂直于位置向量</strong>。</li>
+  </ul>
+
+  <p>而"速度垂直于位置"意味着什么？意味着<strong>长度一点也不变</strong>。一行验算：</p>
+
+  \[ \frac{d}{dt}\,|f|^2=\frac{d}{dt}\big(f\bar f\big)=f'\bar f+f\bar f' = i f\bar f + f(-i\bar f)=0 \]
+
+  <p>长度恒为 1，方向以恒定速率改变 —— 这是<strong>单位圆上的匀速圆周运动</strong>，没有第二种可能。起点 \(f(0)=1\)，初速 \(f'(0)=i\)（向上），角速度 1。所以 \(t\) 时刻它待在辐角为 \(t\) 的位置上：</p>
+
+  \[ f(t)=\cos t+i\sin t \qquad\Longrightarrow\qquad e^{it}=\cos t+i\sin t \]
+
+  <div class="key">
+    <span class="lb">最核心的一句</span>
+    <strong>虚数指数就是旋转。</strong>因为"指数"要求变化正比于自身，"虚数"要求这个变化垂直于自身；<strong>垂直的变化改不动长度，只能改方向</strong> —— 于是唯一的出路就是转圈。
+  </div>
+
+  <div class="note">
+    <b>严谨性补丁（重要）：</b>上面把 \((e^x)'=e^x\) 直接搬到复指数，严格说是<strong>合理外推而非证明</strong> —— 因为在证之前，\(e^{i\theta}\) 还没有被定义过。两条补法都能把它变成严格论证：<br>
+    <strong>其一，幂级数。</strong>定义 \(e^{z}=\sum_{n\ge0}\frac{z^n}{n!}\)（对全体复数绝对收敛），代入 \(z=i\theta\)，按 \(i^n\) 的 4-周期把实部虚部分开，恰好得到 \(\cos\theta\) 与 \(\sin\theta\) 的泰勒级数。<br>
+    <strong>其二，直接用方程定义。</strong>把 \(e^{i\theta}\) <em>定义</em>为 \(f'=if,\ f(0)=1\) 的解，再验证 \(\cos\theta+i\sin\theta\) 满足同一方程与同一初值，由解的唯一性得等号。<br>
+    <strong>两条路都严格，而上面那幅直觉图像一点不用改。</strong>
+  </div>
+</section>
+
+<!-- FIG D: circle -> sin/cos -->
+<div class="fig">
+  <div class="head">
+    <span class="tag">图 D</span>
+    <span class="ttl">圆周运动的两个影子，就是 cos 与 sin</span>
+    <span class="sub">e<sup>iθ</sup> 在圆上匀速跑；它在两根轴上的投影自动生成三角函数</span>
+  </div>
+  <canvas id="cvF" style="height:330px"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>θ</label><input type="range" id="fT" min="0" max="12.566" step="0.005" value="0.9"></div>
+    <div class="ctrl"><button class="btn on" id="fPlay">⏸ 暂停</button></div>
+  </div>
+  <div class="rd" id="rdF"></div>
+  <div class="foot">
+    \(\cos\theta\) 与 \(\sin\theta\) 从来不是两个独立的、需要死记的函数。它们是<strong>同一个旋转在两根轴上的影子</strong>，相位差 90° 正是因为两根轴垂直。
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 8 ================= -->
+<section id="s8">
+  <h2><span class="num">08 / 极限视角</span>把圆周切成 n 次垂直的小推</h2>
+
+  <p>指数还有一个同样古老的面孔：</p>
+
+  \[ e^{x}=\lim_{n\to\infty}\Big(1+\frac{x}{n}\Big)^{n} \]
+
+  <p>它的意思是"把总变化拆成 \(n\) 次微小的、按比例的累积"。原样搬到 \(x=i\theta\)：</p>
+
+  \[ e^{i\theta}=\lim_{n\to\infty}\Big(1+\frac{i\theta}{n}\Big)^{n} \]
+
+  <p>每一步做的事是 \(z\mapsto z+\tfrac{i\theta}{n}z\)：<strong>在当前位置上，加一小段垂直于它的位移</strong>（因为乘了 \(i\)）。反复 \(n\) 次，就是用一条正多边形折线去逼近圆弧。两个量正好对上：</p>
+
+  <table>
+    <thead><tr><th>每一步</th><th>近似值</th><th>n 步之后</th></tr></thead>
+    <tbody>
+      <tr><td>长度放大</td><td>\(\left|1+\tfrac{i\theta}{n}\right|=\sqrt{1+\tfrac{\theta^2}{n^2}}\approx 1+\tfrac{\theta^2}{2n^2}\)</td><td>\(\to 1\)　<span class="dim">长度不变</span></td></tr>
+      <tr><td>转过角度</td><td>\(\arctan\tfrac{\theta}{n}\approx\tfrac{\theta}{n}\)</td><td>\(\to \theta\)　<span class="dim">总共转 θ</span></td></tr>
+    </tbody>
+  </table>
+
+  <p>长度的误差是 \(O(1/n^2)\) 量级、累积后消失；角度的贡献是 \(O(1/n)\) 量级、累积后保留。<strong>所以极限恰好落在单位圆上、辐角为 \(\theta\) 的那一点。</strong></p>
+</section>
+
+<!-- FIG C: polygon -->
+<div class="fig">
+  <div class="head">
+    <span class="tag">图 E</span>
+    <span class="ttl">(1 + iθ/n)ⁿ 逼近圆弧</span>
+    <span class="sub">青色小箭头就是每一次"垂直的推"</span>
+  </div>
+  <canvas id="cvC" style="height:380px"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>n（分几步）</label><input type="range" id="cN" min="1" max="80" step="1" value="6"></div>
+    <div class="ctrl"><label>θ（总角度）</label><input type="range" id="cT" min="0.2" max="6.2832" step="0.005" value="3.1416"></div>
+    <div class="ctrl"><button class="btn" id="cPi">θ = π</button></div>
+  </div>
+  <div class="rd" id="rdC"></div>
+  <div class="foot">
+    n 小的时候折线明显"甩"到圆外（因为每次斜边比半径长）；n 一大，这个多出来的长度以 \(1/n\) 的速度归零，折线贴回单位圆。<strong>这就是"连续地、永远垂直地推"所生成的运动。</strong>
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 9 ================= -->
+<section id="s9">
+  <h2><span class="num">09 / 统一</span>增长与旋转，究竟在什么意义上是"同一件事"</h2>
+
+  <p>现在把两种情形合起来。取任意复数 \(z=\sigma+i\omega\)，看 \(w(t)=e^{zt}\)，它满足</p>
+
+  \[ w'=z\,w=\underbrace{\sigma\,w}_{\text{与 }w\text{ 平行}}+\underbrace{i\omega\,w}_{\text{与 }w\text{ 垂直}} \]
+
+  <p>速度被分解成两块，各司其职、互不干扰：</p>
+
+  <table>
+    <thead><tr><th>分量</th><th>方向</th><th>效果</th><th>结果</th></tr></thead>
+    <tbody>
+      <tr><td>\(\sigma w\)</td><td>与位置<strong>平行</strong></td><td>只改长度</td><td>\(|w|=e^{\sigma t}\)　伸缩</td></tr>
+      <tr><td>\(i\omega w\)</td><td>与位置<strong>垂直</strong></td><td>只改方向</td><td>\(\arg w=\omega t\)　旋转</td></tr>
+    </tbody>
+  </table>
+
+  \[ e^{(\sigma+i\omega)t}=\underbrace{e^{\sigma t}}_{\text{缩放}}\cdot\underbrace{\big(\cos\omega t+i\sin\omega t\big)}_{\text{旋转}} \]
+
+  <div class="key">
+    <span class="lb">核心命题的精确版本</span>
+    并不是"指数增长<em>就是</em>旋转"。准确的说法是：<br>
+    <strong>增长与旋转，是同一条法则 —— 变化率正比于自身 —— 在复平面两个正交方向上的分解。</strong><br>
+    指数的实方向给出伸缩，虚方向给出旋转；一般情形是两者的叠加（对数螺线）。<br>
+    正因如此，指数函数与三角函数才不是两族函数，<strong>而是一族</strong>。
+  </div>
+</section>
+
+<!-- FIG G: spiral -->
+<div class="fig">
+  <div class="head">
+    <span class="tag">图 F</span>
+    <span class="ttl">e<sup>(σ+iω)t</sup> —— 一张图说尽全文</span>
+    <span class="sub">橙＝平行分量（伸缩）　青＝垂直分量（旋转）</span>
+  </div>
+  <canvas id="cvG" style="height:420px"></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><label>σ（实部 · 伸缩）</label><input type="range" id="gS" min="-0.28" max="0.28" step="0.005" value="0"></div>
+    <div class="ctrl"><label>ω（虚部 · 旋转）</label><input type="range" id="gW" min="-2.2" max="2.2" step="0.01" value="1"></div>
+    <div class="ctrl"><button class="btn" id="gPure">纯旋转 σ=0</button></div>
+    <div class="ctrl"><button class="btn" id="gGrow">纯增长 ω=0</button></div>
+  </div>
+  <div class="rd" id="rdG"></div>
+  <div class="foot">
+    把 \(\omega\) 拖到 0：轨迹塌成实轴上一条射线，纯粹的指数增长/衰减。把 \(\sigma\) 拖到 0：轨迹变成完美的圆，纯粹的旋转 —— <strong>这一格就是欧拉公式</strong>。中间的每一种状态，都是同一个 \(e^{zt}\)。
+  </div>
+</div>
+
+<hr class="sep">
+
+<!-- ================= 10 ================= -->
+<section id="s10">
+  <h2><span class="num">10 / 回报</span>公式到手之后，世界变简单了</h2>
+
+  <h3>欧拉恒等式</h3>
+  <p>取 \(\theta=\pi\)：从 1 出发，<strong>转半圈</strong>，到达 \(-1\)。</p>
+  \[ e^{i\pi}=-1\qquad\Longleftrightarrow\qquad e^{i\pi}+1=0 \]
+  <p class="small dim">它之所以著名，不是因为难，而是因为它把五个来源完全不同的常数 \(e,\ i,\ \pi,\ 1,\ 0\) 拴在一根绳上。读法很朴素：<strong>以单位速率、永远垂直地走 \(\pi\) 那么久，你就走到了对面。</strong>取 \(\theta=2\pi\) 则回到原点，\(e^{2\pi i}=1\) —— 三角函数的周期性，就是"转一圈回原点"。</p>
+
+  <h3>三角函数变成指数运算</h3>
+  <p>把 \(e^{i\theta}\) 与 \(e^{-i\theta}\) 相加减：</p>
+  \[ \cos\theta=\frac{e^{i\theta}+e^{-i\theta}}{2},\qquad \sin\theta=\frac{e^{i\theta}-e^{-i\theta}}{2i} \]
+  <p>于是所有三角恒等式都退化成指数的加减法。棣莫弗公式也不再需要归纳证明：</p>
+  \[ (\cos\theta+i\sin\theta)^n=\big(e^{i\theta}\big)^n=e^{in\theta}=\cos n\theta+i\sin n\theta \]
+
+  <h3>速查表</h3>
+  <table>
+    <thead><tr><th>复数运算</th><th>几何动作</th><th>指数写法</th></tr></thead>
+    <tbody>
+      <tr><td>\(\times\, i\)</td><td>逆时针转 90°</td><td>\(e^{i\pi/2}\)</td></tr>
+      <tr><td>\(\times\,(-1)\)</td><td>转 180°</td><td>\(e^{i\pi}\)</td></tr>
+      <tr><td>\(\times\,\rho\)　(\(\rho>0\))</td><td>缩放 \(\rho\) 倍</td><td>\(e^{\ln\rho}\)</td></tr>
+      <tr><td>\(\times\,z\)</td><td>缩放 \(\rho\) 并转 \(\theta\)</td><td>\(e^{\ln\rho+i\theta}\)</td></tr>
+      <tr><td>\(\div\,z\)</td><td>反向缩放并反转</td><td>\(e^{-\ln\rho-i\theta}\)</td></tr>
+    </tbody>
+  </table>
+  <p class="small dim">最后一行是关键：<strong>任何复数都可以写成 \(z=\rho e^{i\theta}\)</strong>。乘法变成指数相加，除法变成相减，开方变成除法 —— 复数运算被彻底"线性化"了。这正是它在信号处理、交流电路、量子力学、傅里叶分析里无处不在的原因：<strong>那些学科研究的对象，本来就是"边转边缩放"的东西</strong>。</p>
+</section>
+
+<hr class="sep">
+
+<section id="s11">
+  <h2><span class="num">11 / 一页纸</span>整条逻辑链</h2>
+  <ol class="steps">
+    <li>规定 \(i^2=-1\)。做两次等于掉头 —— 所以 \(i\) 是<strong>转 90°</strong>，它把数轴抬成平面。</li>
+    <li>平面上的点 \(z=a+bi=\rho(\cos\theta+i\sin\theta)\)。前者利于加，后者利于乘。</li>
+    <li>乘法展开后化为和角公式：<strong>模相乘、角相加</strong>。即"缩放 + 旋转"。</li>
+    <li>矩阵写法 \(M_z=\rho R(\theta)\)，\(J^2=-I\) 对应 \(i^2=-1\)。复数 ≅ 缩放旋转矩阵。</li>
+    <li>指数是<strong>唯一把加法变乘法</strong>的函数；而复数乘法让角相加 —— 所以角度<strong>必须</strong>写在指数上。定出系数即得 \(e^{i\theta}=\cos\theta+i\sin\theta\)。</li>
+    <li>动力学解释：\(f'=if\) 表示<strong>速度永远垂直于位置</strong>，长度不变、方向匀速改变 → 圆周运动。</li>
+    <li>一般地 \(e^{(\sigma+i\omega)t}\)：平行分量伸缩，垂直分量旋转。<strong>增长与旋转是同一条法则的两个方向。</strong></li>
+  </ol>
+
+  <div class="end">
+    把沿着自身方向的变化叫做<span class="hl2">增长</span>，<br>
+    把垂直于自身方向的变化叫做<span class="hl">旋转</span>。<br>
+    欧拉公式说的是 —— <strong>它们本来就是同一件事，只是方向不同。</strong>
+  </div>
+</section>
+
+</div>
+</div>
+
+<script>
+/* ================= shared helpers ================= */
+const C = {
+  grid:'rgba(255,255,255,0.05)', grid2:'rgba(255,255,255,0.10)',
+  axis:'rgba(255,255,255,0.30)', dim:'rgba(255,255,255,0.22)',
+  tx:'#e8edf7', tx2:'#9aa8c2', tx3:'#6b7a95',
+  amber:'#f5a524', cyan:'#38bdf8', violet:'#a78bfa', pink:'#f472b6', green:'#4ade80'
+};
+const TAU = Math.PI*2;
+const fmt = (v,d=2)=> (Math.abs(v)<5e-3?0:v).toFixed(d);
+const deg = r => { let d=r*180/Math.PI; return d; };
+
+function Plane(canvas, opts){
+  const o = Object.assign({range:2.4, ox:0.5, oy:0.5}, opts||{});
+  const ctx = canvas.getContext('2d');
+  const P = {ctx, canvas, opts:o};
+  P.layout = function(){
+    const r = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width*dpr)), h = Math.max(1, Math.round(r.height*dpr));
+    if(canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    P.w=r.width; P.h=r.height;
+    P.cx=P.w*o.ox; P.cy=P.h*o.oy;
+    const rg = (typeof o.range==='function')? o.range() : o.range;
+    P.rg = rg;
+    P.u = Math.min(P.w*Math.min(o.ox,1-o.ox), P.h*Math.min(o.oy,1-o.oy))/rg;
+  };
+  P.X = x => P.cx + x*P.u;
+  P.Y = y => P.cy - y*P.u;
+  P.wx = px => (px-P.cx)/P.u;
+  P.wy = py => (P.cy-py)/P.u;
+  P.clear = function(){ ctx.clearRect(0,0,P.w,P.h); };
+  P.grid = function(polar){
+    ctx.lineWidth = 1;
+    if(polar){
+      for(let r=0.5;r<=P.rg*1.5;r+=0.5){
+        ctx.beginPath(); ctx.arc(P.cx,P.cy,r*P.u,0,TAU);
+        ctx.strokeStyle = (Math.abs(r%1)<1e-9)? C.grid2 : C.grid; ctx.stroke();
+      }
+      for(let k=0;k<12;k++){
+        const a=k*Math.PI/6, L=P.rg*1.6;
+        ctx.beginPath(); ctx.moveTo(P.cx,P.cy);
+        ctx.lineTo(P.X(Math.cos(a)*L),P.Y(Math.sin(a)*L));
+        ctx.strokeStyle = (k%3===0)? C.grid2 : C.grid; ctx.stroke();
+      }
+    } else {
+      const step = P.rg>6?2:(P.rg>3?1:0.5);
+      const nx = Math.ceil(P.wx(P.w)/step), nx0=Math.floor(P.wx(0)/step);
+      const ny = Math.ceil(P.wy(0)/step), ny0=Math.floor(P.wy(P.h)/step);
+      for(let k=nx0;k<=nx;k++){ const x=k*step;
+        ctx.beginPath(); ctx.moveTo(P.X(x),0); ctx.lineTo(P.X(x),P.h);
+        ctx.strokeStyle = (Math.abs(x%(step*2))<1e-9)? C.grid2:C.grid; ctx.stroke(); }
+      for(let k=ny0;k<=ny;k++){ const y=k*step;
+        ctx.beginPath(); ctx.moveTo(0,P.Y(y)); ctx.lineTo(P.w,P.Y(y));
+        ctx.strokeStyle = (Math.abs(y%(step*2))<1e-9)? C.grid2:C.grid; ctx.stroke(); }
+    }
+  };
+  P.axes = function(labels){
+    ctx.lineWidth=1.2; ctx.strokeStyle=C.axis;
+    ctx.beginPath(); ctx.moveTo(0,P.cy); ctx.lineTo(P.w,P.cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(P.cx,0); ctx.lineTo(P.cx,P.h); ctx.stroke();
+    if(labels!==false){
+      ctx.font='italic 13px Georgia, serif'; ctx.fillStyle=C.tx3;
+      ctx.textAlign='right'; ctx.textBaseline='top';
+      ctx.fillText('Re', P.w-8, P.cy+7);
+      ctx.textAlign='left'; ctx.fillText('Im', P.cx+8, 8);
+    }
+  };
+  P.unitCircle = function(col){
+    ctx.beginPath(); ctx.arc(P.cx,P.cy,P.u,0,TAU);
+    ctx.strokeStyle=col||'rgba(255,255,255,0.20)'; ctx.setLineDash([4,4]);
+    ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+  };
+  P.line = function(a,b,col,w,dash){
+    ctx.beginPath(); ctx.moveTo(P.X(a.x),P.Y(a.y)); ctx.lineTo(P.X(b.x),P.Y(b.y));
+    ctx.strokeStyle=col; ctx.lineWidth=w||1.4;
+    if(dash) ctx.setLineDash(dash);
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  P.arrow = function(a,b,col,w){
+    const x1=P.X(a.x),y1=P.Y(a.y),x2=P.X(b.x),y2=P.Y(b.y);
+    const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy);
+    if(L<1) return;
+    const hs=Math.min(10, L*0.42), ux=dx/L, uy=dy/L;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*hs*0.75,y2-uy*hs*0.75);
+    ctx.strokeStyle=col; ctx.lineWidth=w||2; ctx.lineCap='round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-ux*hs-uy*hs*0.42, y2-uy*hs+ux*hs*0.42);
+    ctx.lineTo(x2-ux*hs+uy*hs*0.42, y2-uy*hs-ux*hs*0.42);
+    ctx.closePath(); ctx.fillStyle=col; ctx.fill();
+  };
+  P.dot = function(p,col,r){
+    ctx.beginPath(); ctx.arc(P.X(p.x),P.Y(p.y),r||5,0,TAU);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.beginPath(); ctx.arc(P.X(p.x),P.Y(p.y),(r||5)+4,0,TAU);
+    ctx.strokeStyle=col+'55'; ctx.lineWidth=1.5; ctx.stroke();
+  };
+  P.arc = function(a0,a1,r,col,lbl){
+    ctx.beginPath(); ctx.arc(P.cx,P.cy,r*P.u,-a0,-a1, a1>a0);
+    ctx.strokeStyle=col; ctx.lineWidth=1.8; ctx.stroke();
+    if(lbl){ const m=(a0+a1)/2;
+      P.label(lbl, P.X(Math.cos(m)*(r+0.22)), P.Y(Math.sin(m)*(r+0.22)), col); }
+  };
+  P.label = function(t,px,py,col,align){
+    ctx.font='italic 14px Georgia, serif';
+    ctx.textAlign=align||'center'; ctx.textBaseline='middle';
+    const wd=ctx.measureText(t).width;
+    ctx.fillStyle='rgba(14,20,33,0.82)';
+    const ax = align==='left'? px-4 : (align==='right'? px-wd-4 : px-wd/2-4);
+    ctx.fillRect(ax, py-9, wd+8, 18);
+    ctx.fillStyle=col||C.tx; ctx.fillText(t,px,py);
+  };
+  P.txt = function(t,px,py,col,font,align){
+    ctx.font=font||'12px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign=align||'left'; ctx.textBaseline='middle';
+    ctx.fillStyle=col||C.tx2; ctx.fillText(t,px,py);
+  };
+  P.layout();
+  return P;
+}
+
+const REG = [];
+function reg(fn){ REG.push(fn); fn(); }
+let rTO;
+window.addEventListener('resize', ()=>{ clearTimeout(rTO); rTO=setTimeout(()=>REG.forEach(f=>f()),90); });
+
+function drag(canvas, P, getTargets, onMove){
+  let act=null;
+  const pos = e => { const r=canvas.getBoundingClientRect(); return {px:e.clientX-r.left, py:e.clientY-r.top}; };
+  canvas.addEventListener('pointerdown', e=>{
+    const {px,py}=pos(e); let best=null, bd=26;
+    getTargets().forEach((t,i)=>{
+      const d=Math.hypot(P.X(t.x)-px, P.Y(t.y)-py);
+      if(d<bd){ bd=d; best=i; }
+    });
+    if(best!==null){ act=best; canvas.setPointerCapture(e.pointerId); canvas.style.cursor='grabbing'; }
+  });
+  canvas.addEventListener('pointermove', e=>{
+    const {px,py}=pos(e);
+    if(act===null){
+      const near = getTargets().some(t=>Math.hypot(P.X(t.x)-px,P.Y(t.y)-py)<22);
+      canvas.style.cursor = near?'grab':'crosshair'; return;
+    }
+    onMove(act, P.wx(px), P.wy(py));
+  });
+  const up = e=>{ act=null; canvas.style.cursor='crosshair'; };
+  canvas.addEventListener('pointerup',up);
+  canvas.addEventListener('pointercancel',up);
+}
+
+/* ================= FIG A ================= */
+(function(){
+  const cv=document.getElementById('cvA'), rd=document.getElementById('rdA');
+  const P=Plane(cv,{range:2.3});
+  let z={x:1.5,y:1.0}, polar=false;
+  function draw(){
+    P.layout(); P.clear(); P.grid(polar); P.axes(); P.unitCircle();
+    const ctx=P.ctx, rho=Math.hypot(z.x,z.y), th=Math.atan2(z.y,z.x);
+    // projections
+    P.line({x:z.x,y:0}, z, C.amber+'99',1.4,[4,4]);
+    P.line({x:0,y:z.y}, z, C.cyan+'99',1.4,[4,4]);
+    P.line({x:0,y:0},{x:z.x,y:0}, C.amber, 2.2);
+    P.line({x:0,y:0},{x:0,y:z.y}, C.cyan, 2.2);
+    // angle arc
+    if(rho>0.12){
+      const ar=Math.min(0.55, rho*0.5);
+      ctx.beginPath(); ctx.arc(P.cx,P.cy,ar*P.u,0,-th,th>0);
+      ctx.strokeStyle=C.violet; ctx.lineWidth=1.8; ctx.stroke();
+      P.label('θ', P.X(Math.cos(th/2)*(ar+0.2)), P.Y(Math.sin(th/2)*(ar+0.2)), C.violet);
+    }
+    P.arrow({x:0,y:0}, z, C.violet, 2.4);
+    P.dot(z, C.violet, 5.5);
+    // rho label
+    P.label('ρ', P.X(z.x*0.55 - Math.sin(th)*0.18), P.Y(z.y*0.55 + Math.cos(th)*0.18), C.violet);
+    P.label('a', P.X(z.x/2), P.Y(0)+16, C.amber);
+    P.label('b', P.X(0)-16, P.Y(z.y/2), C.cyan);
+    P.label('z', P.X(z.x)+16, P.Y(z.y)-12, C.violet);
+    let d=deg(th); if(d<0)d+=360;
+    rd.innerHTML =
+      '<span><b>代数形式</b>&nbsp; z = <span class="a">'+fmt(z.x)+'</span> + <span class="c">'+fmt(z.y)+'</span> i</span>'+
+      '<span><b>三角形式</b>&nbsp; z = <span class="v">'+fmt(rho)+'</span> ( cos <span class="v">'+fmt(d,1)+'°</span> + i sin <span class="v">'+fmt(d,1)+'°</span> )</span>'+
+      '<span>ρ = '+fmt(rho)+'&nbsp;&nbsp; θ = '+fmt(th,3)+' rad</span>';
+  }
+  drag(cv,P,()=>[z],(i,x,y)=>{
+    z.x=Math.max(-2.2,Math.min(2.2,x)); z.y=Math.max(-2.2,Math.min(2.2,y)); draw();
+  });
+  document.getElementById('aGrid').onclick=e=>{polar=!polar; e.target.classList.toggle('on',polar); draw();};
+  document.getElementById('aSnap').onclick=()=>{z={x:1,y:1}; draw();};
+  reg(draw);
+})();
+
+/* ================= FIG B ================= */
+(function(){
+  const cv=document.getElementById('cvB'), rd=document.getElementById('rdB');
+  const P=Plane(cv,{range:2.9});
+  let z1={x:1.25,y:0.55}, z2={x:0.35,y:1.0}, anim=null;
+  const mul=(a,b)=>({x:a.x*b.x-a.y*b.y, y:a.x*b.y+a.y*b.x});
+  function draw(){
+    P.layout(); P.clear(); P.grid(false); P.axes(); P.unitCircle();
+    const ctx=P.ctx;
+    const p=mul(z1,z2);
+    const r1=Math.hypot(z1.x,z1.y), r2=Math.hypot(z2.x,z2.y), rp=r1*r2;
+    const t1=Math.atan2(z1.y,z1.x), t2=Math.atan2(z2.y,z2.x), tp=t1+t2;
+    // arcs
+    const ctxArc=(a0,a1,r,col)=>{ctx.beginPath();ctx.arc(P.cx,P.cy,r*P.u,-a0,-a1,a1>a0);ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.stroke();};
+    ctxArc(0,t1,0.42,C.amber); ctxArc(t1,tp,0.60,C.cyan);
+    P.label('θ₁',P.X(Math.cos(t1/2)*0.62),P.Y(Math.sin(t1/2)*0.62),C.amber);
+    P.label('θ₂',P.X(Math.cos((t1+tp)/2)*0.82),P.Y(Math.sin((t1+tp)/2)*0.82),C.cyan);
+    // radius circles
+    ctx.setLineDash([2,5]); ctx.lineWidth=1;
+    [[r1,C.amber],[rp,C.violet]].forEach(([r,c])=>{
+      ctx.beginPath(); ctx.arc(P.cx,P.cy,r*P.u,0,TAU); ctx.strokeStyle=c+'40'; ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    P.arrow({x:0,y:0},z1,C.amber,2.3); P.dot(z1,C.amber,5);
+    P.arrow({x:0,y:0},z2,C.cyan,2.3);  P.dot(z2,C.cyan,5);
+    P.arrow({x:0,y:0},p,C.violet,2.6); P.dot(p,C.violet,6);
+    P.label('z₁',P.X(z1.x)+15,P.Y(z1.y)-11,C.amber);
+    P.label('z₂',P.X(z2.x)+15,P.Y(z2.y)-11,C.cyan);
+    P.label('z₁z₂',P.X(p.x)+20,P.Y(p.y)-12,C.violet);
+    const D=r=>{let d=deg(r)%360; if(d<0)d+=360; return fmt(d,1)+'°';};
+    rd.innerHTML=
+      '<span class="a">z₁ : ρ₁='+fmt(r1)+'  θ₁='+D(t1)+'</span>'+
+      '<span class="c">z₂ : ρ₂='+fmt(r2)+'  θ₂='+D(t2)+'</span>'+
+      '<span class="v">z₁z₂ : ρ='+fmt(rp)+' = '+fmt(r1)+'×'+fmt(r2)+'　θ='+D(tp)+'</span>'+
+      '<span>= '+fmt(p.x)+' + '+fmt(p.y)+' i</span>';
+  }
+  drag(cv,P,()=>[z1,z2],(i,x,y)=>{
+    const t=(i===0?z1:z2); const r=Math.hypot(x,y), m=1.7;
+    if(r>m){ x=x/r*m; y=y/r*m; }
+    t.x=x; t.y=y; draw();
+  });
+  document.getElementById('bI').onclick=()=>{z2={x:0,y:1};draw();};
+  document.getElementById('bN1').onclick=()=>{z2={x:-1,y:0};draw();};
+  document.getElementById('bU').onclick=()=>{const r=Math.hypot(z2.x,z2.y)||1;z2={x:z2.x/r,y:z2.y/r};draw();};
+  document.getElementById('bSpin').onclick=e=>{
+    if(anim){cancelAnimationFrame(anim);anim=null;e.target.classList.remove('on');e.target.textContent='▶ 连续乘 i';return;}
+    e.target.classList.add('on'); e.target.textContent='⏸ 停止';
+    z2={x:0,y:1}; let a0=Math.atan2(z1.y,z1.x), r0=Math.hypot(z1.x,z1.y), t0=performance.now();
+    const step=t=>{ const k=(t-t0)/1400*(Math.PI/2); const a=a0+k;
+      z1={x:Math.cos(a)*r0,y:Math.sin(a)*r0}; draw(); anim=requestAnimationFrame(step); };
+    anim=requestAnimationFrame(step);
+  };
+  reg(draw);
+})();
+
+/* ================= FIG E : matrix ================= */
+(function(){
+  const cv=document.getElementById('cvE'), rd=document.getElementById('rdE');
+  const P=Plane(cv,{range:2.5});
+  const sR=document.getElementById('eR'), sT=document.getElementById('eT');
+  function draw(){
+    P.layout(); P.clear(); P.grid(false); P.axes();
+    const ctx=P.ctx, rho=+sR.value, th=+sT.value;
+    const a=rho*Math.cos(th), b=rho*Math.sin(th);
+    // original unit square
+    ctx.beginPath();
+    ctx.moveTo(P.X(0),P.Y(0)); ctx.lineTo(P.X(1),P.Y(0));
+    ctx.lineTo(P.X(1),P.Y(1)); ctx.lineTo(P.X(0),P.Y(1)); ctx.closePath();
+    ctx.fillStyle='rgba(255,255,255,0.05)'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.30)'; ctx.lineWidth=1.2; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+    // image: columns (a,b) and (-b,a)
+    const e1={x:a,y:b}, e2={x:-b,y:a}, e12={x:a-b,y:b+a};
+    ctx.beginPath();
+    ctx.moveTo(P.X(0),P.Y(0)); ctx.lineTo(P.X(e1.x),P.Y(e1.y));
+    ctx.lineTo(P.X(e12.x),P.Y(e12.y)); ctx.lineTo(P.X(e2.x),P.Y(e2.y)); ctx.closePath();
+    ctx.fillStyle='rgba(167,139,250,0.13)'; ctx.fill();
+    ctx.strokeStyle=C.violet+'88'; ctx.lineWidth=1.4; ctx.stroke();
+    P.arrow({x:0,y:0},{x:1,y:0},'rgba(245,165,36,0.42)',2);
+    P.arrow({x:0,y:0},{x:0,y:1},'rgba(56,189,248,0.42)',2);
+    P.arrow({x:0,y:0},e1,C.amber,2.4);
+    P.arrow({x:0,y:0},e2,C.cyan,2.4);
+    P.label('1',P.X(1),P.Y(0)+17,'rgba(245,165,36,0.55)');
+    P.label('i',P.X(0)-15,P.Y(1),'rgba(56,189,248,0.55)');
+    P.label('z',P.X(e1.x)+15,P.Y(e1.y)-11,C.amber);
+    P.label('iz',P.X(e2.x)-16,P.Y(e2.y)-11,C.cyan);
+    let d=deg(th)%360; if(d<0)d+=360;
+    rd.innerHTML=
+      '<span>z = <span class="a">'+fmt(a)+'</span> + <span class="c">'+fmt(b)+'</span> i　(ρ='+fmt(rho)+', θ='+fmt(d,1)+'°)</span>'+
+      '<span><b>M<sub>z</sub></b> = [ <span class="a">'+fmt(a)+'</span>&nbsp;&nbsp;<span class="c">'+fmt(-b)+'</span> ; <span class="c">'+fmt(b)+'</span>&nbsp;&nbsp;<span class="a">'+fmt(a)+'</span> ]</span>'+
+      '<span>det = ρ² = '+fmt(rho*rho)+'　<span style="color:#6b7a95">（面积放大倍数）</span></span>';
+  }
+  sR.oninput=sT.oninput=draw;
+  document.getElementById('eI').onclick=()=>{sR.value=1;sT.value=Math.PI/2;draw();};
+  reg(draw);
+})();
+
+/* ================= FIG F : circle -> waves ================= */
+(function(){
+  const cv=document.getElementById('cvF'), rd=document.getElementById('rdF');
+  const P=Plane(cv,{range:1.45, ox:0.20, oy:0.5});
+  const sT=document.getElementById('fT'), btn=document.getElementById('fPlay');
+  let playing=true, raf=null, last=performance.now();
+  function draw(){
+    P.layout(); P.clear();
+    const ctx=P.ctx, th=+sT.value;
+    // circle side
+    ctx.beginPath(); ctx.arc(P.cx,P.cy,P.u,0,TAU);
+    ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(P.cx-P.u*1.35,P.cy); ctx.lineTo(P.cx+P.u*1.35,P.cy);
+    ctx.moveTo(P.cx,P.cy-P.u*1.35); ctx.lineTo(P.cx,P.cy+P.u*1.35);
+    ctx.strokeStyle=C.axis; ctx.lineWidth=1; ctx.stroke();
+    const p={x:Math.cos(th),y:Math.sin(th)};
+    P.line({x:p.x,y:0},p,C.cyan+'80',1.3,[3,3]);
+    P.line({x:0,y:p.y},p,C.amber+'80',1.3,[3,3]);
+    P.line({x:0,y:0},{x:p.x,y:0},C.amber,2.6);
+    P.line({x:0,y:0},{x:0,y:p.y},C.cyan,2.6);
+    P.arrow({x:0,y:0},p,C.violet,2.2); P.dot(p,C.violet,5);
+    // wave area
+    const x0=P.cx+P.u*1.6, x1=P.w-14, span=x1-x0;
+    if(span>40){
+      const per = span/ (TAU*1.15);  // px per radian
+      ctx.save(); ctx.beginPath(); ctx.rect(x0-2,0,span+4,P.h); ctx.clip();
+      ctx.beginPath(); ctx.moveTo(x0,P.cy); ctx.lineTo(x1,P.cy);
+      ctx.strokeStyle=C.axis; ctx.lineWidth=1; ctx.stroke();
+      // trace last 2pi*1.15 radians backwards from th
+      const W = span/per;
+      const trace=(f,col)=>{
+        ctx.beginPath();
+        for(let k=0;k<=240;k++){
+          const t = th - W*(k/240);
+          const px = x0 + (th-t)*per;
+          const py = P.cy - f(t)*P.u;
+          k===0? ctx.moveTo(px,py): ctx.lineTo(px,py);
+        }
+        ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
+      };
+      trace(t=>Math.cos(t), C.amber);
+      trace(t=>Math.sin(t), C.cyan);
+      // connect
+      ctx.setLineDash([3,3]); ctx.lineWidth=1;
+      [[p.x,C.amber],[p.y,C.cyan]].forEach(([v,c])=>{
+        ctx.beginPath(); ctx.moveTo(P.cx,P.cy-v*P.u); ctx.lineTo(x0,P.cy-v*P.u);
+        ctx.strokeStyle=c+'44'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x0,P.cy-v*P.u,3.5,0,TAU); ctx.fillStyle=c; ctx.fill();
+      });
+      ctx.setLineDash([]);
+      ctx.restore();
+      P.txt('cos θ', x0+8, 18, C.amber, '12px ui-sans-serif, system-ui');
+      P.txt('sin θ', x0+62, 18, C.cyan, '12px ui-sans-serif, system-ui');
+    }
+    let d=deg(th)%360; if(d<0)d+=360;
+    rd.innerHTML='<span>θ = '+fmt(th%TAU,3)+' rad = '+fmt(d,1)+'°</span>'+
+      '<span class="a">cos θ = '+fmt(p.x,3)+'</span>'+
+      '<span class="c">sin θ = '+fmt(p.y,3)+'</span>'+
+      '<span class="v">|e^iθ| = 1.000　（长度恒不变）</span>';
+  }
+  function loop(t){
+    const dt=(t-last)/1000; last=t;
+    if(playing){ let v=+sT.value + dt*0.85; if(v>12.566) v-=12.566; sT.value=v; draw(); }
+    raf=requestAnimationFrame(loop);
+  }
+  sT.oninput=()=>{ draw(); };
+  btn.onclick=()=>{ playing=!playing; btn.classList.toggle('on',playing);
+    btn.textContent = playing? '⏸ 暂停':'▶ 播放'; };
+  reg(draw);
+  raf=requestAnimationFrame(loop);
+})();
+
+/* ================= FIG C : polygon limit ================= */
+(function(){
+  const cv=document.getElementById('cvC'), rd=document.getElementById('rdC');
+  const P=Plane(cv,{range:1.85});
+  const sN=document.getElementById('cN'), sT=document.getElementById('cT');
+  function draw(){
+    P.layout(); P.clear(); P.grid(false); P.axes();
+    const ctx=P.ctx, n=+sN.value, th=+sT.value;
+    // true arc
+    ctx.beginPath(); ctx.arc(P.cx,P.cy,P.u,0,-th,true);
+    ctx.strokeStyle='rgba(255,255,255,0.30)'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(P.cx,P.cy,P.u,0,TAU);
+    ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1; ctx.setLineDash([3,4]); ctx.stroke(); ctx.setLineDash([]);
+    // polygon
+    const st={x:1, y:th/n};
+    let z={x:1,y:0}; const pts=[{x:1,y:0}];
+    for(let k=0;k<n;k++){
+      const nz={x:z.x*st.x - z.y*st.y, y:z.x*st.y + z.y*st.x};
+      if(n<=14){ // show the perpendicular kick
+        P.arrow(z,nz,C.cyan+'cc',1.8);
+      }
+      z=nz; pts.push({x:z.x,y:z.y});
+    }
+    ctx.beginPath();
+    pts.forEach((p,i)=> i? ctx.lineTo(P.X(p.x),P.Y(p.y)) : ctx.moveTo(P.X(p.x),P.Y(p.y)));
+    ctx.strokeStyle=C.violet; ctx.lineWidth=2; ctx.stroke();
+    if(n<=40) pts.forEach(p=>{ctx.beginPath();ctx.arc(P.X(p.x),P.Y(p.y),2.6,0,TAU);ctx.fillStyle=C.violet;ctx.fill();});
+    // target
+    const tg={x:Math.cos(th),y:Math.sin(th)};
+    ctx.beginPath(); ctx.arc(P.X(tg.x),P.Y(tg.y),6.5,0,TAU);
+    ctx.strokeStyle=C.green; ctx.lineWidth=2; ctx.stroke();
+    P.label('e^iθ',P.X(tg.x)+24,P.Y(tg.y)-13,C.green);
+    P.dot(z,C.violet,5);
+    P.label('(1+iθ/n)ⁿ',P.X(z.x)+34,P.Y(z.y)+16,C.violet);
+    P.dot({x:1,y:0},'#ffffff',3.5);
+    const err=Math.hypot(z.x-tg.x,z.y-tg.y), len=Math.hypot(z.x,z.y);
+    rd.innerHTML=
+      '<span>n = '+n+'　θ = '+fmt(th,3)+' rad ('+fmt(deg(th),1)+'°)</span>'+
+      '<span class="v">| (1+iθ/n)ⁿ | = '+fmt(len,4)+'</span>'+
+      '<span style="color:#4ade80">与 e^iθ 的距离 = '+fmt(err,4)+'</span>'+
+      '<span>每步转 '+fmt(deg(Math.atan2(th/n,1)),2)+'°，放大 '+fmt(Math.hypot(1,th/n),5)+' 倍</span>';
+  }
+  sN.oninput=sT.oninput=draw;
+  document.getElementById('cPi').onclick=()=>{sT.value=Math.PI;draw();};
+  reg(draw);
+})();
+
+/* ================= FIG G : e^{(s+iw)t} ================= */
+(function(){
+  const cv=document.getElementById('cvG'), rd=document.getElementById('rdG');
+  const sS=document.getElementById('gS'), sW=document.getElementById('gW');
+  const T=9;
+  let curRange=1.6;
+  const P=Plane(cv,{range:()=>curRange});
+  let t=0, last=performance.now(), raf=null;
+  function targetRange(){
+    const s=+sS.value;
+    return Math.max(1.45, Math.min(9, Math.exp(Math.max(0,s)*T)*1.25 + 0.35));
+  }
+  function draw(){
+    curRange += (targetRange()-curRange)*0.12;
+    P.layout(); P.clear(); P.grid(false); P.axes(); P.unitCircle();
+    const ctx=P.ctx, s=+sS.value, w=+sW.value;
+    // trajectory
+    ctx.beginPath();
+    for(let k=0;k<=700;k++){
+      const tt=T*k/700, r=Math.exp(s*tt);
+      const x=r*Math.cos(w*tt), y=r*Math.sin(w*tt);
+      k? ctx.lineTo(P.X(x),P.Y(y)) : ctx.moveTo(P.X(x),P.Y(y));
+    }
+    const g=ctx.createLinearGradient(0,0,P.w,P.h);
+    g.addColorStop(0,'rgba(244,114,182,0.85)'); g.addColorStop(1,'rgba(167,139,250,0.85)');
+    ctx.strokeStyle=g; ctx.lineWidth=2; ctx.stroke();
+    // moving point
+    const r=Math.exp(s*t), z={x:r*Math.cos(w*t), y:r*Math.sin(w*t)};
+    // velocity components (scaled for visibility)
+    const K = 0.9;
+    const par={x:s*z.x*K, y:s*z.y*K};
+    const per={x:-w*z.y*K, y:w*z.x*K};
+    const vel={x:par.x+per.x, y:par.y+per.y};
+    ctx.setLineDash([3,4]); ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(P.X(z.x+par.x),P.Y(z.y+par.y)); ctx.lineTo(P.X(z.x+vel.x),P.Y(z.y+vel.y));
+    ctx.moveTo(P.X(z.x+per.x),P.Y(z.y+per.y)); ctx.lineTo(P.X(z.x+vel.x),P.Y(z.y+vel.y));
+    ctx.strokeStyle='rgba(255,255,255,0.28)'; ctx.stroke(); ctx.setLineDash([]);
+    P.line({x:0,y:0},z,'rgba(255,255,255,0.22)',1.2);
+    P.arrow(z,{x:z.x+par.x,y:z.y+par.y},C.amber,2.6);
+    P.arrow(z,{x:z.x+per.x,y:z.y+per.y},C.cyan,2.6);
+    P.arrow(z,{x:z.x+vel.x,y:z.y+vel.y},'#ffffff',1.6);
+    P.dot(z,C.pink,5.5);
+    P.label('σw',P.X(z.x+par.x*1.14)+8,P.Y(z.y+par.y*1.14)-6,C.amber);
+    P.label('iωw',P.X(z.x+per.x*1.14)+10,P.Y(z.y+per.y*1.14)-6,C.cyan);
+    P.txt('平行 → 只改长度', 14, 20, C.amber, '12px ui-sans-serif, system-ui');
+    P.txt('垂直 → 只改方向', 14, 40, C.cyan, '12px ui-sans-serif, system-ui');
+    const tag = Math.abs(s)<0.006 ? '纯旋转 — 这就是欧拉公式' : (Math.abs(w)<0.02 ? '纯增长 — 这就是指数函数' : '螺旋 — 伸缩与旋转叠加');
+    rd.innerHTML=
+      '<span>z = σ + ωi = <span class="a">'+fmt(s,3)+'</span> + <span class="c">'+fmt(w,2)+'</span> i</span>'+
+      '<span>长度 = e^σt = '+fmt(r,3)+'</span>'+
+      '<span>arg = ωt = '+fmt((w*t)%TAU,2)+' rad</span>'+
+      '<span style="color:#f472b6">'+tag+'</span>';
+  }
+  function loop(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    t+=dt*1.1; if(t>T) t=0;
+    draw(); raf=requestAnimationFrame(loop);
+  }
+  sS.oninput=sW.oninput=()=>{t=0;};
+  document.getElementById('gPure').onclick=()=>{sS.value=0;t=0;};
+  document.getElementById('gGrow').onclick=()=>{sW.value=0;sS.value=0.16;t=0;};
+  REG.push(()=>P.layout());
+  raf=requestAnimationFrame(loop);
+})();
+
+/* ================= progress + mathjax fallback ================= */
+(function(){
+  const bar=document.getElementById('prog');
+  const upd=()=>{
+    const h=document.documentElement;
+    const p=h.scrollTop/Math.max(1,(h.scrollHeight-h.clientHeight));
+    bar.style.width=(p*100).toFixed(2)+'%';
+  };
+  window.addEventListener('scroll',upd,{passive:true}); upd();
+  setTimeout(()=>{
+    if(!(window.MathJax && window.MathJax.typesetPromise))
+      document.getElementById('mjwarn').style.display='block';
+  }, 6000);
+})();
+</script>
+</body>
+</html>

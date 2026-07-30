@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>延迟渲染 与 前向渲染 · 原理图解</title>
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --bg:#0a0b0d; --bg2:#0d0f12; --panel:#111418; --panel2:#161a20;
+  --line:rgba(236,234,229,.085); --line2:rgba(236,234,229,.17); --line3:rgba(236,234,229,.30);
+  --ink:#eceae5; --body:#b3b9c1; --mute:#767c85; --faint:#4d535b;
+  --def:#ff7a45; --def-w:rgba(255,122,69,.13); --def-s:rgba(255,122,69,.34);
+  --fwd:#2fd4bd; --fwd-w:rgba(47,212,189,.12); --fwd-s:rgba(47,212,189,.32);
+  --shr:#e6c34a; --shr-w:rgba(230,195,74,.12);
+  --bad:#ff5566; --bad-w:rgba(255,85,102,.12);
+  --mono:"JetBrains Mono","Cascadia Mono",Consolas,"SF Mono",Menlo,"DejaVu Sans Mono",monospace;
+  --sans:"Inter","Segoe UI",system-ui,-apple-system,"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Hiragino Sans GB","Noto Sans SC",sans-serif;
+  --rail:236px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--body);
+  font-family:var(--sans); font-size:15.5px; line-height:1.86;
+  -webkit-font-smoothing:antialiased; letter-spacing:.005em;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(236,234,229,.030) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(236,234,229,.030) 1px,transparent 1px);
+  background-size:52px 52px;
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%,#000 0%,transparent 78%);
+          mask-image:radial-gradient(120% 90% at 50% 0%,#000 0%,transparent 78%);
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(90% 60% at 12% -10%,rgba(255,122,69,.055),transparent 60%),
+             radial-gradient(70% 50% at 92% 8%,rgba(47,212,189,.045),transparent 62%);
+}
+
+/* ============================================================
+   PROGRESS + RAIL
+   ============================================================ */
+#prog{position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+  background:linear-gradient(90deg,var(--def),var(--shr),var(--fwd));}
+
+.rail{
+  position:fixed; top:0; left:0; width:var(--rail); height:100vh; z-index:40;
+  padding:38px 22px 28px 30px; display:flex; flex-direction:column; gap:0;
+  border-right:1px solid var(--line); background:linear-gradient(180deg,rgba(10,11,13,.9),rgba(10,11,13,.75));
+  backdrop-filter:blur(6px);
+}
+.rail .brand{font:600 11px/1.5 var(--mono);letter-spacing:.22em;color:var(--mute);text-transform:uppercase;margin-bottom:26px}
+.rail .brand b{display:block;color:var(--ink);letter-spacing:.06em;font-size:13px;font-weight:600;margin-top:5px}
+.rail nav{display:flex;flex-direction:column;gap:1px;overflow:auto;scrollbar-width:none}
+.rail nav::-webkit-scrollbar{display:none}
+.rail a{
+  display:grid;grid-template-columns:26px 1fr;gap:9px;align-items:baseline;
+  text-decoration:none;color:var(--mute);padding:5px 8px 5px 0;border-left:2px solid transparent;
+  padding-left:11px;transition:color .18s,border-color .18s,background .18s;font-size:13.5px;
+}
+.rail a i{font:500 10.5px/1 var(--mono);color:var(--faint);font-style:normal;letter-spacing:.06em}
+.rail a:hover{color:var(--body)}
+.rail a.on{color:var(--ink);border-left-color:var(--def);background:linear-gradient(90deg,rgba(255,122,69,.07),transparent)}
+.rail a.on i{color:var(--def)}
+.legend{margin-top:auto;padding-top:20px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
+.legend div{display:flex;align-items:center;gap:9px;font:500 11.5px/1 var(--mono);color:var(--mute)}
+.legend s{width:9px;height:9px;display:block;border-radius:1px;text-decoration:none}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+main{position:relative;z-index:1;margin-left:var(--rail);padding:0 clamp(24px,5vw,86px) 140px;max-width:1240px}
+section{padding-top:104px;scroll-margin-top:20px}
+.wrap{max-width:790px}
+p{margin:0 0 1.05em}
+strong{color:var(--ink);font-weight:600}
+em{font-style:normal;color:var(--ink);border-bottom:1px solid var(--line3);padding-bottom:1px}
+a.ext{color:var(--fwd);text-decoration:none;border-bottom:1px solid var(--fwd-s)}
+code{font-family:var(--mono);font-size:.87em;color:var(--ink);background:rgba(236,234,229,.055);
+  padding:1.5px 5px;border-radius:3px;border:1px solid var(--line);overflow-wrap:anywhere}
+.kd{color:var(--def)}.kf{color:var(--fwd)}.ks{color:var(--shr)}.kb{color:var(--bad)}
+
+/* section head */
+.sec-head{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;margin-bottom:34px;
+  padding-bottom:20px;border-bottom:1px solid var(--line)}
+.sec-num{font:700 58px/.8 var(--mono);letter-spacing:-.05em;color:transparent;
+  -webkit-text-stroke:1px var(--line2);user-select:none}
+.sec-head h2{margin:0;font-size:29px;line-height:1.25;font-weight:650;color:var(--ink);letter-spacing:-.01em}
+.sec-head .sub{margin:7px 0 0;font:500 12px/1.5 var(--mono);letter-spacing:.09em;color:var(--mute);text-transform:uppercase}
+h3{font-size:17.5px;font-weight:640;color:var(--ink);margin:48px 0 14px;letter-spacing:-.005em;
+  display:flex;align-items:baseline;gap:11px}
+h3::before{content:attr(data-n);font:600 11px/1 var(--mono);color:var(--faint);letter-spacing:.08em;
+  border:1px solid var(--line);padding:4px 6px;border-radius:3px;flex:none}
+h4{font-size:14.5px;font-weight:640;color:var(--ink);margin:26px 0 9px;letter-spacing:.01em}
+
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+.thesis{
+  border:1px solid var(--line2);border-left:2px solid var(--ink);
+  background:linear-gradient(100deg,rgba(236,234,229,.045),transparent 70%);
+  padding:24px 28px;margin:30px 0;font-size:16.5px;line-height:1.82;color:var(--ink)
+}
+.thesis .lab{font:600 10.5px/1 var(--mono);letter-spacing:.2em;color:var(--mute);
+  text-transform:uppercase;display:block;margin-bottom:13px}
+
+.note{border-left:2px solid var(--line2);padding:2px 0 2px 18px;margin:22px 0;color:var(--mute);font-size:14.2px}
+.note b{color:var(--body);font-weight:600}
+.note::before{content:attr(data-l);display:block;font:600 10px/1 var(--mono);letter-spacing:.18em;
+  color:var(--faint);text-transform:uppercase;margin-bottom:7px}
+
+.fig{margin:34px 0;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--bg2));
+  border-radius:5px;overflow:hidden;position:relative}
+.fig::before,.fig::after{content:"";position:absolute;width:7px;height:7px;pointer-events:none}
+.fig::before{top:-1px;left:-1px;border-top:1px solid var(--line3);border-left:1px solid var(--line3)}
+.fig::after{bottom:-1px;right:-1px;border-bottom:1px solid var(--line3);border-right:1px solid var(--line3)}
+.fig-hd{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+  padding:12px 18px;border-bottom:1px solid var(--line);background:rgba(236,234,229,.018)}
+.fig-hd h5{margin:0;font:600 11.5px/1.4 var(--mono);letter-spacing:.14em;color:var(--body);text-transform:uppercase}
+.fig-hd h5 span{color:var(--faint);margin-right:9px}
+.fig-bd{padding:22px}
+.fig-cap{padding:0 22px 18px;font-size:13px;line-height:1.7;color:var(--mute)}
+.fig-cap b{color:var(--body);font-weight:600}
+
+/* segmented control */
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden;background:var(--bg)}
+.seg button{appearance:none;border:0;background:transparent;color:var(--mute);cursor:pointer;
+  font:600 11.5px/1 var(--mono);letter-spacing:.08em;padding:8px 13px;transition:.16s;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--body);background:rgba(236,234,229,.04)}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.seg.d button.on{background:var(--def);color:#1a0b04}
+.seg.f button.on{background:var(--fwd);color:#04201c}
+
+/* tables */
+table{width:100%;border-collapse:collapse;margin:22px 0;font-size:13.8px}
+th{font:600 10.5px/1.4 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--mute);
+  text-align:left;padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:bottom}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.65}
+tbody tr:hover{background:rgba(236,234,229,.022)}
+td:first-child,th:first-child{padding-left:0}
+td:last-child,th:last-child{padding-right:0}
+.tnum{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.yes{color:var(--fwd);font-weight:600}.no{color:var(--bad);font-weight:600}.mid{color:var(--shr);font-weight:600}
+
+/* code */
+pre{margin:20px 0;background:var(--bg2);border:1px solid var(--line);border-left:2px solid var(--line2);
+  border-radius:4px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.6px;
+  line-height:1.78;color:var(--body)}
+pre .c{color:var(--faint)}
+pre .k{color:var(--shr)}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0}
+.chip{font:600 11px/1 var(--mono);letter-spacing:.06em;padding:7px 10px;border:1px solid var(--line2);
+  border-radius:3px;color:var(--mute)}
+.chip.d{color:var(--def);border-color:var(--def-s);background:var(--def-w)}
+.chip.f{color:var(--fwd);border-color:var(--fwd-s);background:var(--fwd-w)}
+.chip.s{color:var(--shr);border-color:rgba(230,195,74,.3);background:var(--shr-w)}
+
+/* formula display */
+.formula{display:flex;flex-wrap:wrap;align-items:center;gap:18px;justify-content:center;
+  font:600 17px/1.5 var(--mono);color:var(--body);padding:26px 18px;text-align:center}
+.formula .arrow{color:var(--faint);font-size:15px;letter-spacing:.1em}
+.formula .op{font-size:21px}
+
+/* two-col */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:26px 0}
+.duo>*{min-width:0}
+@media(max-width:820px){.duo{grid-template-columns:1fr}}
+.card{border:1px solid var(--line);border-radius:4px;padding:18px 20px;background:var(--panel)}
+.card.d{border-top:2px solid var(--def)}
+.card.f{border-top:2px solid var(--fwd)}
+.card h6{margin:0 0 10px;font:600 12px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase}
+.card.d h6{color:var(--def)}.card.f h6{color:var(--fwd)}
+.card p{font-size:13.8px;margin-bottom:.7em;color:var(--body)}
+.card p:last-child{margin-bottom:0}
+
+/* value readouts */
+.readout{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.readout > div{flex:1 1 130px;padding:13px 16px;border-right:1px solid var(--line);background:var(--panel)}
+.readout > div:last-child{border-right:0}
+.readout dt{font:600 10px/1.3 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0 0 6px}
+.readout dd{margin:0;font:600 21px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:-.02em}
+.readout dd small{font-size:11px;font-weight:500;color:var(--mute);letter-spacing:.04em;margin-left:3px}
+
+/* sliders */
+.ctl{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin:0 0 13px}
+.ctl label{font:600 11px/1.3 var(--mono);letter-spacing:.08em;color:var(--mute);text-transform:uppercase;white-space:nowrap}
+.ctl output{font:600 13px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);min-width:66px;text-align:right}
+input[type=range]{appearance:none;width:100%;height:2px;background:var(--line2);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--ink);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 0 1px var(--line3)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--ink);
+  cursor:pointer;border:2px solid var(--bg)}
+
+svg{display:block;max-width:100%;height:auto}
+.scrollx{overflow-x:auto}
+
+/* reveal */
+html.js .rv{opacity:0;transform:translateY(14px);transition:opacity .6s cubic-bezier(.2,.7,.3,1),transform .6s cubic-bezier(.2,.7,.3,1)}
+html.js .rv.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){html.js .rv{opacity:1;transform:none;transition:none}
+  *{animation-duration:0s!important}}
+
+@media(max-width:1080px){
+  .rail{display:none}
+  main{margin-left:0;padding-top:20px}
+  .sec-num{font-size:42px}
+  .sec-head h2{font-size:24px}
+}
+</style>
+</head>
+<body>
+<div id="prog"></div>
+
+<aside class="rail">
+  <div class="brand">Rendering Path<b>延迟 / 前向 原理图解</b></div>
+  <nav id="nav">
+    <a href="#s00"><i>00</i>核心命题</a>
+    <a href="#s01"><i>01</i>同一个问题</a>
+    <a href="#s02"><i>02</i>前向渲染</a>
+    <a href="#s03"><i>03</i>延迟渲染</a>
+    <a href="#s04"><i>04</i>成本模型对照</a>
+    <a href="#s05"><i>05</i>原理级硬约束</a>
+    <a href="#s06"><i>06</i>混合才是常态</a>
+    <a href="#s07"><i>07</i>选型</a>
+    <a href="#s08"><i>08</i>五句话</a>
+  </nav>
+  <div class="legend">
+    <div><s style="background:var(--def)"></s>延迟路径</div>
+    <div><s style="background:var(--fwd)"></s>前向路径</div>
+    <div><s style="background:var(--shr)"></s>两者共用</div>
+  </div>
+</aside>
+
+<main>
+
+<!-- ══════════════════ 00 ══════════════════ -->
+<section id="s00" style="padding-top:78px">
+  <div class="wrap">
+    <div style="font:600 11px/1 var(--mono);letter-spacing:.24em;color:var(--mute);text-transform:uppercase;margin-bottom:22px">
+      Deferred Shading &nbsp;/&nbsp; Forward+ &nbsp;·&nbsp; 通用原理文档
+    </div>
+    <h1 style="margin:0;font-size:clamp(34px,5.4vw,58px);line-height:1.1;font-weight:680;color:var(--ink);letter-spacing:-.025em">
+      <span class="kd">延迟渲染</span> 与 <span class="kf">前向渲染</span>
+    </h1>
+    <p style="margin:20px 0 0;font-size:17px;line-height:1.8;color:var(--body);max-width:640px">
+      同一套 PBR 参数、同一个 BRDF、同一批阴影贴图。两者不是两种光照理论，
+      而是两种<em>组织光照计算的调度方式</em>。
+    </p>
+  </div>
+
+  <div class="thesis rv" style="max-width:860px">
+    <span class="lab">核心命题</span>
+    任何渲染器都必须让两组数据在某一刻相遇：<b style="color:var(--ink)">几何/材质属性</b>（随物体数量增长）与
+    <b style="color:var(--ink)">光照信息</b>（随光源数量增长）。<br>
+    <span class="kf">前向</span>让它们在<em>着色器寄存器</em>里相遇 —— 画物体的当场算完；
+    <span class="kd">延迟</span>让它们在<em>显存</em>里相遇 —— 先把表面属性写进 G-Buffer，之后按屏幕像素统一打光。<br>
+    <span style="color:var(--mute);font-size:15px">
+      MSAA、半透明、带宽、Lumen / Nanite / VSM 的可用性 —— 后面所有差异，都是这一个选择的必然推论。
+    </span>
+  </div>
+
+  <div class="readout rv" style="max-width:860px;margin-top:26px">
+    <div><dt>汇合位置 · 前向</dt><dd style="color:var(--fwd);font-size:16px">着色器寄存器</dd></div>
+    <div><dt>汇合位置 · 延迟</dt><dd style="color:var(--def);font-size:16px">显存 G-Buffer</dd></div>
+    <div><dt>实例来源</dt><dd style="font-size:16px">UE 5.8</dd></div>
+    <div><dt>阅读时长</dt><dd>18<small>min</small></dd></div>
+  </div>
+</section>
+
+<!-- ══════════════════ 01 ══════════════════ -->
+<section id="s01">
+  <header class="sec-head">
+    <div class="sec-num">01</div>
+    <div><h2>同一个问题：一个像素怎么变亮</h2>
+    <p class="sub">The convergence problem</p></div>
+  </header>
+
+  <div class="wrap">
+    <p>实时渲染器的核心循环，本质上是在每个像素上求解这个式子：</p>
+  </div>
+
+<pre>最终颜色 = 自发光 + 间接光 + <span class="k">Σ</span><sub>光源</sub> [ 光色×强度 <span class="k">×</span> 阴影可见性 <span class="k">×</span> BRDF(材质属性, L, V) <span class="k">×</span> max(N·L, 0) ]</pre>
+
+  <div class="wrap">
+    <p>要算出它，必须在同一时刻握有两组来源完全不同的数据：</p>
+  </div>
+
+  <table style="max-width:790px">
+    <thead><tr><th style="width:30%">数据组</th><th style="width:34%">来源</th><th>增长维度</th></tr></thead>
+    <tbody>
+      <tr><td><strong>几何 / 材质属性</strong><br><span style="color:var(--mute);font-size:12.5px">Normal · BaseColor · Roughness · Metallic · Specular · ShadingModel</span></td>
+          <td>顶点 → 光栅化 → 材质图求值</td>
+          <td>由<strong>物体</strong>决定，随几何复杂度增长</td></tr>
+      <tr><td><strong>光照信息</strong><br><span style="color:var(--mute);font-size:12.5px">位置 · 颜色 · 衰减 · 阴影贴图 · IES · LightFunction</span></td>
+          <td>场景光源列表 + 阴影 Pass</td>
+          <td>由<strong>光源</strong>决定，随灯数增长</td></tr>
+    </tbody>
+  </table>
+
+  <div class="wrap">
+    <p>两条数据流必须交汇。<strong>交汇点选在哪里，就决定了你在用哪种渲染路径。</strong>
+    切换下面的开关，看同一批数据在两种调度下走的不同路线。</p>
+  </div>
+
+  <!-- FIG: THE FORK -->
+  <figure class="fig rv" id="fig-fork">
+    <div class="fig-hd">
+      <h5><span>FIG 01</span>数据汇合点</h5>
+      <div class="seg" id="fork-seg">
+        <button data-m="fwd" class="on">前向 FORWARD</button>
+        <button data-m="def">延迟 DEFERRED</button>
+      </div>
+    </div>
+    <div class="fig-bd scrollx">
+      <svg viewBox="0 0 1000 372" style="min-width:720px">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+          <style>
+            .fk-box{fill:#12161b;stroke:var(--line2);stroke-width:1}
+            .fk-t{font-family:var(--mono);font-size:12px;fill:var(--ink);font-weight:600}
+            .fk-s{font-family:var(--sans);font-size:11px;fill:var(--mute)}
+            .fk-l{font-family:var(--mono);font-size:9.5px;fill:var(--faint);letter-spacing:.14em}
+            .fk-p{fill:none;stroke-width:1.6;stroke-dasharray:5 9;animation:flow 1.1s linear infinite}
+            @keyframes flow{to{stroke-dashoffset:-14}}
+            .fk-g{transition:opacity .42s ease}
+            .fk-off{opacity:0;pointer-events:none}
+          </style>
+        </defs>
+
+        <!-- sources -->
+        <rect class="fk-box" x="34" y="70" width="200" height="72" rx="3" style="stroke:var(--def-s)"/>
+        <text class="fk-l" x="46" y="90">SOURCE A</text>
+        <text class="fk-t" x="46" y="110">几何 / 材质属性</text>
+        <text class="fk-s" x="46" y="128">Normal · BaseColor · Roughness</text>
+
+        <rect class="fk-box" x="34" y="222" width="200" height="72" rx="3" style="stroke:var(--fwd-s)"/>
+        <text class="fk-l" x="46" y="242">SOURCE B</text>
+        <text class="fk-t" x="46" y="262">光照信息</text>
+        <text class="fk-s" x="46" y="280">光源列表 · 阴影 · 衰减</text>
+
+        <!-- G-Buffer node (deferred only) -->
+        <g class="fk-g fk-off" id="fk-gbuf">
+          <rect class="fk-box" x="326" y="56" width="204" height="100" rx="3" style="stroke:var(--def);fill:rgba(255,122,69,.07)"/>
+          <text class="fk-l" x="338" y="76" style="fill:var(--def)">VRAM · 全屏纹理</text>
+          <text class="fk-t" x="338" y="97" style="fill:var(--def)">G-Buffer</text>
+          <text class="fk-s" x="338" y="115">A · B · C · D · E · F + Depth</text>
+          <text class="fk-s" x="338" y="133">≈ 40 B / pixel · 写一次 读多次</text>
+          <g stroke="var(--def)" stroke-width="1" opacity=".5">
+            <path d="M338,142 h180"/><path d="M338,146 h130"/>
+          </g>
+        </g>
+
+        <!-- converge node -->
+        <rect class="fk-box" x="614" y="142" width="216" height="94" rx="3" id="fk-cv"/>
+        <text class="fk-l" x="626" y="162" id="fk-cvl">REGISTERS</text>
+        <text class="fk-t" x="626" y="183" id="fk-cvt">BasePass 像素着色器</text>
+        <text class="fk-s" x="626" y="202" id="fk-cvs">材质与光照在同一个 shader 内算完</text>
+        <text class="fk-s" x="626" y="220" id="fk-cvs2">零中间存储 · 输出即最终颜色</text>
+
+        <!-- output -->
+        <rect class="fk-box" x="880" y="158" width="96" height="62" rx="3"/>
+        <text class="fk-t" x="898" y="184" style="font-size:11px">Scene</text>
+        <text class="fk-t" x="898" y="200" style="font-size:11px">Color</text>
+
+        <!-- FORWARD paths -->
+        <g class="fk-g" id="fk-fwd" color="var(--def)">
+          <path class="fk-p" d="M234,106 C 420,106 486,164 614,164" stroke="var(--def)" marker-end="url(#ah)"/>
+        </g>
+        <g class="fk-g" id="fk-fwd2" color="var(--fwd)">
+          <path class="fk-p" d="M234,258 C 420,258 486,214 614,214" stroke="var(--fwd)" marker-end="url(#ah)"/>
+        </g>
+
+        <!-- DEFERRED paths -->
+        <g class="fk-g fk-off" id="fk-def" color="var(--def)">
+          <path class="fk-p" d="M234,106 H 318" stroke="var(--def)" marker-end="url(#ah)"/>
+          <path class="fk-p" d="M530,106 C 574,106 574,176 606,176" stroke="var(--def)" marker-end="url(#ah)"/>
+        </g>
+        <g class="fk-g fk-off" id="fk-def2" color="var(--fwd)">
+          <path class="fk-p" d="M234,258 C 440,258 520,224 606,206" stroke="var(--fwd)" marker-end="url(#ah)"/>
+        </g>
+
+        <!-- out -->
+        <g color="var(--ink)">
+          <path class="fk-p" d="M830,189 H 872" stroke="var(--ink)" marker-end="url(#ah)" style="animation-duration:1.6s"/>
+        </g>
+
+        <!-- annotation -->
+        <text class="fk-l" x="614" y="272" id="fk-note">延迟成本 = 0 · 带宽 = 0 · 精度无损</text>
+        <path d="M614,258 h216" stroke="var(--line2)" stroke-width="1"/>
+      </svg>
+    </div>
+    <figcaption class="fig-cap">
+      <b>唯一的结构性差异</b>：Source A 是否经过一次显存的往返。前向路径下两条流直接汇入寄存器；
+      延迟路径下几何流先落盘成 G-Buffer，光照流稍后来读它 —— 这次往返买来了「全屏场景描述」，也带来了全部代价。
+    </figcaption>
+  </figure>
+
+  <div class="note" data-l="术语澄清">
+    「延迟」<b>不是</b>把渲染推迟到下一帧，而是把<b>光照计算</b>推迟到<b>可见性已经确定之后</b>。
+    深度测试筛完，屏幕上每个像素只剩唯一一个可见表面，此时再打光，每像素只打一次。
+  </div>
+</section>
+
+<!-- ══════════════════ 02 ══════════════════ -->
+<section id="s02">
+  <header class="sec-head">
+    <div class="sec-num">02</div>
+    <div><h2 class="kf">前向渲染</h2>
+    <p class="sub">Forward · 在看见表面的当场把光算完</p></div>
+  </header>
+
+  <h3 data-n="2.1">朴素前向与它的三个死因</h3>
+
+<pre>for each 物体:
+    for each <span class="k">影响它的光源</span>:        <span class="c">← 由 CPU 侧提前绑定到 draw call 上</span>
+        算 BRDF，累加
+    输出最终颜色</pre>
+
+  <div class="wrap">
+    <p>这是图形管线最直观的形态，也是最早被放弃的形态：</p>
+    <ul style="margin:0 0 1.2em;padding-left:20px">
+      <li style="margin-bottom:6px"><strong>复杂度是乘法</strong>：<code>O(物体 × 光源)</code>，灯一多就崩。</li>
+      <li style="margin-bottom:6px"><strong>Overdraw 直接浪费光照</strong>：一个后来被遮挡的像素，它跑过的所有 BRDF 全部作废。</li>
+      <li><strong>Shader 变体爆炸</strong>：光源要在 CPU 侧绑到每个物体的 draw call 上，「材质 × 灯数 × 阴影类型」的排列组合会把 shader 编译时间和内存吃光。</li>
+    </ul>
+    <p>但被淘汰的是<em>朴素</em>前向，不是前向本身。现代前向是 <strong>Forward+ / Clustered Forward</strong>，
+    它借用了延迟渲染最精华的思路 —— <em>先剔除，再着色</em> —— 但剔除的是<strong>光源</strong>而不是几何。</p>
+  </div>
+
+  <h3 data-n="2.2">Forward+：把光源剔除到视锥网格里</h3>
+
+<pre><span class="c">【Pass 1】</span> Depth Prepass<span class="k">（强制）</span> ────────────────▶ 拿到完整深度缓冲
+<span class="c">【Pass 2】</span> Light Culling（Compute Shader）
+           把视锥切成 froxel 网格，每盏光源投影到它覆盖的 cell，写入光源索引表
+<span class="c">【Pass 3】</span> BasePass · DepthTest = <span class="k">Equal</span>
+           每像素：① 由 (x, y, depth) 算出所属 cell 索引
+                   ② 读该 cell 的光源列表（通常个位数）
+                   ③ for 这几盏灯：采样阴影 + 算 BRDF + 累加
+                   ④ <span class="k">直接输出最终颜色到 SceneColor</span> ← 一次性完成</pre>
+
+  <div class="wrap">
+    <p>复杂度回到 <code>O(物体 + 像素 × 每格光源数)</code>，而每格光源数通常是个位数。
+    <strong>Forward+ 能处理成百上千盏光源 —— 光源数量早就不是前向渲染的瓶颈了。</strong></p>
+  </div>
+
+  <!-- FIG 02 · FROXEL -->
+  <figure class="fig rv" id="fig-fx">
+    <div class="fig-hd">
+      <h5><span>FIG 02</span>Froxel 光源剔除网格 · 视锥俯视</h5>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="seg f" id="fx-px">
+          <button data-px="32">32 px</button>
+          <button data-px="64" class="on">64 px</button>
+          <button data-px="128">128 px</button>
+        </div>
+        <div class="seg f" id="fx-nz">
+          <button data-nz="16">Z 16</button>
+          <button data-nz="32" class="on">Z 32</button>
+          <button data-nz="64">Z 64</button>
+        </div>
+      </div>
+    </div>
+    <div class="fig-bd">
+      <div class="ctl" style="max-width:430px;margin-bottom:16px">
+        <label>光源数</label>
+        <input type="range" id="fx-n" min="1" max="16" value="9">
+        <output id="fx-no">9</output>
+      </div>
+      <div class="scrollx">
+        <svg viewBox="0 0 1000 400" id="fx-svg" style="min-width:720px;cursor:crosshair">
+          <defs><style>
+            .fx-cell{fill:var(--fwd);stroke:none;pointer-events:none}
+            .fx-line{stroke:rgba(236,234,229,.12);stroke-width:.6;fill:none;pointer-events:none}
+            .fx-edge{stroke:var(--line3);stroke-width:1.2;fill:none;pointer-events:none}
+            .fx-lt{fill-opacity:.10;stroke-width:1.2;pointer-events:none}
+            .fx-hi{fill:rgba(236,234,229,.20);stroke:var(--ink);stroke-width:1.2;pointer-events:none}
+            .fx-tx{font-family:var(--mono);font-size:10px;fill:var(--faint);letter-spacing:.1em}
+          </style></defs>
+          <g id="fx-heat"></g>
+          <g id="fx-grid"></g>
+          <g id="fx-lights"></g>
+          <g id="fx-hl"></g>
+          <g id="fx-lbl"></g>
+        </svg>
+      </div>
+      <div class="readout" style="margin-top:18px">
+        <div><dt>网格规格</dt><dd id="fx-dim" style="font-size:15px">30 × 17 × 32</dd></div>
+        <div><dt>Cell 总数</dt><dd id="fx-cells">16,320</dd></div>
+        <div><dt>平均光源 / cell</dt><dd id="fx-avg">—</dd></div>
+        <div><dt>峰值 / 单格预算</dt><dd id="fx-max">— <small>/ 32</small></dd></div>
+      </div>
+      <div id="fx-hover" style="margin-top:14px;font:500 12.5px/1.7 var(--mono);color:var(--mute);min-height:44px;
+           border-left:2px solid var(--line2);padding-left:14px">
+        将鼠标移到视锥内的任意 froxel 上，查看它的光源列表。
+      </div>
+    </div>
+    <figcaption class="fig-cap">
+      XY 按固定像素尺寸分块，Z 方向按<b>指数分布</b>切片 —— 近处密、远处疏，匹配透视投影下的深度精度分布。<br>
+      <span style="color:var(--faint)">UE5 实现：默认 64 像素 / 32 片，映射公式是 <code>slice = log2(z·B + O) · S</code>。
+      「单格预算 32」是内存预算系数而非硬上限 —— 默认开启的链表式剔除已经把 per-cell 固定上限改成了全局上限。</span>
+    </figcaption>
+  </figure>
+
+  <h3 data-n="2.3">Depth Prepass 在前向里是正确性前提</h3>
+  <div class="wrap">
+    <p>前向的 BasePass <strong>内含完整光照循环</strong>，一次 overdraw 浪费的是全部 BRDF 求值。
+    所以必须先跑一遍只写深度、不跑像素着色的 Prepass 把深度缓冲填满，
+    再让 BasePass 用 <code>DepthTest = Equal</code>、<strong>深度只读</strong>，保证每个像素只被着色一次。</p>
+    <p>代价是<strong>几何要提交两遍</strong>：顶点着色、剔除、draw call 全部翻倍。
+    这是前向渲染的隐性成本 —— 它把「像素侧的浪费」换成了「几何侧的重复」。</p>
+  </div>
+
+  <h3 data-n="2.4">四项白送的能力</h3>
+  <div class="wrap">
+    <p>因为 BRDF 是在像素着色器里、在寄存器上算完的，几件事顺理成章：</p>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:24%">能力</th><th>为什么是免费的</th></tr></thead>
+    <tbody>
+      <tr><td class="yes">MSAA 原生可用</td>
+        <td>输出的就是最终颜色。硬件多重采样平均的是<strong>颜色</strong>（线性可加），
+        而不是<strong>材质参数</strong>（BRDF 的非线性输入）—— 不存在延迟路径那个悖论（见 5.1）。</td></tr>
+      <tr><td class="yes">带宽极小</td>
+        <td>没有中间缓冲，只有一个 SceneColor + Depth。在移动端的 TBDR GPU 上，
+        整个 tile 的渲染可以完全在片上内存里完成，一次都不回写主存。</td></tr>
+      <tr><td class="yes">材质模型完全自由</td>
+        <td>不需要把属性塞进固定通道。三层各向异性、自定义能量守恒项、任意风格化项 —— 随便写。</td></tr>
+      <tr><td class="yes">精度更高</td>
+        <td>不需要压缩法线、不需要从深度反推位置，没有编解码损失。</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note" data-l="代价">
+    材质、光照、阴影、反射的逻辑全部集中在同一个巨型 shader 里：<b>shader 变体多、编译慢、纹理采样器紧张、
+    寄存器压力高、occupancy 低</b>。而且分簇剔除只能排除<b>无关</b>光源 ——
+    如果 30 盏灯确实同时照到一个像素，这个像素仍然要老老实实算 30 遍。
+  </div>
+</section>
+
+<!-- ══════════════════ 03 ══════════════════ -->
+<section id="s03">
+  <header class="sec-head">
+    <div class="sec-num">03</div>
+    <div><h2 class="kd">延迟渲染</h2>
+    <p class="sub">Deferred Shading · 先看见表面，再给表面打光</p></div>
+  </header>
+
+  <h3 data-n="3.1">插入一层存储，把乘法拆成加法</h3>
+
+<pre><span class="c">【Pass 1 · 几何】</span> 几何 → 光栅化 → 深度测试 → 运行材质图 → 写出「这个像素的表面长什么样」
+                                                            <span class="k">↓</span>
+                                                   <span class="c">G-Buffer（显存 · MRT 多渲染目标）</span>
+                                                            <span class="k">↓</span>
+<span class="c">【Pass 2 · 光照】</span> 遍历光源 → 读 G-Buffer → 重建世界坐标 → 算 BRDF → <span class="k">加法混合</span>累加进 SceneColor</pre>
+
+  <div class="fig rv"><div class="fig-bd">
+    <div class="formula">
+      <span class="kb">O(物体数 <span class="op">×</span> 光源数)</span>
+      <span class="arrow">──────▶</span>
+      <span>O(物体数)<span class="op kf"> + </span>O(受影响像素 <span class="op">×</span> 光源数)</span>
+    </div>
+  </div>
+  <figcaption class="fig-cap">
+    关键在第二项：它的上界是<b>屏幕分辨率</b>，与场景几何复杂度<b>完全解耦</b>。
+    场景里是 100 万个三角形还是一个平面，光照 Pass 的成本一模一样。
+  </figcaption></div>
+
+  <div class="wrap">
+    <p>因为几何 Pass 带深度测试，<strong>只有最终可见的那一个表面</strong>会留在 G-Buffer 里 ——
+    overdraw 依然会浪费材质图求值，但对<em>光照</em>的浪费被彻底消除了。这就是「延迟」二字兑现的地方：
+    <strong>把光照推迟到可见性确定之后。</strong></p>
+    <p>还有一个常被忽略的收益：光照 shader 只需要写一份。它面对的是统一格式的 G-Buffer，
+    不再需要知道这个像素来自哪个材质 —— <strong>材质系统与光照系统在代码层面解耦了</strong>，
+    前向那种「材质 × 灯数 × 阴影」的变体爆炸随之消失。</p>
+  </div>
+
+  <h3 data-n="3.2">G-Buffer 里必须存什么</h3>
+  <div class="wrap">
+    <p>答案由 BRDF 的输入决定：<strong>法线、反照率、粗糙度、金属度、高光度、着色模型、深度</strong>。
+    下面是一个真实引擎（UE5）的具体布局 —— 它的价值不在于记住通道分配，
+    而在于看清<strong>固定布局会带来什么约束</strong>。点击任意一行展开。</p>
+  </div>
+
+  <!-- FIG 03 · G-BUFFER -->
+  <figure class="fig rv" id="fig-gb">
+    <div class="fig-hd">
+      <h5><span>FIG 03</span>G-Buffer 解剖 · 带宽实算</h5>
+      <div class="seg d" id="gb-res">
+        <button data-w="1920" data-h="1080" class="on">1080p</button>
+        <button data-w="2560" data-h="1440">1440p</button>
+        <button data-w="3840" data-h="2160">4K</button>
+      </div>
+    </div>
+    <div class="fig-bd">
+      <div style="display:grid;grid-template-columns:minmax(320px,1.15fr) minmax(260px,1fr);gap:22px" id="gb-grid">
+        <div id="gb-list"></div>
+        <div id="gb-detail" style="border:1px solid var(--line);border-radius:4px;padding:16px 18px;background:var(--bg2);align-self:start"></div>
+      </div>
+      <div class="readout" style="margin-top:20px" id="gb-out">
+        <div><dt>G-Buffer 体积</dt><dd id="gb-bpp">40<small>B/px</small></dd></div>
+        <div><dt>每帧写入</dt><dd id="gb-mb">79<small>MB</small></dd></div>
+        <div><dt>写+读带宽 @60fps</dt><dd id="gb-bw">9.3<small>GB/s</small></dd></div>
+        <div><dt>常驻显存</dt><dd id="gb-vram">79<small>MB</small></dd></div>
+      </div>
+    </div>
+    <figcaption class="fig-cap">
+      带宽按「写一次 + 光照读一次」的<b>下界</b>估算，实际还要叠加 AO、反射、GI、贴花等 Pass 的重复采样。
+      这是延迟渲染的第一硬伤，也是移动端与 4K 场景最先撞到的墙。
+    </figcaption>
+  </figure>
+
+  <div class="wrap">
+    <p>四个细节解释了延迟渲染的绝大多数「怪癖」：</p>
+  </div>
+
+  <div class="duo">
+    <div class="card d"><h6>① 不存 Position</h6>
+      <p>世界坐标由 <code>屏幕UV + 深度 + 逆投影矩阵</code> 反推。存 1 个 float 而不是 3 个 ——
+      这是延迟渲染最重要的单项带宽优化，代价是精度绑定深度缓冲的非线性分布。</p></div>
+    <div class="card d"><h6>② 着色模型只是一个 ID</h6>
+      <p>几个 bit 的枚举，光照 Pass 靠 <code>switch(ShadingModelID)</code> 分支到不同 BRDF。
+      <strong>这是延迟渲染支持多种材质的唯一机制。</strong>
+      <span style="color:var(--mute)">UE5 给它 4 bit，16 个槽位已用掉 14 个。</span></p></div>
+    <div class="card d"><h6>③ 自定义数据是复用通道</h6>
+      <p>同一组通道的含义随着色模型漂移：清漆存层强度，次表面存散射颜色，头发存切线偏移。
+      直接推论 —— <strong>同一个像素只能是一种着色模型</strong>。这是固定布局最硬的约束。</p></div>
+    <div class="card d"><h6>④ 几何 Pass 几乎不打光</h6>
+      <p>唯一例外是自发光与预烘焙的间接光（被压进一个通道）。
+      <strong>所有动态光都留到下一遍</strong> —— 这正是这个 Pass 便宜、能扛 overdraw 的原因。</p></div>
+  </div>
+
+  <h3 data-n="3.3">光照 Pass 的三种组织方式</h3>
+  <div class="wrap">
+    <p>拿到 G-Buffer 之后，「怎么把光源喂给像素」还有三种做法，成本差异很大：</p>
+  </div>
+
+  <div class="scrollx"><table style="min-width:600px">
+    <thead><tr><th style="width:20%">方式</th><th style="width:44%">做法</th><th>适用</th></tr></thead>
+    <tbody>
+      <tr><td><strong>代理体积</strong><br><span style="color:var(--mute);font-size:12.5px">Light Volumes</span></td>
+        <td>为每盏灯画出它的影响体积（点光画球、聚光画锥、方向光走全屏），
+        让<strong>光栅化器 + 深度边界测试</strong>替你剔除。每盏灯一次 draw。</td>
+        <td>灯少，或每盏灯要绑不同的阴影贴图 / 光照函数资源 —— <strong>无法批处理的灯只能走这条</strong></td></tr>
+      <tr><td><strong>分块</strong><br><span style="color:var(--mute);font-size:12.5px">Tiled</span></td>
+        <td>屏幕切 2D 块，每块求深度范围，剔出相关光源列表，一个 Compute Shader 打完。</td>
+        <td>通用，但深度跨度大的块（如天空与近景交界）剔除效率骤降</td></tr>
+      <tr><td><strong>分簇</strong><br><span style="color:var(--mute);font-size:12.5px">Clustered</span></td>
+        <td>就是 2.2 那张 froxel 网格 —— 3D 剔除，避免了分块的深度跨度问题。</td>
+        <td>大量无阴影局部光的最优解</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="wrap">
+    <p>三种做法都依赖同一个数学前提：<strong>光照满足叠加性</strong>，所以每盏灯的贡献可以用
+    <em>加法混合</em>独立累加进 SceneColor，谁先谁后无所谓。</p>
+  </div>
+
+  <div class="note" data-l="注意">
+    <b>光源不是免费的，阴影往往比光源本身更贵。</b>
+    一盏不投影的点光只是几行 BRDF；一盏投射实时阴影的光要从光源视角额外绘制一遍场景。
+    「延迟渲染擅长大量动态光」说的是<b>直接光照的组织方式</b>，从来不意味着大量实时阴影会变便宜。
+    <br><span style="color:var(--faint)">这也解释了为什么真实引擎里总有一条「无法批处理」的慢路径：
+    有阴影贴图、有光照函数、有接触阴影的光源没法塞进统一的分簇 shader，只能一盏一盏画。</span>
+  </div>
+
+  <h3 data-n="3.4">G-Buffer 真正的价值：一张全屏场景描述</h3>
+  <div class="wrap">
+    <p>这一点比「支持很多光源」重要得多，也是延迟渲染在今天仍是主流的真正原因。</p>
+    <p>G-Buffer 是一张<strong>全屏、逐像素、包含完整表面属性的场景描述</strong>。
+    一旦你有了它，一整个算法家族才成为可能 —— 它们的共同点是：<strong>都需要在几何绘制完成后，
+    以屏幕空间为定义域，重新访问场景表面。</strong></p>
+  </div>
+
+  <div class="scrollx"><table style="min-width:600px">
+    <thead><tr><th style="width:26%">技术家族</th><th style="width:38%">消费 G-Buffer 的什么</th><th>代表实现</th></tr></thead>
+    <tbody>
+      <tr><td>屏幕空间环境光遮蔽</td><td>Depth + Normal</td><td>SSAO / GTAO / HBAO</td></tr>
+      <tr><td>屏幕空间反射</td><td>Depth + Normal + Roughness（射线步进与重要性采样）</td><td>SSR / SSGI</td></tr>
+      <tr><td>屏幕探针式 GI</td><td>Depth + Normal 放置探针；BaseColor / Roughness 做最终合成</td><td>UE5 Lumen</td></tr>
+      <tr><td>按需分配的阴影</td><td>Depth 决定需要哪些阴影页</td><td>Virtual Shadow Maps</td></tr>
+      <tr><td>延迟贴花</td><td>直接改写已写好的表面属性</td><td>Deferred Decals</td></tr>
+      <tr><td>时域重投影</td><td>Velocity + Depth</td><td>TAA / TSR / DLSS 类</td></tr>
+      <tr><td>接触阴影 / 屏幕空间阴影</td><td>Depth</td><td>Contact Shadows</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="thesis">
+    反过来读这张表：<strong>放弃 G-Buffer，就同时放弃了上面这一整列。</strong>
+    你放弃的不是「一种光照调度方式」，而是<em>整个屏幕空间技术栈</em>。
+    <span style="color:var(--mute);font-size:15px">
+      在 UE5 里这条推论尤其锋利 —— Lumen、Nanite、Virtual Shadow Maps 全部只在延迟路径上受支持。
+    </span>
+  </div>
+</section>
+
+<!-- ══════════════════ 04 ══════════════════ -->
+<section id="s04">
+  <header class="sec-head">
+    <div class="sec-num">04</div>
+    <div><h2>成本模型对照</h2>
+    <p class="sub">Cost model · 分水岭已经不是光源数量了</p></div>
+  </header>
+
+  <div class="wrap">
+    <p>把三条路径的成本拆成四个正交的量。拖动参数，观察它们各自怎么走。</p>
+  </div>
+
+  <figure class="fig rv" id="fig-cx">
+    <div class="fig-hd">
+      <h5><span>FIG 04</span>成本沙盘</h5>
+      <div class="seg" id="cx-res">
+        <button data-w="1920" data-h="1080" class="on">1080p</button>
+        <button data-w="2560" data-h="1440">1440p</button>
+        <button data-w="3840" data-h="2160">4K</button>
+      </div>
+    </div>
+    <div class="fig-bd">
+      <div style="display:grid;grid-template-columns:minmax(280px,340px) 1fr;gap:28px" id="cx-grid">
+        <div>
+          <div class="ctl"><label>物体数 G</label><input type="range" id="cx-g" min="50" max="5000" step="50" value="1200"><output id="cx-go">1200</output></div>
+          <div class="ctl"><label>动态光源 L</label><input type="range" id="cx-l" min="1" max="400" value="80"><output id="cx-lo">80</output></div>
+          <div class="ctl"><label>Overdraw</label><input type="range" id="cx-o" min="10" max="60" value="25"><output id="cx-oo">2.5×</output></div>
+          <div class="ctl"><label>灯均屏占比</label><input type="range" id="cx-c" min="1" max="40" value="8"><output id="cx-co">8%</output></div>
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);
+               font:500 11.5px/1.75 var(--mono);color:var(--mute)">
+            <div>P&nbsp;&nbsp;&nbsp;&nbsp;= <span id="cx-p" style="color:var(--body)"></span> px</div>
+            <div>L<sub>cell</sub> = min(32, L × 屏占比) = <span id="cx-lc" style="color:var(--body)"></span></div>
+          </div>
+        </div>
+        <div id="cx-bars"></div>
+      </div>
+      <div id="cx-insight" style="margin-top:22px;border-left:2px solid var(--shr);padding:4px 0 4px 16px;
+           font-size:13.5px;line-height:1.75;color:var(--body)"></div>
+    </div>
+    <figcaption class="fig-cap">
+      建模口径：<b>朴素前向</b>无 prepass；<b>Forward+</b> 强制 prepass（overdraw 归 1×，几何 2G）；
+      <b>延迟</b>按<i>不跑</i> prepass 建模，所以几何 Pass 仍承担 overdraw。<br>
+      <span style="color:var(--faint)">务必注意：几何双提交是<b>前向的正确性前提</b>，却是<b>延迟的常规实践</b> ——
+      现代引擎里虚拟化几何、贴花缓冲、虚拟纹理等特性任意一项开启，都会强制延迟路径也跑全量 prepass。
+      「延迟只提交一遍几何」在原理上成立，在工程上很少发生。</span><br>
+      这是<b>教学量级模型，不是性能预测器</b>：它省略了阴影 Pass、材质图复杂度、occupancy、缓存与 GPU 架构差异，
+      而这些在真实项目里常常比本图任何一项都更能决定帧时间。它只证明一件事：
+      <b>Forward+ 与分簇延迟的 BRDF 求值量完全相同，真正的分水岭在带宽一栏。</b>
+    </figcaption>
+  </figure>
+
+  <h3 data-n="4.1">全维度对照</h3>
+  <div class="scrollx">
+  <table style="min-width:620px">
+    <thead><tr><th style="width:26%">维度</th><th style="width:37%" class="kd">延迟</th><th class="kf">前向 (Forward+)</th></tr></thead>
+    <tbody>
+      <tr><td>光照与几何</td><td>解耦（两个 Pass）</td><td>耦合（同一个 Pass）</td></tr>
+      <tr><td>中间产物</td><td>G-Buffer ≈ 40 B/px</td><td>无</td></tr>
+      <tr><td>大量动态光</td><td class="yes">极强</td><td class="yes">强（Forward+ 后已不弱）</td></tr>
+      <tr><td>显存带宽</td><td class="no">高</td><td class="yes">低</td></tr>
+      <tr><td>MSAA</td><td class="no">实际不可用</td><td class="yes">原生支持</td></tr>
+      <tr><td>半透明</td><td class="no">原理上不支持</td><td class="yes">唯一方案</td></tr>
+      <tr><td>材质自由度</td><td class="no">受固定布局限制</td><td class="yes">完全自由</td></tr>
+      <tr><td>Overdraw 敏感度</td><td class="yes">低（几何 Pass 很轻）</td><td class="no">高（必须 Depth Prepass）</td></tr>
+      <tr><td>Shader 变体压力</td><td class="yes">材质与光照解耦，变体少</td><td class="no">材质×灯数×阴影组合爆炸</td></tr>
+      <tr><td>寄存器压力 / occupancy</td><td class="yes">几何 Pass 轻</td><td class="no">BasePass 巨大，occupancy 低</td></tr>
+      <tr><td>屏幕空间技术栈</td><td class="yes">全支持</td><td class="no">大部分不可用</td></tr>
+      <tr><td>VR 适配</td><td class="no">差</td><td class="yes">优</td></tr>
+      <tr><td>移动端 (TBDR) 适配</td><td class="mid">差 —— 除非用 Subpass（见 6.3）</td><td class="yes">优</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note" data-l="最常见的误解">
+    <b>前向不一定更快，延迟也不一定更慢。</b> 真正决定结果的是：分辨率、材质复杂度、光源屏幕覆盖率、
+    投影光源数量、overdraw、半透明比例、带宽、目标 GPU 架构。任何「哪个更快」的论断，
+    脱离这八项都不成立 —— <b>选型的正确表述是「优先测试」，不是「已知更快」。</b>
+  </div>
+</section>
+
+<!-- ══════════════════ 05 ══════════════════ -->
+<section id="s05">
+  <header class="sec-head">
+    <div class="sec-num">05</div>
+    <div><h2>四个原理级硬约束</h2>
+    <p class="sub">Hard limits · 不是实现缺陷，是架构的必然</p></div>
+  </header>
+
+  <h3 data-n="5.1">MSAA 悖论</h3>
+  <div class="wrap">
+    <p>硬件 MSAA 的做法是「每像素多个覆盖采样点，共享一次着色，最后平均」。
+    延迟渲染要 MSAA，G-Buffer 就得变成 multisampled，显存与带宽 ×4/×8。
+    但真正致命的不是成本，而是<strong>你不能先 resolve G-Buffer 再打光</strong>。看下面这个像素。</p>
+  </div>
+
+  <figure class="fig rv" id="fig-ms">
+    <div class="fig-hd">
+      <h5><span>FIG 05</span>几何边缘的一个像素 · 4× MSAA</h5>
+      <div class="seg" id="ms-seg">
+        <button data-m="resolve" class="on">先 Resolve 再光照</button>
+        <button data-m="persample">Per-Sample 光照</button>
+      </div>
+    </div>
+    <div class="fig-bd">
+      <div id="ms-grid" style="display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:26px;align-items:start">
+        <svg viewBox="0 0 240 240">
+          <defs><style>
+            .ms-t{font-family:var(--mono);font-size:10px;fill:var(--faint)}
+            .ms-s{font-family:var(--mono);font-size:9px;font-weight:600}
+          </style></defs>
+          <rect x="20" y="20" width="200" height="200" fill="#0e1114" stroke="var(--line2)"/>
+          <path d="M20,20 L220,20 L220,132 L20,80 Z" fill="rgba(255,122,69,.20)" stroke="var(--def)" stroke-width="1.4"/>
+          <text class="ms-t" x="30" y="42" style="fill:var(--def)">前景 · 红色金属</text>
+          <text class="ms-t" x="30" y="56" style="fill:var(--def)">Metallic 1 · N=+X</text>
+          <text class="ms-t" x="30" y="200" style="fill:var(--fwd)">背景 · 灰色塑料</text>
+          <text class="ms-t" x="30" y="214" style="fill:var(--fwd)">Metallic 0 · N=−X</text>
+          <g id="ms-dots">
+            <circle cx="80"  cy="62"  r="6.5" fill="var(--def)"/><text class="ms-s" x="77" y="66" fill="#1a0b04">0</text>
+            <circle cx="160" cy="52"  r="6.5" fill="var(--def)"/><text class="ms-s" x="157" y="56" fill="#1a0b04">1</text>
+            <circle cx="80"  cy="152" r="6.5" fill="var(--fwd)"/><text class="ms-s" x="77" y="156" fill="#04201c">2</text>
+            <circle cx="160" cy="152" r="6.5" fill="var(--fwd)"/><text class="ms-s" x="157" y="156" fill="#04201c">3</text>
+          </g>
+          <text class="ms-t" x="20" y="236">1 pixel · 4 coverage samples</text>
+        </svg>
+        <div id="ms-body"></div>
+      </div>
+    </div>
+    <figcaption class="fig-cap" id="ms-cap"></figcaption>
+  </figure>
+
+  <div class="thesis" style="border-left-color:var(--bad)">
+    <span class="lab">悖论的一句话形式</span>
+    MSAA 平均的必须是 <strong>BRDF 的输出</strong>（颜色，线性可加），而 resolve G-Buffer 平均的是
+    <strong>BRDF 的输入</strong>（材质参数，非线性）。
+    <span style="color:var(--mute);font-size:15px">
+      前向渲染天然平均前者，所以 MSAA 免费；延迟渲染只能平均后者，除非 per-sample 打光 —— 成本 ×N。
+      业界折中是「边缘检测 + stencil 标记，只在边缘 per-sample」，复杂度极高。
+      <b style="color:var(--body)">主流引擎的延迟路径干脆不提供 MSAA，改用时域方案（TAA / TSR）。</b>
+    </span>
+  </div>
+
+  <h3 data-n="5.2">半透明：一个像素放不下两层表面</h3>
+  <div class="wrap">
+    <p>G-Buffer 每个像素只能存<strong>一组</strong>表面属性，而半透明的定义就是「一个像素上叠了多层表面」。
+    玻璃后面还有玻璃，玻璃后面还有墙。</p>
+    <p>这在原理上无解。理论上可以用 A-Buffer、每像素链表、Deep G-Buffer 保存多层，
+    但存储是<strong>不定长</strong>的 —— 成本与复杂度都不可接受。</p>
+    <p><strong>所以半透明必须走前向。</strong>这不是某个引擎的实现选择，
+    而是任何延迟渲染器都必须做的让步 —— 也正因如此，第 06 节的「混合管线」不是可选项，是唯一形态。</p>
+  </div>
+
+  <h3 data-n="5.3">材质表达被固定布局锁死</h3>
+  <div class="wrap">
+    <p>想加一种新的着色模型？你得去抢着色模型 ID 的 bit、抢自定义数据的通道。
+    想让一个材质「两层法线各自算光照」？G-Buffer 只有一份法线槽位。
+    每加一种材质能力，就要再占一整张全屏渲染目标的带宽。</p>
+    <p>业界的解法方向是<strong>用变长的材质字节流替代固定通道布局</strong>：
+    材质声明任意分层结构，序列化成变长数据，光照 Pass 反序列化后逐层求解 ——
+    着色模型的枚举上限和通道争抢在这个模型下都不再存在。
+    <span style="color:var(--mute)">UE5 的 Substrate 是这个方向的一个实现，5.8 中仍默认关闭。</span></p>
+  </div>
+
+  <h3 data-n="5.4">带宽：唯一随分辨率平方增长的那一项</h3>
+  <div class="wrap">
+    <p>回到 FIG 03 的数字。1080p 下 G-Buffer 一帧写约 79 MB，4K 直接 ×4 到 316 MB，
+    而光照、AO、反射、GI、贴花每一个 Pass 都要把它再读一遍。</p>
+    <p>在移动端的 TBDR GPU 上，这意味着 tile memory 装不下、必须回写系统内存 —— 带宽与功耗双爆炸。
+    <strong>但这一条有解</strong>，见 6.3。</p>
+  </div>
+</section>
+
+<!-- ══════════════════ 06 ══════════════════ -->
+<section id="s06">
+  <header class="sec-head">
+    <div class="sec-num">06</div>
+    <div><h2>混合才是常态</h2>
+    <p class="sub">Not either/or · 这一节是理解的关键</p></div>
+  </header>
+
+  <div class="thesis">
+    <span class="lab">最大的误解</span>
+    很多教程讲到这里就结束了，把它讲成「二选一」。真实情况是：<br>
+    <strong>真实引擎的每一帧，都是延迟与前向的混合产物。</strong><br>
+    <span style="color:var(--mute);font-size:15px">
+      UE5 是一个直接的证据：引擎里根本没有独立的前向场景渲染器类，
+      前向着色只是延迟渲染器内部的一个分支，两者共享可见性判定、共享阴影系统、共享光源剔除网格、共享后处理链。
+    </span>
+  </div>
+
+  <h3 data-n="6.1">一帧的结构</h3>
+  <div class="wrap">
+    <p>切换开关，观察帧结构如何塌缩。<strong>消失的那一大段橙色，就是整个屏幕空间技术栈。</strong></p>
+  </div>
+
+  <figure class="fig rv" id="fig-fg">
+    <div class="fig-hd">
+      <h5><span>FIG 06</span>帧结构 · 以 UE5 为例</h5>
+      <div class="seg" id="fg-seg">
+        <button data-m="def" class="on">延迟路径</button>
+        <button data-m="fwd">前向路径</button>
+      </div>
+    </div>
+    <div class="fig-bd">
+      <div id="fg-list" style="display:flex;flex-direction:column;gap:2px"></div>
+      <div class="readout" style="margin-top:20px">
+        <div><dt>本帧 Pass 数</dt><dd id="fg-cnt">—</dd></div>
+        <div><dt>延迟专属</dt><dd id="fg-d" style="color:var(--def)">—</dd></div>
+        <div><dt>前向 / 共用</dt><dd id="fg-f" style="color:var(--fwd)">—</dd></div>
+        <div><dt>丧失的能力</dt><dd id="fg-lost" style="font-size:15px">—</dd></div>
+      </div>
+    </div>
+    <figcaption class="fig-cap">
+      注意三行：<b class="ks">光源剔除网格</b>在两条路径里都存在；
+      <b class="kf">半透明</b>与<b class="kf">体积雾</b>在延迟帧里也是前向着色。
+      这三行就是「混合管线」最直白的证据。
+    </figcaption>
+  </figure>
+
+  <h3 data-n="6.2">混合点一 · 半透明永远走前向</h3>
+  <div class="wrap">
+    <p>即使项目是标准的延迟渲染，所有半透明材质都走独立的前向 Pass：
+    在不透明光照完成后，<strong>按从远到近排序</strong>，读取已渲染好的 SceneColor 作为背景，
+    在像素着色器里当场算完自己的光照，再混合上去。原因就是 5.2。</p>
+    <p>这里有一个漂亮的循环依赖：<strong>前向的半透明反过来消费了延迟管线的输出</strong> ——
+    玻璃的屏幕空间折射，采样的正是延迟渲染刚刚算完的不透明场景颜色。它们不是竞争者，是分工者。</p>
+    <p style="color:var(--mute)">代价：半透明<strong>没有 Depth Prepass 保护</strong>，overdraw 会直接叠加。
+    多层玻璃、密集粒子、大面积透明特效是所有引擎共同的性能陷阱。
+    这也是为什么引擎通常为半透明提供一档「低精度体积光照」的近似方案 —— 烟雾粒子的光照之所以看起来「糊」，
+    就是因为它取自一张低分辨率的 3D 辐照度纹理，而不是逐像素计算。</p>
+  </div>
+
+  <h3 data-n="6.3">混合点二 · 光源剔除网格是正交的基础设施</h3>
+  <div class="wrap">
+    <p>2.2 那张 froxel 网格常被当成「前向渲染的特征」。<strong>这是不准确的。</strong></p>
+    <p>分簇光源剔除解决的是「哪些灯影响这个空间区域」，
+    这个问题与「几何属性在哪里汇合」完全正交 —— 所以两条管线都在用它。</p>
+    <p>在 UE5 里这一点可以被源码直接证实：延迟渲染器<strong>每帧无条件构建</strong>这份所谓的「前向」光照网格，
+    然后由<strong>半透明光照、体积雾、体积云、水体、头发、屏幕探针 GI、虚拟阴影贴图</strong>共同消费。
+    <span style="color:var(--mute)">它是一份共享的空间索引，不属于任何一条管线。</span></p>
+  </div>
+
+  <h3 data-n="6.4">混合点三 · TBDR 让延迟的带宽劣势消失</h3>
+  <div class="wrap">
+    <p>移动 GPU 是 TBDR 架构（Tile-Based Deferred Rendering），片上有一块极快的 tile memory。
+    如果把 G-Buffer 声明为<strong>「无内存后备」的临时附件</strong>，
+    并把几何 Pass 与光照 Pass 合并成同一个 render pass 的两个 <strong>subpass</strong>，
+    那么 G-Buffer 写入后可以直接在片上被读取，<strong>全程不回写系统内存</strong>。</p>
+  </div>
+
+  <figure class="fig rv"><div class="fig-bd">
+    <div class="bw-row"><span class="bw-lab">传统延迟</span>
+      <div class="bw-track">
+        <div class="bw-seg" style="width:26%;background:var(--def-w);border-color:var(--def-s);color:var(--def)">几何 Pass</div>
+        <div class="bw-seg bw-cost" style="width:24%">写显存 ~80 MB</div>
+        <div class="bw-seg" style="width:26%;background:var(--def-w);border-color:var(--def-s);color:var(--def)">光照 Pass</div>
+        <div class="bw-seg bw-cost" style="width:24%">读显存 ~80 MB</div>
+      </div></div>
+    <div class="bw-row"><span class="bw-lab">Subpass 延迟</span>
+      <div class="bw-track">
+        <div class="bw-seg" style="width:36%;background:var(--def-w);border-color:var(--def-s);color:var(--def)">几何 Pass</div>
+        <div class="bw-seg" style="width:28%;background:var(--fwd-w);border-color:var(--fwd-s);color:var(--fwd)">tile memory · 片上</div>
+        <div class="bw-seg" style="width:36%;background:var(--def-w);border-color:var(--def-s);color:var(--def)">光照 Pass</div>
+      </div></div>
+  </div>
+  <figcaption class="fig-cap">
+    这本质上是<b>「用前向渲染的带宽模型，执行延迟渲染的算法」</b>。
+    延迟渲染最大的缺点在这个架构下被消解了 —— 所以移动端的延迟路径有时反而比前向更快。
+    <b>两者的边界并不固定，它取决于 GPU 架构。</b>
+    <span style="color:var(--faint)">对应实现：Vulkan 的 subpass + <code>LAZILY_ALLOCATED</code> 内存，
+    Metal 的 memoryless render target。</span>
+  </figcaption></figure>
+
+  <h3 data-n="6.5">再延迟一层：Visibility Buffer</h3>
+
+<pre><span class="c">【Pass 1】</span> 剔除 + 光栅化 → <span class="k">Visibility Buffer</span>
+           每像素只存 (InstanceID, TriangleID, Depth) = 64 bit，<span class="k">不跑任何材质</span>
+                                 ↓
+<span class="c">【Pass 2】</span> Material Pass：按材质分类，用 Depth-Equal 筛出属于该材质的像素
+           反解三角形 → 重建重心坐标 → 插值属性 → 运行材质图 → <span class="k">写入 G-Buffer</span>
+                                 ↓
+<span class="c">【Pass 3】</span> 常规延迟光照</pre>
+
+  <div class="wrap">
+    <p>这是把延迟思想<strong>再推一层</strong>：先延迟光照（G-Buffer），再延迟材质（Visibility Buffer）。
+    好处是几何光栅化与材质求值彻底解耦 —— 微多边形场景（每个三角形 ≈ 1 像素）不会因为
+    quad overdraw 而崩溃。</p>
+    <p>代价是它和 G-Buffer 绑死了：<strong>Visibility Buffer 管线无法在前向渲染下工作。</strong>
+    <span style="color:var(--mute)">UE5 的 Nanite 是这个思路的代表实现，这也正是 Nanite 与前向路径互斥的根本原因。</span></p>
+  </div>
+</section>
+
+<!-- ══════════════════ 07 ══════════════════ -->
+<section id="s07">
+  <header class="sec-head">
+    <div class="sec-num">07</div>
+    <div><h2>选型</h2>
+    <p class="sub">Decision · 三个问题，按顺序问</p></div>
+  </header>
+
+  <figure class="fig rv" id="fig-dc">
+    <div class="fig-hd"><h5><span>FIG 07</span>决策</h5></div>
+    <div class="fig-bd">
+      <div id="dc-qs"></div>
+      <div id="dc-verdict" style="margin-top:22px;border:1px solid var(--line2);border-left:2px solid var(--ink);
+           border-radius:4px;padding:18px 20px;background:var(--bg2)"></div>
+    </div>
+  </figure>
+</section>
+
+<!-- ══════════════════ 08 ══════════════════ -->
+<section id="s08">
+  <header class="sec-head">
+    <div class="sec-num">08</div>
+    <div><h2>五句话</h2>
+    <p class="sub">If you remember nothing else</p></div>
+  </header>
+
+  <ol class="five">
+    <li><b>唯一的分歧是「几何属性与光照信息在哪里汇合」</b> ——
+      前向在着色器寄存器里，延迟在显存（G-Buffer）里。所有其他差异都是这一个选择的推论。</li>
+    <li><b>延迟渲染真正的价值不是「支持很多光源」</b>（Forward+ 也能做到），
+      而是它产出了一张<em>全屏场景描述</em>，从而让整个屏幕空间技术栈 ——
+      AO、反射、屏幕探针 GI、按需阴影、延迟贴花、时域重投影 —— 成为可能。</li>
+    <li><b>前向渲染真正的价值是 MSAA 和低带宽</b> ——
+      这两件事在原理上是延迟渲染做不到的，也正是 VR 与移动端的核心诉求。</li>
+    <li><b>不存在纯粹的延迟渲染</b>：不透明走延迟，半透明必然走前向；
+      光源剔除网格两条管线共用；TBDR 上用 subpass 把延迟塞进片上内存，就能拿到前向的带宽特性。
+      它们是同一个渲染器里协作的两套子系统。</li>
+    <li><b>先问需求，再问性能</b>：需要屏幕空间技术栈就只能延迟；需要 MSAA 或极低带宽就只能前向。
+      两者都能满足时，「哪个更快」必须实测 —— 它取决于分辨率、overdraw、光源覆盖率和 GPU 架构，没有先验答案。</li>
+  </ol>
+
+  <div class="thesis" style="margin-top:44px">
+    <span class="lab">收束</span>
+    把延迟渲染记成：<strong>先把屏幕上可见的不透明表面压缩成一套材质数据库，再让光源查询这个数据库并累加光照。</strong><br>
+    把前向渲染记成：<strong>绘制表面的当下，取得该区域相关的灯光，把材质、光照、反射一次算完，直接输出颜色。</strong>
+  </div>
+
+  <div style="margin-top:48px;padding:18px 20px;border:1px solid var(--line);border-left:2px solid var(--shr);
+       border-radius:4px;background:var(--panel)">
+    <div style="font:600 10px/1 var(--mono);letter-spacing:.18em;color:var(--shr);text-transform:uppercase;margin-bottom:10px">源码佐证</div>
+    <p style="margin:0;font-size:13.6px;line-height:1.75;color:var(--body)">
+      本文所有涉及具体实现的论断，均已对 <code>UnrealEngine 5.8</code> 源码逐条核验，
+      结果见同目录下的 <strong>源码佐证-UE5.8.md</strong> —— 含 18 条确认、4 条修正（已回写本文）、
+      2 条限定，以及可复现的核验命令。
+    </p>
+  </div>
+</section>
+
+</main>
+
+<style>
+/* ---- ladder ---- */
+.ld-row{display:grid;grid-template-columns:210px 1fr 54px;gap:16px;align-items:center;
+  padding:11px 0;border-bottom:1px solid var(--line);position:relative}
+.ld-row:last-child{border-bottom:0}
+.ld-row b{font:600 12.5px/1.4 var(--mono);color:var(--body)}
+.ld-row span{font-size:13px;color:var(--mute);position:relative;padding-left:2px}
+.ld-row span::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+  height:5px;width:var(--w);background:linear-gradient(90deg,var(--fwd-w),rgba(47,212,189,.42));
+  border-left:2px solid var(--fwd);border-radius:1px;z-index:-1}
+.ld-row i{font:600 11px/1 var(--mono);color:var(--faint);font-style:normal;text-align:right}
+.ld-row.hi b{color:var(--fwd)}
+.ld-row.hi i{color:var(--fwd)}
+.ld-row.hi{background:linear-gradient(90deg,rgba(47,212,189,.06),transparent)}
+@media(max-width:700px){.ld-row{grid-template-columns:1fr;gap:4px}.ld-row i{text-align:left}}
+
+/* ---- bandwidth bars ---- */
+.bw-row{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center;margin:0 0 12px}
+.bw-lab{font:600 11px/1.3 var(--mono);letter-spacing:.08em;color:var(--mute);text-transform:uppercase}
+.bw-track{display:flex;gap:3px}
+.bw-seg{border:1px solid var(--line2);border-radius:2px;padding:9px 6px;text-align:center;
+  font:600 10.5px/1.2 var(--mono);color:var(--mute);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.bw-cost{background:var(--bad-w);border-color:rgba(255,85,102,.3);color:var(--bad)}
+@media(max-width:700px){.bw-row{grid-template-columns:1fr;gap:6px}}
+
+/* ---- five ---- */
+ol.five{counter-reset:f;list-style:none;padding:0;margin:0;max-width:830px}
+ol.five li{counter-increment:f;position:relative;padding:20px 0 20px 62px;border-bottom:1px solid var(--line);
+  font-size:15.5px;line-height:1.82}
+ol.five li:last-child{border-bottom:0}
+ol.five li::before{content:counter(f,decimal-leading-zero);position:absolute;left:0;top:22px;
+  font:700 22px/1 var(--mono);color:transparent;-webkit-text-stroke:1px var(--line3);letter-spacing:-.03em}
+ol.five li b{color:var(--ink);font-weight:640}
+
+/* ---- gbuffer rows ---- */
+.gb-row{display:grid;grid-template-columns:104px 1fr;gap:12px;align-items:center;padding:9px 10px;
+  border:1px solid transparent;border-radius:3px;cursor:pointer;transition:.16s}
+.gb-row:hover{background:rgba(236,234,229,.035)}
+.gb-row.on{background:var(--def-w);border-color:var(--def-s)}
+.gb-row .gb-n{font:600 11.5px/1.3 var(--mono);color:var(--body)}
+.gb-row.on .gb-n{color:var(--def)}
+.gb-row .gb-f{font:500 9.5px/1.3 var(--mono);color:var(--faint);letter-spacing:.05em}
+.gb-bar{display:flex;gap:2px;height:26px}
+.gb-ch{flex:1;border:1px solid var(--line2);border-radius:2px;display:flex;align-items:center;
+  justify-content:center;font:600 9px/1 var(--mono);color:var(--mute);overflow:hidden;
+  white-space:nowrap;padding:0 3px;background:rgba(236,234,229,.03)}
+.gb-row.on .gb-ch{border-color:var(--def-s);background:rgba(255,122,69,.08);color:var(--def)}
+#gb-detail h6{margin:0 0 4px;font:600 13px/1.4 var(--mono);color:var(--def)}
+#gb-detail .fm{font:500 10px/1.4 var(--mono);color:var(--faint);letter-spacing:.08em;margin-bottom:12px}
+#gb-detail p{font-size:13px;line-height:1.72;color:var(--body);margin:0 0 12px}
+#gb-detail .cs{display:flex;flex-wrap:wrap;gap:5px}
+#gb-detail .cs span{font:600 10px/1 var(--mono);padding:5px 7px;border:1px solid var(--line2);
+  border-radius:2px;color:var(--mute)}
+/* grid/flex children default to min-width:auto and refuse to shrink below content */
+#gb-grid>div,#cx-grid>div,#ms-grid>div{min-width:0}
+.gb-bar,.gb-row{min-width:0}
+.gb-ch{min-width:0;text-overflow:ellipsis}
+@media(max-width:760px){
+  #gb-grid,#cx-grid,#ms-grid{grid-template-columns:1fr!important}
+  .gb-row{grid-template-columns:88px 1fr;gap:8px}
+  .gb-ch{font-size:8px;padding:0 2px}
+}
+
+/* ---- cost bars ---- */
+.cx-metric{margin-bottom:22px}
+.cx-metric > h6{margin:0 0 10px;font:600 10.5px/1.3 var(--mono);letter-spacing:.13em;
+  text-transform:uppercase;color:var(--mute);display:flex;justify-content:space-between}
+.cx-b{display:grid;grid-template-columns:112px 1fr 90px;gap:10px;align-items:center;margin-bottom:6px}
+.cx-b .nm{font:600 11px/1.3 var(--mono);color:var(--body)}
+.cx-b .tr{height:16px;background:rgba(236,234,229,.045);border-radius:2px;overflow:hidden}
+.cx-b .fl{height:100%;border-radius:2px;transition:width .35s cubic-bezier(.2,.7,.3,1)}
+.cx-b .vl{font:600 11.5px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+@media(max-width:560px){.cx-b{grid-template-columns:88px 1fr 74px;gap:7px}}
+
+/* ---- frame graph ---- */
+.fg-row{display:grid;grid-template-columns:3px 26px 1fr;gap:12px;align-items:center;
+  padding:7px 10px 7px 0;border-radius:2px;transition:opacity .32s,filter .32s;font-size:13.4px}
+.fg-row .bar{height:100%;min-height:22px;border-radius:2px}
+.fg-row .ix{font:500 9.5px/1 var(--mono);color:var(--faint);text-align:right}
+.fg-row .nm{color:var(--body)}
+.fg-row .nm small{display:block;font:500 11px/1.5 var(--mono);color:var(--faint);margin-top:2px}
+.fg-row.gone{opacity:.2;filter:grayscale(1)}
+.fg-row.gone .nm{text-decoration:line-through;text-decoration-color:var(--bad)}
+.fg-row:hover{background:rgba(236,234,229,.03)}
+
+/* ---- decision ---- */
+.dc-q{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:14px 0;
+  border-bottom:1px solid var(--line)}
+.dc-q p{margin:0;font-size:14px;color:var(--body)}
+.dc-q p b{display:block;font:600 10px/1.4 var(--mono);letter-spacing:.14em;color:var(--faint);
+  text-transform:uppercase;margin-bottom:4px}
+#dc-verdict h6{margin:0 0 8px;font:600 15px/1.4 var(--sans);color:var(--ink)}
+#dc-verdict p{margin:0;font-size:13.6px;line-height:1.75;color:var(--body)}
+@media(max-width:620px){.dc-q{grid-template-columns:1fr;gap:8px}}
+kbd{font:600 11px/1 var(--mono);border:1px solid var(--line2);border-bottom-width:2px;
+  border-radius:3px;padding:3px 5px;color:var(--ink);background:var(--bg2)}
+</style>
+
+<script>
+(function(){
+"use strict";
+const $ = (s,r)=>(r||document).querySelector(s);
+const $$ = (s,r)=>[...(r||document).querySelectorAll(s)];
+const fmt = n=>n.toLocaleString('en-US');
+document.documentElement.classList.add('js');
+// safety net: never leave content permanently hidden if the observer never fires
+setTimeout(()=>$$('.rv').forEach(n=>n.classList.add('in')), 2500);
+function segbind(root, cb){
+  if(!root) return;
+  root.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    $$('button',root).forEach(x=>x.classList.toggle('on', x===b));
+    cb(b);
+  });
+}
+
+/* ── progress + scrollspy ─────────────────────────── */
+const prog = $('#prog'), links = $$('#nav a');
+addEventListener('scroll',()=>{
+  const h = document.documentElement;
+  prog.style.width = (h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+},{passive:true});
+if('IntersectionObserver' in window){
+  const secs = $$('main section');
+  const io = new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){
+      links.forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#'+e.target.id));
+    }});
+  },{rootMargin:'-12% 0px -72% 0px'});
+  secs.forEach(s=>io.observe(s));
+  const rv = new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rv.unobserve(e.target); }});
+  },{rootMargin:'0px 0px -8% 0px'});
+  $$('.rv').forEach(n=>rv.observe(n));
+}else{ $$('.rv').forEach(n=>n.classList.add('in')); }
+
+/* ── FIG 01 · the fork ────────────────────────────── */
+segbind($('#fork-seg'), b=>{
+  const def = b.dataset.m==='def';
+  const T = (id,on)=>$('#'+id).classList.toggle('fk-off', !on);
+  T('fk-gbuf',def); T('fk-def',def); T('fk-def2',def);
+  T('fk-fwd',!def);  T('fk-fwd2',!def);
+  $('#fk-cvl').textContent = def ? 'VRAM READ · SCREEN SPACE' : 'REGISTERS · IN-SHADER';
+  $('#fk-cvt').textContent = def ? 'Lighting Pass' : 'BasePass 像素着色器';
+  $('#fk-cvs').textContent = def ? '解码 G-Buffer → 重建世界坐标 → BRDF' : '材质与光照在同一个 shader 内算完';
+  $('#fk-cvs2').textContent= def ? '逐光源加法混合累加' : '零中间存储 · 输出即最终颜色';
+  $('#fk-cvl').style.fill = def ? 'var(--def)' : 'var(--fwd)';
+  $('#fk-cv').style.stroke = def ? 'var(--def-s)' : 'var(--fwd-s)';
+  $('#fk-note').textContent = def
+    ? '代价：40 B/px 往返 · 法线需压缩 · 位置需反推 · 一像素只能存一层'
+    : '延迟成本 = 0 · 带宽 = 0 · 精度无损 · 但光照与几何被锁死在一起';
+});
+
+/* ── FIG 03 · G-Buffer anatomy ────────────────────── */
+const GB = [
+ {n:'SceneDepth', f:'D32 / D24S8', b:4, ch:[['Depth · 32bit',4]],
+  d:'不单独存 Position。世界坐标由 ScreenUV + Depth + InvViewProj 反推 —— 存 1 个 float 而非 3 个，是延迟渲染最重要的单项带宽优化。代价是精度绑定深度缓冲的非线性分布。',
+  c:['世界坐标重建','SSAO','SSR / SSGI','Lumen 屏幕探针','VSM 页面分配','TSR / TAA','体积雾']},
+ {n:'GBufferA', f:'RGB10A2 / RGBA8', b:4, ch:[['WorldNormal.x',1],['.y',1],['.z',1],['PerObjectData',1]],
+  d:'世界空间法线，用八面体映射压成两个通道。精度是关键：8bit 会让屏幕空间反射与探针 GI 在光滑表面上出现明显的分层带状，所以引擎通常提供更高精度的法线编码档位可选。',
+  c:['所有 BRDF 求值','SSAO','SSR 重要性采样','Lumen','屏幕空间阴影']},
+ {n:'GBufferB', f:'RGBA8', b:4, ch:[['Metallic',1],['Specular',1],['Roughness',1],['ShadingModelID + Mask',1]],
+  d:'A 通道的 8 bit 被 ShadingModelID 与 SelectiveOutputMask 平分 —— ShadingModelID 只有 4 bit，16 个槽位在 UE 5.8 已用掉 14 个（DefaultLit / Subsurface / PreintegratedSkin / ClearCoat / SubsurfaceProfile / TwoSidedFoliage / Hair / Cloth / Eye / SingleLayerWater / ThinTranslucent …）。它是延迟渲染支持多种材质的唯一机制，光照 Pass 靠 switch 分支到不同 BRDF。「想加一种新着色模型就得抢 bit」是字面意义上的事实。',
+  c:['BRDF 分支','SSR 粗糙度','Lumen 反射','次表面分离模糊']},
+ {n:'GBufferC', f:'RGBA8', b:4, ch:[['BaseColor.r',1],['.g',1],['.b',1],['AO / IndirectIrradiance',1]],
+  d:'反照率 + 材质 AO。A 通道在有静态光照时被复用为 IndirectIrradiance —— 这是 BasePass 里唯一被允许写入的「光照」结果之一（另一个是自发光）。',
+  c:['漫反射项','Lumen 最终合成','Deferred Decals 混合']},
+ {n:'GBufferD', f:'RGBA8', b:4, ch:[['CustomData 0',1],['1',1],['2',1],['3',1]],
+  d:'含义随 ShadingModelID 漂移：ClearCoat 存清漆强度与粗糙度，Subsurface 存次表面颜色，Hair 存散射与切线偏移，Eye 存虹膜参数。直接推论 —— 同一个像素只能是一种 ShadingModel。这是固定布局带来的最硬的约束。',
+  c:['特殊 ShadingModel 的 BRDF']},
+ {n:'GBufferE', f:'RGBA8', b:4, ch:[['StaticShadow 0',1],['1',1],['2',1],['3',1]],
+  d:'PrecomputedShadowFactors。4 个通道对应最多 4 盏静态光的预计算阴影 —— 这个「4」正是前向渲染中「最多 4 盏重叠静态光」限制的同源出处。',
+  c:['静态光阴影','Lightmap 混合']},
+ {n:'GBufferF', f:'RGBA8', b:4, ch:[['WorldTangent.x',1],['.y',1],['.z',1],['Anisotropy',1]],
+  d:'UE5 新增，各向异性材质专用（拉丝金属、头发）。它的存在本身说明了问题：每加一种材质能力，就要再占一整张全屏 RT 的带宽。这正是 Substrate 想解决的。',
+  c:['各向异性 BRDF','Hair / 拉丝金属']},
+ {n:'Velocity', f:'RG16', b:4, ch:[['Motion.x',2],['Motion.y',2]],
+  d:'屏幕空间运动矢量。TSR / TAA 的时域重投影、运动模糊、以及 Lumen 的时域累积都依赖它。',
+  c:['TSR / TAA','Motion Blur','Lumen 时域滤波']}
+];
+const SCENECOLOR = 8;
+(function(){
+  const list=$('#gb-list'), det=$('#gb-detail'); if(!list) return;
+  GB.forEach((g,i)=>{
+    const tw = g.ch.reduce((a,c)=>a+c[1],0);
+    const row=document.createElement('div');
+    row.className='gb-row'+(i===2?' on':''); row.dataset.i=i;
+    row.innerHTML='<div><div class="gb-n">'+g.n+'</div><div class="gb-f">'+g.f+'</div></div>'+
+      '<div class="gb-bar">'+g.ch.map(c=>'<div class="gb-ch" style="flex:'+(c[1]/tw)+'">'+c[0]+'</div>').join('')+'</div>';
+    list.appendChild(row);
+  });
+  function sel(i){
+    $$('.gb-row',list).forEach(r=>r.classList.toggle('on', +r.dataset.i===i));
+    const g=GB[i];
+    det.innerHTML='<h6>'+g.n+'</h6><div class="fm">'+g.f+' · '+g.b+' bytes / pixel</div>'+
+      '<p>'+g.d+'</p><div class="fm" style="margin-bottom:7px">下游消费者</div>'+
+      '<div class="cs">'+g.c.map(c=>'<span>'+c+'</span>').join('')+'</div>';
+  }
+  list.addEventListener('click',e=>{const r=e.target.closest('.gb-row'); if(r) sel(+r.dataset.i);});
+  sel(2);
+  let W=1920,H=1080;
+  function calc(){
+    const bpp = GB.reduce((a,g)=>a+g.b,0) + SCENECOLOR;
+    const px = W*H, mb = px*bpp/1048576;
+    $('#gb-bpp').innerHTML = bpp+'<small>B/px</small>';
+    $('#gb-mb').innerHTML  = mb.toFixed(0)+'<small>MB</small>';
+    $('#gb-bw').innerHTML  = (mb*2*60/1024).toFixed(1)+'<small>GB/s</small>';
+    $('#gb-vram').innerHTML= mb.toFixed(0)+'<small>MB</small>';
+  }
+  segbind($('#gb-res'), b=>{ W=+b.dataset.w; H=+b.dataset.h; calc(); });
+  calc();
+})();
+
+/* ── FIG 02 · froxel light grid ───────────────────── */
+(function(){
+  const svg=$('#fx-svg'); if(!svg) return;
+  const OX=58, OY=200, XN=118, XF=946, SLOPE=.196;
+  let NX=30, NZ=32, PX=64, NL=9;
+  const hAt = x => (x-OX)*SLOPE;
+  const LP=['#ff7a45','#2fd4bd','#e6c34a','#7aa2ff','#ff6fa5','#9be564','#ff9f45','#4fd3ff'];
+  // deterministic lights
+  let s=20240711; const rnd=()=>{s=(s*1664525+1013904223)>>>0; return s/4294967296;};
+  const LIGHTS=[...Array(16)].map((_,k)=>{
+    const x=XN+40+rnd()*(XF-XN-110), t=(rnd()*1.7-.85), r=22+rnd()*48;
+    return {x, y:OY+t*hAt(x), r, c:LP[k%LP.length], id:k};
+  });
+  const cell=(i,j)=>{
+    const xa=XN+(XF-XN)*(j/NZ), xb=XN+(XF-XN)*((j+1)/NZ);
+    const t0=-1+2*i/NX, t1=-1+2*(i+1)/NX, ha=hAt(xa), hb=hAt(xb);
+    return [[xa,OY+t0*ha],[xb,OY+t0*hb],[xb,OY+t1*hb],[xa,OY+t1*ha]];
+  };
+  const poly=q=>q.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  function inPoly(x,y,q){let c=false;for(let i=0,j=3;i<4;j=i++){
+    const [xi,yi]=q[i],[xj,yj]=q[j];
+    if(((yi>y)!==(yj>y)) && (x<(xj-xi)*(y-yi)/(yj-yi)+xi)) c=!c;} return c;}
+  function d2seg(px,py,x1,y1,x2,y2){
+    const dx=x2-x1, dy=y2-y1, L=dx*dx+dy*dy;
+    let t = L? ((px-x1)*dx+(py-y1)*dy)/L : 0; t=Math.max(0,Math.min(1,t));
+    return Math.hypot(px-(x1+t*dx), py-(y1+t*dy));
+  }
+  function hits(i,j,lights){
+    const q=cell(i,j), out=[];
+    for(const L of lights){
+      let ok=inPoly(L.x,L.y,q);
+      if(!ok) for(let k=0;k<4 && !ok;k++){
+        const a=q[k], b=q[(k+1)%4];
+        if(d2seg(L.x,L.y,a[0],a[1],b[0],b[1])<=L.r) ok=true;
+      }
+      if(ok) out.push(L);
+    }
+    return out;
+  }
+  let counts=[];
+  function draw(){
+    const lights=LIGHTS.slice(0,NL);
+    // grid lines
+    let g='';
+    for(let i=0;i<=NX;i++){const t=-1+2*i/NX;
+      g+='<line class="fx-line" x1="'+XN+'" y1="'+(OY+t*hAt(XN)).toFixed(1)+'" x2="'+XF+'" y2="'+(OY+t*hAt(XF)).toFixed(1)+'"/>';}
+    for(let j=0;j<=NZ;j++){const x=XN+(XF-XN)*(j/NZ), h=hAt(x);
+      g+='<line class="fx-line" x1="'+x.toFixed(1)+'" y1="'+(OY-h).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+(OY+h).toFixed(1)+'"/>';}
+    g+='<polyline class="fx-edge" points="'+XN+','+(OY-hAt(XN)).toFixed(1)+' '+OX+','+OY+' '+XN+','+(OY+hAt(XN)).toFixed(1)+'"/>';
+    g+='<polyline class="fx-edge" points="'+XN+','+(OY-hAt(XN)).toFixed(1)+' '+XF+','+(OY-hAt(XF)).toFixed(1)+'"/>';
+    g+='<polyline class="fx-edge" points="'+XN+','+(OY+hAt(XN)).toFixed(1)+' '+XF+','+(OY+hAt(XF)).toFixed(1)+'"/>';
+    $('#fx-grid').innerHTML=g;
+    // heat
+    let h='', tot=0, mx=0, nz=0; counts=[];
+    for(let j=0;j<NZ;j++) for(let i=0;i<NX;i++){
+      const n=hits(i,j,lights).length; counts.push(n);
+      if(n){ tot+=n; nz++; mx=Math.max(mx,n);
+        h+='<polygon class="fx-cell" points="'+poly(cell(i,j))+'" opacity="'+Math.min(.55,.10+n*.09)+'"/>';}
+    }
+    $('#fx-heat').innerHTML=h;
+    // lights
+    $('#fx-lights').innerHTML=lights.map(L=>
+      '<circle class="fx-lt" cx="'+L.x.toFixed(1)+'" cy="'+L.y.toFixed(1)+'" r="'+L.r.toFixed(1)+'" fill="'+L.c+'" stroke="'+L.c+'"/>'+
+      '<circle cx="'+L.x.toFixed(1)+'" cy="'+L.y.toFixed(1)+'" r="2.6" fill="'+L.c+'"/>').join('');
+    // labels
+    $('#fx-lbl').innerHTML='<text class="fx-tx" x="'+OX+'" y="'+(OY-6)+'">CAM</text>'+
+      '<text class="fx-tx" x="'+XN+'" y="386">NEAR</text>'+
+      '<text class="fx-tx" x="'+(XF-30)+'" y="386">FAR</text>'+
+      '<text class="fx-tx" x="'+(XN+(XF-XN)/2-96)+'" y="386">Z 方向指数分布切片 · 近密远疏</text>';
+    // stats
+    const gy=Math.ceil(1080/PX), gx=Math.ceil(1920/PX);
+    $('#fx-dim').textContent=gx+' × '+gy+' × '+NZ;
+    $('#fx-cells').textContent=fmt(gx*gy*NZ);
+    $('#fx-avg').textContent = nz? (tot/(NX*NZ)).toFixed(2) : '0';
+    $('#fx-max').innerHTML = mx+' <small>/ 32</small>';
+  }
+  svg.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(), sx=1000/r.width, sy=400/r.height;
+    const mx=(e.clientX-r.left)*sx, my=(e.clientY-r.top)*sy;
+    const out=$('#fx-hover'), hl=$('#fx-hl');
+    if(mx<XN||mx>XF){hl.innerHTML='';return;}
+    const j=Math.min(NZ-1,Math.floor((mx-XN)/(XF-XN)*NZ));
+    const hh=hAt(mx), t=(my-OY)/hh;
+    if(Math.abs(t)>1){hl.innerHTML='';return;}
+    const i=Math.min(NX-1,Math.floor((t+1)/2*NX));
+    hl.innerHTML='<polygon class="fx-hi" points="'+poly(cell(i,j))+'"/>';
+    const L=hits(i,j,LIGHTS.slice(0,NL));
+    out.innerHTML='<span style="color:var(--body)">cell [ x '+i+' · z '+j+' ]</span> &nbsp;→&nbsp; '+
+      (L.length? '<span style="color:var(--fwd)">'+L.length+' 盏</span> &nbsp; '+
+        L.map(l=>'<span style="color:'+l.c+'">● Light '+l.id+'</span>').join(' ')
+        +'<br><span style="color:var(--faint)">该像素的光照循环只迭代这 '+L.length+' 盏，场景其余光源被完全跳过</span>'
+        : '<span style="color:var(--faint)">0 盏 —— 该 cell 内的像素完全跳过光照循环</span>');
+  });
+  svg.addEventListener('mouseleave',()=>{$('#fx-hl').innerHTML='';});
+  segbind($('#fx-px'), b=>{PX=+b.dataset.px; NX=Math.round(1920/PX); draw();});
+  segbind($('#fx-nz'), b=>{NZ=+b.dataset.nz; draw();});
+  const n=$('#fx-n');
+  n.addEventListener('input',()=>{NL=+n.value; $('#fx-no').textContent=NL; draw();});
+  draw();
+})();
+})();
+</script>
+<script>
+(function(){
+"use strict";
+const $ = (s,r)=>(r||document).querySelector(s);
+const $$ = (s,r)=>[...(r||document).querySelectorAll(s)];
+function segbind(root, cb){
+  if(!root) return;
+  root.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    $$('button',root).forEach(x=>x.classList.toggle('on', x===b));
+    cb(b);
+  });
+}
+
+/* ── FIG 04 · complexity sandbox ──────────────────── */
+(function(){
+  const host=$('#cx-bars'); if(!host) return;
+  let W=1920,H=1080;
+  const S={g:1200,l:80,o:2.5,c:.08};
+  const GB_BPP=40, SC_BPP=8, D_BPP=4;
+  const PATHS=[
+    {k:'naive', n:'朴素前向',   col:'var(--bad)'},
+    {k:'fwd',   n:'Forward+',   col:'var(--fwd)'},
+    {k:'def',   n:'分簇延迟', col:'var(--def)'}
+  ];
+  function model(){
+    const P=W*H, Lcell=Math.min(32, Math.max(1, S.l*S.c));
+    return {P, Lcell,
+      geo:{naive:S.g, fwd:S.g*2, def:S.g},
+      brdf:{ naive:P*S.o*S.l/1e6, fwd:P*Lcell/1e6, def:P*Lcell/1e6 },
+      mat:{ naive:P*S.o/1e6, fwd:P/1e6, def:P*S.o/1e6 },
+      bw:{ naive:P*(SC_BPP*2*S.o+D_BPP)/1048576,
+           fwd:P*(D_BPP*2+SC_BPP*2)/1048576,
+           def:P*(GB_BPP*S.o+GB_BPP+SC_BPP)/1048576 }
+    };
+  }
+  function row(m,label,unit,dec){
+    const max=Math.max(...PATHS.map(p=>m[p.k]))||1;
+    return '<div class="cx-metric"><h6><span>'+label+'</span><span style="color:var(--faint)">'+unit+'</span></h6>'+
+      PATHS.map(p=>'<div class="cx-b"><div class="nm" style="color:'+p.col+'">'+p.n+'</div>'+
+        '<div class="tr"><div class="fl" style="width:'+(m[p.k]/max*100).toFixed(1)+'%;background:'+p.col+';opacity:.72"></div></div>'+
+        '<div class="vl">'+m[p.k].toLocaleString('en-US',{maximumFractionDigits:dec,minimumFractionDigits:dec})+'</div></div>').join('')+
+      '</div>';
+  }
+  function insight(M){
+    const t=[];
+    if(S.l*S.c>=24) t.push('灯光屏占比过高，L<sub>cell</sub> 已逼近单格预算上限 —— <strong>分簇剔除消除的是无关光源，不是真实重叠。</strong>此时两条路径的着色成本同步上升，谁都救不了你。');
+    if(S.o>=3) t.push('overdraw 达 '+S.o.toFixed(1)+'×：<strong class="kb">朴素前向已完全失控</strong>；Forward+ 靠强制 Depth Prepass 把它压回 1×，代价是几何提交翻倍。<strong class="kd">延迟</strong>此时同样应该跑全量 prepass —— 几何提交变成 2G，换回 1× 的材质求值与 G-Buffer 写入。');
+    if(M.bw.def/M.bw.fwd>3.5) t.push('带宽比已达 <strong>'+(M.bw.def/M.bw.fwd).toFixed(1)+'×</strong> —— 这就是移动端与 VR 拒绝延迟渲染的全部理由，也是 4K 下延迟管线最先撞到的墙。');
+    if(Math.abs(M.brdf.fwd-M.brdf.def)<1e-6) t.push('注意 <strong class="kf">Forward+</strong> 与 <strong class="kd">分簇延迟</strong> 的 BRDF 求值量<strong>完全相同</strong> —— 两者用的是同一份光源剔除网格、同一个剔除结果。<strong>光源数量早已不是分水岭。</strong>');
+    return t.slice(0,2).map(x=>'<div style="margin-bottom:8px">'+x+'</div>').join('');
+  }
+  function render(){
+    const M=model();
+    host.innerHTML =
+      row(M.geo,'几何提交 · 顶点 / Draw','相对量 · 越低越好',0)+
+      row(M.brdf,'BRDF 求值 · 光照','百万次 / 帧',1)+
+      row(M.mat,'材质图求值','百万次 / 帧',1)+
+      row(M.bw,'显存带宽 · 写 + 读','MB / 帧',0);
+    $('#cx-p').textContent=(W*H).toLocaleString('en-US');
+    $('#cx-lc').textContent=M.Lcell.toFixed(1);
+    $('#cx-insight').innerHTML=insight(M);
+  }
+  const bind=(id,out,key,f,fmtf)=>{const el=$(id);
+    el.addEventListener('input',()=>{S[key]=f(+el.value); $(out).textContent=fmtf(S[key]); render();});};
+  bind('#cx-g','#cx-go','g',v=>v,v=>v);
+  bind('#cx-l','#cx-lo','l',v=>v,v=>v);
+  bind('#cx-o','#cx-oo','o',v=>v/10,v=>v.toFixed(1)+'×');
+  bind('#cx-c','#cx-co','c',v=>v/100,v=>(v*100).toFixed(0)+'%');
+  segbind($('#cx-res'), b=>{W=+b.dataset.w;H=+b.dataset.h;render();});
+  render();
+})();
+
+/* ── FIG 05 · MSAA paradox ────────────────────────── */
+(function(){
+  const body=$('#ms-body'), cap=$('#ms-cap'); if(!body) return;
+  const chip=(l,v,c)=>'<div style="border:1px solid var(--line2);border-radius:3px;padding:8px 10px;background:var(--bg2)">'+
+    '<div style="font:600 9.5px/1 var(--mono);letter-spacing:.12em;color:var(--faint);margin-bottom:5px">'+l+'</div>'+
+    '<div style="font:600 12px/1.4 var(--mono);color:'+(c||'var(--ink)')+'">'+v+'</div></div>';
+  const VIEWS={
+    resolve:{
+      html:
+      '<div style="font:600 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mute);margin-bottom:12px">步骤 1 · RESOLVE G-BUFFER（对材质参数取平均）</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">'+
+        chip('METALLIC','(1 + 1 + 0 + 0) / 4 = <span style="color:var(--bad)">0.5</span>')+
+        chip('WORLD NORMAL','(+X +X −X −X) / 4 = <span style="color:var(--bad)">(0,0,0)</span>')+
+        chip('BASECOLOR','红 + 红 + 灰 + 灰 = 暗红')+
+        chip('ROUGHNESS','(0.1+0.1+0.8+0.8)/4 = 0.45')+
+      '</div>'+
+      '<div style="font:600 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mute);margin-bottom:10px">步骤 2 · 用平均后的参数打光</div>'+
+      '<div style="border:1px solid rgba(255,85,102,.4);background:var(--bad-w);border-radius:3px;padding:14px 16px">'+
+        '<div style="font:600 13px/1.5 var(--mono);color:var(--bad);margin-bottom:6px">✗ 结果：一个物理上不存在的表面</div>'+
+        '<div style="font-size:13px;line-height:1.72;color:var(--body)">'+
+        'Metallic = 0.5 是「半金属」—— 现实里没有这种材质，它既不遵守金属的导电率也不遵守绝缘体的菲涅尔。<br>'+
+        '更糟的是法线：两个方向相反的单位向量平均出<strong>零向量</strong>，NdotL 与整个 BRDF 直接失去意义。<br>'+
+        '<span style="color:var(--mute)">成本 ×1，但边缘像素输出的是垃圾。</span></div></div>',
+      cap:'这就是为什么「先 resolve G-Buffer 再光照」在原理上走不通 —— 它把 <b>BRDF 的输入</b>做了线性平均，而 BRDF 对这些输入是<b>高度非线性</b>的。'
+    },
+    persample:{
+      html:
+      '<div style="font:600 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mute);margin-bottom:12px">对每个采样独立解码 + 独立跑 BRDF</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">'+
+        chip('SAMPLE 0','Metallic 1 · N=+X → 金属高光','var(--def)')+
+        chip('SAMPLE 1','Metallic 1 · N=+X → 金属高光','var(--def)')+
+        chip('SAMPLE 2','Metallic 0 · N=−X → 塑料漫反射','var(--fwd)')+
+        chip('SAMPLE 3','Metallic 0 · N=−X → 塑料漫反射','var(--fwd)')+
+      '</div>'+
+      '<div style="font:600 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--mute);margin-bottom:10px">最后才平均 —— 平均的是颜色</div>'+
+      '<div style="border:1px solid var(--fwd-s);background:var(--fwd-w);border-radius:3px;padding:14px 16px">'+
+        '<div style="font:600 13px/1.5 var(--mono);color:var(--fwd);margin-bottom:6px">✓ 结果正确，但代价是 ×N</div>'+
+        '<div style="font-size:13px;line-height:1.72;color:var(--body)">'+
+        'G-Buffer 必须变成 multisampled：<strong>显存与写带宽 ×4</strong>（8× MSAA 则 ×8）。<br>'+
+        '光照 Pass 要 per-sample 执行：<strong>BRDF 求值 ×4</strong>，全屏皆然。<br>'+
+        '<span style="color:var(--mute)">业界折中是「边缘检测 + stencil 标记，只在边缘 per-sample」，但需要额外 Pass、双份 shader 变体、复杂的 stencil 状态机 —— 复杂度极高，收益不稳定。</span></div></div>',
+      cap:'成本不是唯一问题，<b>复杂度才是</b>。UE 的延迟路径干脆不提供 MSAA，只给 TSR / TAA / FXAA。'
+    }
+  };
+  function set(m){ body.innerHTML=VIEWS[m].html; cap.innerHTML=VIEWS[m].cap; }
+  segbind($('#ms-seg'), b=>set(b.dataset.m));
+  set('resolve');
+})();
+
+/* ── FIG 06 · frame graph ─────────────────────────── */
+(function(){
+  const host=$('#fg-list'); if(!host) return;
+  const P=[
+    ['s','可见性判定 / 场景剔除',1,1,''],
+    ['s','Depth Prepass',1,1,'前向下是正确性前提；延迟下原理上可选，工程上几乎总是开着'],
+    ['d','Nanite 剔除 + 光栅化 → Visibility Buffer',1,0,'Deferred Materials：先只存 InstanceID / TriangleID / Depth'],
+    ['f','光源剔除网格注入 (Light Grid)',1,1,'两条路径共用 · 延迟渲染器每帧无条件构建'],
+    ['s','DBuffer Decals',1,1,'几何 Pass 之前写入，被几何 Pass 读取'],
+    ['d','几何 Pass → 写 G-Buffer (A~F + Velocity)',1,0,'MRT 一次输出全部表面属性，不打光'],
+    ['f','BasePass → 读光源网格，直接输出 SceneColor',0,1,'MSAA 在此生效 · 材质与光照在寄存器内算完'],
+    ['d','Nanite Material Pass → 补写 G-Buffer',1,0,'按材质分类，Depth-Equal 筛像素'],
+    ['d','Deferred Decals → 改写 G-Buffer',1,0,'贴花的原理就是重写表面属性'],
+    ['s','阴影深度 / Virtual Shadow Maps',1,1,'前向下退回传统 Shadow Map，仅 1 盏方向光有完整 CSM'],
+    ['d','Lumen：Screen Probe Gather / Reflections',1,0,'屏幕探针放置依赖 Depth + Normal'],
+    ['d','SSAO',1,0,'需要 Normal Buffer'],
+    ['d','批处理光照（MegaLights / 分簇）',1,0,'无阴影、无光照函数的局部光 · 走光源网格，一个 CS 打完'],
+    ['d','逐光源光照（有阴影 / 光照函数）',1,0,'无法批处理，一盏一盏画代理体积：球 / 锥'],
+    ['d','Reflection Environment + SSR',1,0,''],
+    ['f','体积雾',1,1,'光照注入同样读光源网格'],
+    ['f','半透明 Pass',1,1,'完全的前向光照 —— 延迟项目里也一样'],
+    ['f','MSAA Resolve',0,1,''],
+    ['s','后处理 (TSR → Bloom → Tonemap …)',1,1,'']
+  ];
+  const COL={d:'var(--def)',f:'var(--fwd)',s:'var(--shr)'};
+  host.innerHTML=P.map((p,i)=>
+    '<div class="fg-row" data-d="'+p[2]+'" data-f="'+p[3]+'">'+
+    '<div class="bar" style="background:'+COL[p[0]]+'"></div>'+
+    '<div class="ix">'+String(i+1).padStart(2,'0')+'</div>'+
+    '<div class="nm">'+p[1]+(p[4]?'<small>'+p[4]+'</small>':'')+'</div></div>').join('');
+  function set(m){
+    const def=m==='def'; let n=0,nd=0,nf=0;
+    $$('.fg-row',host).forEach((r,i)=>{
+      const on = def ? r.dataset.d==='1' : r.dataset.f==='1';
+      r.classList.toggle('gone',!on);
+      if(on){ n++; P[i][0]==='d'?nd++:nf++; }
+    });
+    $('#fg-cnt').textContent=n;
+    $('#fg-d').textContent=nd;
+    $('#fg-f').textContent=nf;
+    $('#fg-lost').innerHTML = def
+      ? '<span style="color:var(--fwd)">无</span>'
+      : '<span style="color:var(--bad);font-size:15px">Lumen · Nanite · VSM · SSAO · SSR · Decals</span>';
+  }
+  segbind($('#fg-seg'), b=>set(b.dataset.m));
+  set('def');
+})();
+
+/* ── FIG 07 · decision ────────────────────────────── */
+(function(){
+  const qs=$('#dc-qs'); if(!qs) return;
+  const Q=[
+    ['Q1','需要屏幕空间技术栈中的任意一项？（AO / 反射 / 屏幕探针 GI / 延迟贴花 / 按需阴影 / Visibility Buffer 几何）'],
+    ['Q2','目标平台是 VR，尤其是 PCVR 高保真？'],
+    ['Q3','目标平台是移动端？']
+  ];
+  const A={q0:false,q1:false,q2:false};
+  qs.innerHTML=Q.map((q,i)=>
+    '<div class="dc-q"><p><b>'+q[0]+'</b>'+q[1]+'</p>'+
+    '<div class="seg" data-q="'+i+'"><button data-v="0" class="on">否</button><button data-v="1">是</button></div></div>').join('');
+  function verdict(){
+    const v=$('#dc-verdict');
+    let title,body,col;
+    if(A.q2){
+      col='var(--shr)'; title='走 Mobile Renderer —— 这是第三条路，不要和桌面端混为一谈';
+      body='移动端有独立的 <code>FMobileSceneRenderer</code>。以预计算光照为主 → <strong>Mobile Forward</strong>；'+
+        '动态光复杂且目标机型是现代 TBDR GPU → 可实测 <strong>Mobile Deferred</strong>（<code>r.Mobile.ShadingPath=1</code>），'+
+        '它用 Subpass 把 G-Buffer 留在 tile memory，带宽劣势基本消解。'+
+        '<strong>注意：即使在 Mobile Deferred 下，半透明 Pass 仍然走前向。</strong>';
+    }else if(A.q0 && A.q1){
+      col='var(--bad)'; title='需求冲突 —— 必须做减法，没有两全';
+      body='UE5 桌面前向路径不支持 Lumen / Nanite / VSM。你只有两个选择：'+
+        '① 砍掉 Q1 的特性需求，走 <strong class="kf">前向 + MSAA</strong>，用烘焙 Lightmap + Reflection Capture + Planar Reflection 替代；'+
+        '② 保留特性，走 <strong class="kd">延迟 + TSR</strong>，接受 VR 里的时域伪影，并把内部分辨率与运动矢量质量调到最好。'+
+        '<strong>建筑可视化 / 静态展示类 VR 通常选 ①，动作类 VR 通常也选 ①。</strong>';
+    }else if(A.q0){
+      col='var(--def)'; title='延迟渲染 —— 没得选';
+      body='这些技术全部消费 G-Buffer，没有 G-Buffer 它们在原理上就不成立。抗锯齿只能用时域方案（TAA / TSR），'+
+        '换来的是可以从更低内部分辨率上采样。半透明部分会自动走前向，无需你操心。'+
+        '<span style="color:var(--mute)">在 UE5 里这一条尤其绝对：Lumen、Nanite、Virtual Shadow Maps 只在延迟路径上受支持。</span>';
+    }else if(A.q1){
+      col='var(--fwd)'; title='前向渲染 + MSAA 4×';
+      body='核心收益是 <strong>MSAA</strong>（纯空间域、零时延，避开 TAA 在头显快速转动时的 ghosting）、'+
+        '<strong>低带宽</strong>（双眼 2K+ 下 G-Buffer 成本翻倍的问题消失）、以及 <strong>Instanced Stereo</strong>。'+
+        '代价是 Lumen / Nanite / VSM / SSAO / SSR 全部不可用 —— 用 GPU Lightmass 烘焙、Reflection Capture、Planar Reflection 替代。';
+    }else{
+      col='var(--def)'; title='默认延迟';
+      body='PC / 主机的常规 3A、开放世界、写实项目 —— 现代引擎的技术投资几乎都压在 G-Buffer 之上。'+
+        '即便当下用不到屏幕空间技术栈，保留延迟路径也保留了后续接入的可能性；反过来则是一次代价高昂的架构回退。'+
+        '<strong>渲染路径是立项时的决定，不是可以中途反悔的开关。</strong>';
+    }
+    v.style.borderLeftColor=col;
+    v.innerHTML='<h6 style="color:'+col+'">'+title+'</h6><p>'+body+'</p>';
+  }
+  qs.addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const seg=b.closest('.seg'); $$('button',seg).forEach(x=>x.classList.toggle('on',x===b));
+    A['q'+seg.dataset.q] = b.dataset.v==='1';
+    verdict();
+  });
+  verdict();
+})();
+})();
+</script>
+</body>
+</html>

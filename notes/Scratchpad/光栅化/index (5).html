@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>光栅化 · 从三角形到像素 | 深入篇</title>
+<style>
+:root{
+  --bg:#FAF6EE; --card:#FFFFFF; --line:#ECE2CF; --ink:#2C2721; --muted:#8B7F6E;
+  --accent:#B85C38; --accent-deep:#9C4A28; --gold:#C9A86A; --gold-soft:#E7D5B3;
+  --sage:#7C8B6F; --blue:#5F7E9A; --chip:#FBF7EC;
+  --serif:"Songti SC","Noto Serif SC","STSong",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+ line-height:1.8;font-size:15.5px;
+ background-image:radial-gradient(circle at 12% 8%,rgba(201,168,106,.07),transparent 42%),
+                  radial-gradient(circle at 88% 92%,rgba(184,92,56,.05),transparent 40%);}
+b{color:var(--accent-deep);font-weight:600;}
+
+/* ---------- 导航 ---------- */
+nav{position:sticky;top:0;z-index:50;background:rgba(250,246,238,.86);
+ backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+.navin{max-width:920px;margin:0 auto;padding:0 20px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;}
+.navin::-webkit-scrollbar{display:none;}
+.navin a{flex:0 0 auto;padding:11px 12px;font-size:12.5px;color:#7A6E5C;text-decoration:none;
+ letter-spacing:.04em;border-bottom:2px solid transparent;transition:.2s;white-space:nowrap;}
+.navin a:hover{color:var(--accent-deep);border-bottom-color:var(--accent);}
+.navin a i{font-style:normal;color:var(--gold);margin-right:4px;font-family:var(--serif);}
+
+.wrap{max-width:920px;margin:0 auto;padding:0 20px 80px;}
+
+/* ---------- Hero ---------- */
+header{text-align:center;padding:64px 0 8px;}
+.kicker{font-size:12.5px;letter-spacing:.3em;color:var(--accent);font-weight:600;}
+h1{font-family:var(--serif);font-size:54px;margin:14px 0 6px;letter-spacing:.06em;font-weight:700;}
+h1 .en{font-size:19px;color:var(--muted);font-weight:400;letter-spacing:.12em;margin-left:10px;font-family:Georgia,serif;font-style:italic;}
+.lede{font-size:16.5px;color:#5F5648;max-width:640px;margin:10px auto 0;}
+.herocv{margin:26px auto 6px;max-width:860px;}
+.herocv canvas{border:none;background:transparent;border-radius:0;}
+.scrolldown{color:var(--gold);font-size:12px;letter-spacing:.3em;margin:6px 0 40px;}
+
+/* ---------- 章节卡片 ---------- */
+section{background:var(--card);border:1px solid var(--line);border-radius:20px;
+ padding:34px 38px 30px;margin:26px 0;box-shadow:0 3px 18px rgba(90,70,40,.06);
+ scroll-margin-top:64px;}
+.shead{display:flex;align-items:baseline;gap:16px;margin-bottom:6px;}
+.secno{font-family:var(--serif);font-size:46px;font-weight:700;color:var(--gold-soft);line-height:1;}
+h2{font-family:var(--serif);font-size:26px;margin:0;letter-spacing:.03em;font-weight:700;}
+h3{font-size:16.5px;margin:24px 0 8px;}
+h3 small{color:var(--muted);font-weight:500;margin-left:6px;font-size:13px;}
+p{margin:10px 0;}
+ul{margin:8px 0;padding-left:1.25em;}
+li{margin:6px 0;}
+.note{font-size:13.5px;color:var(--muted);margin-top:10px;}
+.why{display:inline-block;font-size:12px;letter-spacing:.14em;color:#8A6B2F;
+ background:#F6EEDC;border:1px solid #EADFC2;border-radius:999px;padding:3px 13px;margin-bottom:4px;}
+
+/* ---------- 公式卡 / 洞察卡 ---------- */
+.fcard{background:#F9F3E4;border-left:3px solid var(--accent);border-radius:12px;
+ padding:16px 22px;margin:16px 0;font-family:Georgia,"Times New Roman",serif;font-size:17px;line-height:2.1;}
+.fcard .t{font-family:var(--sans);font-size:12px;letter-spacing:.16em;color:var(--accent);font-weight:600;display:block;margin-bottom:4px;}
+.fcard i{font-style:italic;}
+.fcard sub{font-size:.68em;}
+.frac{display:inline-flex;flex-direction:column;text-align:center;vertical-align:middle;margin:0 .2em;line-height:1.5;}
+.frac .num{border-bottom:1.5px solid currentColor;padding:0 .4em;}
+.frac .den{padding:0 .4em;}
+.aha{background:#F4EFE0;border:1px solid #E6DAB9;border-left:3px solid var(--gold);border-radius:12px;
+ padding:14px 20px;margin:16px 0;font-size:14.5px;}
+.aha .t{font-size:12px;letter-spacing:.16em;color:#8A6B2F;font-weight:700;display:block;margin-bottom:4px;}
+.l0{color:#C4533F;font-weight:600;} .l1{color:#5E8A51;font-weight:600;} .l2{color:#4A6E9E;font-weight:600;}
+
+/* ---------- 图 ---------- */
+figure{margin:18px 0 4px;}
+canvas{display:block;width:100%;height:auto;border-radius:14px;background:#FDFBF4;border:1px solid #F0E7D3;}
+figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:9px;}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media(max-width:680px){.duo{grid-template-columns:1fr;}}
+
+/* ---------- 管线 chips ---------- */
+.pipe{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:14px 0 4px;}
+.chip{padding:7px 13px;border-radius:999px;border:1px solid #E4DAC2;background:var(--chip);
+ font-size:13px;line-height:1.35;text-align:center;}
+.chip small{display:block;font-size:11px;color:#A2947F;}
+.chip.hl{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.chip.hl small{color:rgba(255,255,255,.85);}
+.arrow{color:#C0B294;font-weight:700;}
+.io{margin-top:14px;background:#FBF6EA;border:1px dashed #E3D7BE;border-radius:12px;
+ padding:10px 16px;font-size:13.5px;color:#6B6154;display:flex;flex-wrap:wrap;gap:4px 24px;}
+.routes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 4px;}
+@media(max-width:680px){.routes{grid-template-columns:1fr;}}
+.route{border:1px solid var(--line);border-radius:14px;padding:14px 18px;background:#FDFBF4;}
+.route .rt{font-weight:700;font-size:14.5px;margin-bottom:4px;}
+.route .q{font-family:var(--serif);font-style:italic;color:var(--accent-deep);font-size:15px;margin:4px 0;}
+.route p{font-size:13.5px;color:#6B6154;margin:4px 0 0;}
+.route.sel{border-color:var(--accent);box-shadow:0 2px 10px rgba(184,92,56,.10);}
+.route .tag{float:right;font-size:11px;letter-spacing:.1em;color:#fff;background:var(--accent);border-radius:999px;padding:2px 10px;}
+.route .tag.gray{background:#B4A88F;}
+
+/* ---------- 交互控件 ---------- */
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-top:14px;font-size:14px;}
+.controls label{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;}
+input[type=range]{width:170px;accent-color:var(--accent);}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;}
+.play{touch-action:none;cursor:grab;}
+.play:active{cursor:grabbing;}
+.hint{font-size:13px;color:var(--muted);}
+.hint b{font-weight:600;}
+
+/* ---------- 入场动画 ---------- */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .8s ease,transform .8s ease;}
+.reveal.in{opacity:1;transform:none;}
+
+/* ---------- 页脚 ---------- */
+footer{margin-top:34px;}
+.cheatsheet{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px 30px;box-shadow:0 3px 18px rgba(90,70,40,.06);}
+.cheatsheet h2{font-size:20px;margin-bottom:14px;}
+.cheatgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 26px;}
+@media(max-width:680px){.cheatgrid{grid-template-columns:1fr;}}
+.cheat{font-family:Georgia,serif;font-size:15.5px;background:#F9F3E4;border-radius:10px;padding:10px 16px;line-height:1.9;}
+.cheat span{font-family:var(--sans);font-size:12px;color:var(--muted);display:block;}
+.final{text-align:center;color:#5F5648;font-size:15px;margin-top:26px;line-height:2;}
+</style>
+</head>
+<body>
+
+<nav><div class="navin">
+  <a href="#s1"><i>01</i>为何需要</a>
+  <a href="#s2"><i>02</i>三角形</a>
+  <a href="#s3"><i>03</i>边函数</a>
+  <a href="#s4"><i>04</i>重心坐标</a>
+  <a href="#s5"><i>05</i>透视校正</a>
+  <a href="#s6"><i>06</i>硬件</a>
+  <a href="#s7"><i>07</i>填充规则</a>
+  <a href="#s8"><i>08</i>锯齿</a>
+  <a href="#s9"><i>09</i>实验场</a>
+</div></nav>
+
+<div class="wrap">
+
+<header>
+  <div class="kicker">图形学漫游 · 渲染管线 · 深入篇</div>
+  <h1>光栅化<span class="en">Rasterization</span></h1>
+  <p class="lede">不只回答「怎么做」，更回答<b>为什么必须这样做</b>。<br/>从一块屏幕的本质出发，走到三条公式。</p>
+  <div class="herocv"><canvas id="cvHero"></canvas></div>
+  <div class="scrolldown">往下 · 从「为什么」开始</div>
+</header>
+
+<!-- ================= 01 ================= -->
+<section id="s1" class="reveal">
+  <div class="shead"><div class="secno">01</div><h2>为什么需要光栅化？</h2></div>
+  <span class="why">为 什 么 需 要 它</span>
+  <p>GPU 手里是<b>矢量三角形</b>，屏幕上是<b>离散像素</b> —— 中间必须有一次翻译。翻译有两条路线：</p>
+  <div class="routes">
+    <div class="route sel"><span class="tag">实时渲染的选择</span>
+      <div class="rt">以三角形为中心</div>
+      <div class="q">「我会盖住哪些像素？」</div>
+      <p>每个三角形只扫一遍，问题规则、无分支 —— 天生适合大规模并行。<b>这就是光栅化。</b></p>
+    </div>
+    <div class="route"><span class="tag gray">另一条路</span>
+      <div class="rt">以像素为中心</div>
+      <div class="q">「我该看到谁？」</div>
+      <p>光线追踪的思路，物理上更直觉，但每个像素都要搜索整个场景 —— 贵。</p>
+    </div>
+  </div>
+  <p>它在管线中的位置：</p>
+  <div class="pipe">
+    <div class="chip">顶点数据</div><span class="arrow">→</span>
+    <div class="chip">顶点着色器<small>变换到屏幕</small></div><span class="arrow">→</span>
+    <div class="chip hl">光栅化<small>连续 → 离散</small></div><span class="arrow">→</span>
+    <div class="chip">片元着色器<small>上色</small></div><span class="arrow">→</span>
+    <div class="chip">深度·模板测试</div><span class="arrow">→</span>
+    <div class="chip">混合</div><span class="arrow">→</span>
+    <div class="chip">屏幕</div>
+  </div>
+  <div class="io">
+    <span><b>输入</b>：3 个顶点（屏幕坐标 ＋ 颜色 / UV / 深度）</span>
+    <span><b>输出</b>：一堆片元 Fragment —— 像素候选人</span>
+  </div>
+</section>
+
+<!-- ================= 02 ================= -->
+<section id="s2" class="reveal">
+  <div class="shead"><div class="secno">02</div><h2>为什么总是三角形？</h2></div>
+  <span class="why">为 什 么 需 要 它</span>
+  <ul>
+    <li><b>三点必共面</b> —— 四个点可能扭成马鞍面，三个点永远平整</li>
+    <li><b>永远凸</b> —— 边界干净，「在内 / 在外」没有歧义</li>
+    <li><b>好插值</b> —— 内部任一点 = 三顶点的加权平均，权重唯一</li>
+  </ul>
+  <p>再华丽的模型，喂给 GPU 之前都会被拆成三角形。还有一个隐藏福利：<b>内外测试</b>和<b>属性插值</b>在三角形上用的是<b>同一套数学</b> —— 03、04 节揭晓。</p>
+</section>
+
+<!-- ================= 03 ================= -->
+<section id="s3" class="reveal">
+  <div class="shead"><div class="secno">03</div><h2>边函数 · 点在线的哪一侧？</h2></div>
+  <span class="why">为 什 么 需 要 它</span>
+  <p>覆盖测试 = 判断「点是否在三条边的<b>同一侧</b>」。我们不需要距离，只需要一把回答「侧」的尺子 —— <b>2D 叉积</b>。</p>
+
+  <div class="fcard"><span class="t">边 函 数 · EDGE FUNCTION</span>
+    <i>E</i><sub>AB</sub>(<i>P</i>) = (<i>B</i> − <i>A</i>) × (<i>P</i> − <i>A</i>) = (<i>B</i><sub>x</sub>−<i>A</i><sub>x</sub>)(<i>P</i><sub>y</sub>−<i>A</i><sub>y</sub>) − (<i>B</i><sub>y</sub>−<i>A</sub><sub>y</sub>)(<i>P</i><sub>x</sub>−<i>A</i><sub>x</sub>)<br/>
+    <span style="font-size:14.5px">数值 = △<i>ABP</i> 的<b>有向面积 × 2</b> ｜ 符号 = 侧：<i>E</i> &gt; 0 一侧，<i>E</i> &lt; 0 另一侧，<i>E</i> = 0 正好在线上</span>
+  </div>
+
+  <figure>
+    <canvas id="cvEdge" class="play"></canvas>
+    <figcaption>实验台 · 拖动 A / B / P：看叉积的值、符号与那块「有向面积」如何一起变化</figcaption>
+  </figure>
+
+  <div class="fcard"><span class="t">覆 盖 规 则 · COVERAGE RULE</span>
+    <i>P</i> 在三角形内　⟺　<i>E</i><sub>AB</sub>(<i>P</i>)、<i>E</i><sub>BC</sub>(<i>P</i>)、<i>E</i><sub>CA</sub>(<i>P</i>) <b>三者同号</b><br/>
+    <span style="font-size:14.5px">顶点环绕方向反过来也没关系 —— 三个值一起变号，规则照样成立。</span>
+  </div>
+
+  <figure>
+    <canvas id="cvCoverage"></canvas>
+    <figcaption>回到像素网格：每个像素派中心点做三次叉积 · 深色点 = 在内（被盖章），浅色点 = 在外</figcaption>
+  </figure>
+  <p class="note">一个像素三次叉积，全屏百万像素<b>同时</b>提问 —— 这正是 GPU 并行架构的本职工作。</p>
+</section>
+
+<!-- ================= 04 ================= -->
+<section id="s4" class="reveal">
+  <div class="shead"><div class="secno">04</div><h2>重心坐标 · 属性如何摊到内部？</h2></div>
+  <span class="why">为 什 么 需 要 它</span>
+  <p>颜色、UV、深度都记在<b>顶点</b>上，着色却发生在<b>像素</b>上 —— 需要一张从顶点到内部的「分配地图」。</p>
+
+  <div class="fcard"><span class="t">重 心 坐 标 · BARYCENTRIC COORDINATES</span>
+    <span class="l0"><i>λ</i><sub>0</sub></span> = <i>A</i><sub>0</sub>/<i>A</i>　　<span class="l1"><i>λ</i><sub>1</sub></span> = <i>A</i><sub>1</sub>/<i>A</i>　　<span class="l2"><i>λ</i><sub>2</sub></span> = <i>A</i><sub>2</sub>/<i>A</i>　　（<i>A</i><sub>i</sub> 是 <i>P</i> 对面那块小三角形的面积，<i>A</i> 是总面积）<br/>
+    <span class="l0"><i>λ</i><sub>0</sub></span> + <span class="l1"><i>λ</i><sub>1</sub></span> + <span class="l2"><i>λ</i><sub>2</sub></span> = 1　　·　　<i>P</i> = <span class="l0"><i>λ</i><sub>0</sub></span><i>V</i><sub>0</sub> + <span class="l1"><i>λ</i><sub>1</sub></span><i>V</i><sub>1</sub> + <span class="l2"><i>λ</i><sub>2</sub></span><i>V</i><sub>2</sub>　　·　　<i>attr</i>(<i>P</i>) = Σ <i>λ</i><sub>i</sub>·<i>attr</i><sub>i</sub>
+  </div>
+
+  <figure>
+    <canvas id="cvBary" class="play"></canvas>
+    <figcaption>实验台 · 拖动 P（试试拖出边界）：三块面积即三个 λ —— 有 λ 变负，就是「在外」的数学长相</figcaption>
+  </figure>
+
+  <div class="aha"><span class="t">✦ 关 键 洞 察</span>
+    面积 <i>A</i><sub>0</sub> × 2 正是 <b>E<sub>BC</sub>(P)</b> —— 覆盖测试已经算过的数！所以 <b>λ<sub>i</sub> = E<sub>i</sub> ÷ (E<sub>0</sub>+E<sub>1</sub>+E<sub>2</sub>)</b>。<br/>
+    一次叉积，既定内外、又出权重。零额外成本 —— 这就是 GPU 对这套算法死心塌地的原因。
+  </div>
+
+  <figure>
+    <canvas id="cvInterp"></canvas>
+    <figcaption>三个顶点各带一种颜色 → 内部像素按 λ 混出平滑渐变（深度、UV 走的是同一套插值）</figcaption>
+  </figure>
+</section>
+
+<!-- ================= 05 ================= -->
+<section id="s5" class="reveal">
+  <div class="shead"><div class="secno">05</div><h2>透视校正 · 屏幕上的「线性」是假的</h2></div>
+  <span class="why">为 什 么 需 要 它</span>
+  <p>插值在<b>屏幕空间</b>做，属性却属于<b>三维世界</b>。投影近大远小 —— 三维里等距的东西，屏幕上必然不等距。直接在屏幕上均匀插值，贴图就会扭曲。</p>
+
+  <figure>
+    <canvas id="cvPersp"></canvas>
+    <figcaption>一排三维等距的枕木：正确投影 = 近疏远密；屏幕均匀插值 = 错误的等距</figcaption>
+  </figure>
+
+  <div class="fcard"><span class="t">透 视 校 正 · PERSPECTIVE-CORRECT INTERPOLATION</span>
+    屏幕上真正线性变化的是 <i>1/w</i> 和 <i>attr/w</i>（<i>w</i> = 顶点投影后的深度）：<br/>
+    <i>attr</i>(<i>P</i>) =
+    <span class="frac"><span class="num">Σ <i>λ</i><sub>i</sub> · <i>attr</i><sub>i</sub>/<i>w</i><sub>i</sub></span><span class="den">Σ <i>λ</i><sub>i</sub> / <i>w</i><sub>i</sub></span></span>
+    　　<span style="font-size:14.5px">先 ÷<i>w</i> 再插值，插完再除回来 —— GPU 对每个属性自动做这一步。</span>
+  </div>
+  <p class="note">跳过它的代价：贴图在三角形接缝处「拧麻花」—— PS1 时代的经典事故。</p>
+</section>
+
+<!-- ================= 06 ================= -->
+<section id="s6" class="reveal">
+  <div class="shead"><div class="secno">06</div><h2>硬件为什么爱它？</h2></div>
+  <span class="why">为 什 么 是 这 种 算 法</span>
+  <div class="fcard"><span class="t">增 量 计 算 · INCREMENTAL</span>
+    <i>E</i>(<i>x</i>,<i>y</i>) = <i>a</i>·<i>x</i> + <i>b</i>·<i>y</i> + <i>c</i>　⟹　<i>E</i>(<i>x</i>+1, <i>y</i>) = <i>E</i>(<i>x</i>,<i>y</i>) + <i>a</i>　　<i>E</i>(<i>x</i>, <i>y</i>+1) = <i>E</i>(<i>x</i>,<i>y</i>) + <i>b</i><br/>
+    <span style="font-size:14.5px">边函数是关于像素坐标的一次函数 —— 走到相邻像素只差<b>一次加法</b>。</span>
+  </div>
+  <ul>
+    <li><b>无分支、无跳转</b> —— 同一套乘加，GPU 以 tile / quad 为单位让几万个像素同时作答</li>
+    <li><b>形状简单</b> —— 简单到可以直接焊进硅片（固定功能单元），快而且省电</li>
+  </ul>
+  <p>好算法的标准不只是「算得巧」，更是<b>长得就像硬件</b> —— 这是光栅化统治实时渲染三十年的根本原因。</p>
+</section>
+
+<!-- ================= 07 ================= -->
+<section id="s7" class="reveal">
+  <div class="shead"><div class="secno">07</div><h2>填充规则 · 边界像素归谁？</h2></div>
+  <span class="why">为 什 么 需 要 它</span>
+  <p>两个三角形共享一条边：边上的像素若<b>画两次</b>，半透明混合就错；若<b>都不画</b>，模型表面就裂缝。</p>
+
+  <figure>
+    <canvas id="cvTL"></canvas>
+    <figcaption>左：没有约定 → 共享边被画两次（颜色加深 = 混合出错）· 右：有约定 → 每个边界像素恰好一个主人</figcaption>
+  </figure>
+
+  <p>OpenGL / Direct3D 的约定叫 <b>top-left rule</b>：落在边上的像素，仅当那条边是本三角形的「上边或左边」时才归它 —— 于是每个边界像素<b>恰好归一个</b>三角形：无缝、无重叠。规则本身不重要，重要的是<b>必须有规则</b>。</p>
+</section>
+
+<!-- ================= 08 ================= -->
+<section id="s8" class="reveal">
+  <div class="shead"><div class="secno">08</div><h2>锯齿 · 本质是采样率不够</h2></div>
+  <span class="why">为 什 么 会 锯 齿</span>
+  <p>每像素只采 <b>1</b> 次样，几何边缘的变化却「无限快」—— 欠采样 ⇒ 走样（这是 Nyquist 采样定理的直觉版）。</p>
+  <div class="duo">
+    <figure><canvas id="cvAlias1"></canvas><figcaption>只测中心（1 采样）：边缘生硬</figcaption></figure>
+    <figure><canvas id="cvAlias4"></canvas><figcaption>MSAA ×4：按命中比例给过渡色</figcaption></figure>
+  </div>
+  <p class="note"><b>MSAA</b>：每像素 N 个采样点估计覆盖率，但<b>着色仍每像素一次</b> —— 只多测覆盖、不多算颜色，所以便宜。「一个像素 4 个采样位置」正是为此而存在。</p>
+</section>
+
+<!-- ================= 09 ================= -->
+<section id="s9" class="reveal">
+  <div class="shead"><div class="secno">09</div><h2>光栅化实验场</h2></div>
+  <p class="hint"><b>拖动三个顶点</b>，看哪些像素被盖章；调密网格，看锯齿悄悄消失；打开 MSAA，看边缘按覆盖率过渡。</p>
+  <canvas id="cvPlay" class="play"></canvas>
+  <div class="controls">
+    <label>网格密度 <input id="density" type="range" min="8" max="56" value="22"/> <span id="densityVal">22 列</span></label>
+    <label><input id="cbCenters" type="checkbox" checked/> 像素中心</label>
+    <label><input id="cbSmooth" type="checkbox" checked/> 光滑三角形对照</label>
+    <label><input id="cbMsaa" type="checkbox"/> MSAA ×4</label>
+  </div>
+</section>
+
+<footer>
+  <div class="cheatsheet reveal">
+    <h2>四条公式带走</h2>
+    <div class="cheatgrid">
+      <div class="cheat"><i>E</i><sub>AB</sub>(<i>P</i>) = (<i>B</i>−<i>A</i>) × (<i>P</i>−<i>A</i>)<span>覆盖测试 · 三个边函数值同号 ⇒ 在三角形内</span></div>
+      <div class="cheat"><i>λ</i><sub>i</sub> = <i>E</i><sub>i</sub> / (<i>E</i><sub>0</sub>+<i>E</i><sub>1</sub>+<i>E</i><sub>2</sub>)<span>插值权重 · 覆盖测试顺手产出，零额外成本</span></div>
+      <div class="cheat"><i>attr</i>(<i>P</i>) = Σ <i>λ</i><sub>i</sub>·<i>attr</i><sub>i</sub><span>属性插值 · 颜色 / UV / 深度都按它摊到内部</span></div>
+      <div class="cheat"><i>attr</i> = Σ(<i>λ</i><sub>i</sub>·<i>attr</i><sub>i</sub>/<i>w</i><sub>i</sub>) ÷ Σ(<i>λ</i><sub>i</sub>/<i>w</i><sub>i</sub>)<span>透视校正 · 屏幕上真正线性的是 1/w</span></div>
+    </div>
+    <div class="final"><b>覆盖测试</b>决定哪些像素上岗 → <b>属性插值</b>给它们发装备 → 打包成<b>片元</b>交给下游。<br/>光栅化，就是连续世界到离散世界的翻译官。</div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+/* ================= 基础数学 ================= */
+function baryWS(t,px,py){
+  const a=t[0],b=t[1],c=t[2];
+  const w0=(px-b.x)*(c.y-b.y)-(py-b.y)*(c.x-b.x);
+  const w1=(px-c.x)*(a.y-c.y)-(py-c.y)*(a.x-c.x);
+  const w2=(px-a.x)*(b.y-a.y)-(py-a.y)*(b.x-a.x);
+  return {w0:w0,w1:w1,w2:w2,s:w0+w1+w2||1e-9};
+}
+function testInc(w0,w1,w2){ return (w0>=0&&w1>=0&&w2>=0)||(w0<=0&&w1<=0&&w2<=0); }
+function testExc(w0,w1,w2){ return (w0>0&&w1>0&&w2>0)||(w0<0&&w1<0&&w2<0); }
+function bary(t,px,py){
+  const r=baryWS(t,px,py);
+  return {inside:testInc(r.w0,r.w1,r.w2), l0:r.w0/r.s, l1:r.w1/r.s, l2:r.w2/r.s};
+}
+function clamp255(v){ return Math.max(0,Math.min(255,Math.round(v))); }
+function mixL(c0,c1,c2,l0,l1,l2){
+  return 'rgb('+clamp255(c0[0]*l0+c1[0]*l1+c2[0]*l2)+','
+               +clamp255(c0[1]*l0+c1[1]*l1+c2[1]*l2)+','
+               +clamp255(c0[2]*l0+c1[2]*l1+c2[2]*l2)+')';
+}
+const ACCENT=[184,92,56], BLUE=[95,126,154];
+const VC=[[196,83,63],[94,138,81],[74,110,158]];
+
+/* ================= 画布工具 ================= */
+function prep(id,W,H){
+  const cv=document.getElementById(id);
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr;
+  cv.style.aspectRatio=W+'/'+H;
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {cv:cv,ctx:ctx};
+}
+function triPath(ctx,t){ ctx.beginPath(); ctx.moveTo(t[0].x,t[0].y); ctx.lineTo(t[1].x,t[1].y); ctx.lineTo(t[2].x,t[2].y); ctx.closePath(); }
+function drawTriOutline(ctx,t,color,width){ ctx.strokeStyle=color; ctx.lineWidth=width||2; ctx.lineJoin='round'; triPath(ctx,t); ctx.stroke(); }
+function drawGrid(ctx,ox,oy,cols,rows,cw,ch,color){
+  ctx.strokeStyle=color; ctx.lineWidth=1; ctx.beginPath();
+  for(let i=0;i<=cols;i++){ ctx.moveTo(ox+i*cw,oy); ctx.lineTo(ox+i*cw,oy+rows*ch); }
+  for(let j=0;j<=rows;j++){ ctx.moveTo(ox,oy+j*ch); ctx.lineTo(ox+cols*cw,oy+j*ch); }
+  ctx.stroke();
+}
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function dot(ctx,x,y,r,color,stroke){
+  ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+  if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=2.5; ctx.stroke(); }
+}
+
+/* 通用光栅化 */
+function raster(ctx,o){
+  const offs=o.samples===4?[[.25,.25],[.75,.25],[.25,.75],[.75,.75]]:[[.5,.5]];
+  const test=o.strict?testExc:testInc;
+  const col=o.color||ACCENT;
+  for(let j=0;j<o.rows;j++)for(let i=0;i<o.cols;i++){
+    const x0=o.ox+i*o.cw, y0=o.oy+j*o.ch;
+    let hit=0;
+    for(let k=0;k<offs.length;k++){
+      const r=baryWS(o.tri,x0+offs[k][0]*o.cw,y0+offs[k][1]*o.ch);
+      if(test(r.w0,r.w1,r.w2)) hit++;
+    }
+    if(!hit) continue;
+    const cov=hit/offs.length;
+    let color;
+    if(o.mode==='interp'){
+      const l=bary(o.tri,x0+o.cw/2,y0+o.ch/2);
+      color=mixL(o.colors[0],o.colors[1],o.colors[2],l.l0,l.l1,l.l2);
+    }else{
+      color='rgb('+col[0]+','+col[1]+','+col[2]+')';
+    }
+    ctx.globalAlpha=o.alpha!=null?o.alpha:(o.samples===4?0.25+0.75*cov:0.92);
+    ctx.fillStyle=color;
+    ctx.fillRect(x0+0.5,y0+0.5,o.cw-1,o.ch-1);
+    ctx.globalAlpha=1;
+  }
+}
+function drawCenters(ctx,o){
+  const r=Math.max(1.8,Math.min(o.cw,o.ch)*0.09);
+  for(let j=0;j<o.rows;j++)for(let i=0;i<o.cols;i++){
+    const cx=o.ox+(i+0.5)*o.cw, cy=o.oy+(j+0.5)*o.ch;
+    ctx.fillStyle=bary(o.tri,cx,cy).inside?'#2C2721':'#CFC4AE';
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.fill();
+  }
+}
+function drawHandles(ctx,t,r,names){
+  for(let i=0;i<3;i++){
+    dot(ctx,t[i].x,t[i].y,r,'rgb('+VC[i][0]+','+VC[i][1]+','+VC[i][2]+')','#fff');
+    if(names){
+      ctx.fillStyle='#2C2721'; ctx.font='600 13px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(names[i],t[i].x,t[i].y-r-8);
+    }
+  }
+}
+
+/* ================= Hero 动画：像素逐个亮起 ================= */
+(function(){
+  const W=860,H=270,cols=22,cw=(W-160)/cols,rows=Math.floor((H-30)/cw),ox=80,oy=(H-rows*cw)/2;
+  const p=prep('cvHero',W,H), ctx=p.ctx;
+  const tri=[{x:240,y:215},{x:630,y:185},{x:432,y:42}];
+  const gx=(tri[0].x+tri[1].x+tri[2].x)/3, gy=(tri[0].y+tri[1].y+tri[2].y)/3;
+  const cells=[];
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    const px=ox+(i+0.5)*cw, py=oy+(j+0.5)*cw, l=bary(tri,px,py);
+    if(l.inside){
+      cells.push({i:i,j:j,d:Math.hypot(px-gx,py-gy),color:mixL(VC[0],VC[1],VC[2],l.l0,l.l1,l.l2)});
+    }
+  }
+  cells.sort(function(a,b){return a.d-b.d;});
+  const STEP=26, FADE=220, HOLD=1100, OUT=650, GAP=500;
+  const cycle=cells.length*STEP+FADE+HOLD+OUT+GAP;
+  let t0=performance.now();
+  function frame(now){
+    const t=(now-t0)%cycle;
+    ctx.clearRect(0,0,W,H);
+    drawTriOutline(ctx,tri,'rgba(44,39,33,.30)',1.5);
+    drawGrid(ctx,ox,oy,cols,rows,cw,cw,'rgba(233,224,205,.5)');
+    for(let k=0;k<cells.length;k++){
+      const c=cells[k];
+      let a=(t-k*STEP)/FADE; if(a<0)a=0; if(a>1)a=1;
+      const fadeStart=cells.length*STEP+FADE+HOLD;
+      if(t>fadeStart){ a*=Math.max(0,1-(t-fadeStart)/OUT); }
+      if(a<=0) continue;
+      ctx.globalAlpha=a*0.95;
+      ctx.fillStyle=c.color;
+      ctx.fillRect(ox+c.i*cw+0.5,oy+c.j*cw+0.5,cw-1,cw-1);
+    }
+    ctx.globalAlpha=1;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+
+/* ================= 03 实验台：边函数 ================= */
+(function(){
+  const W=860,H=430;
+  const p=prep('cvEdge',W,H), ctx=p.ctx, cv=p.cv;
+  const st={A:{x:170,y:320},B:{x:660,y:170},P:{x:430,y:300}};
+  let drag=-1;
+  const pts=function(){return [st.A,st.B,st.P];};
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const A=st.A,B=st.B,P=st.P;
+    let dx=B.x-A.x, dy=B.y-A.y;
+    const len=Math.hypot(dx,dy)||1; dx/=len; dy/=len;
+    const nx=-dy, ny=dx, L=1600;
+    const ax=A.x-dx*L, ay=A.y-dy*L, bx=B.x+dx*L, by=B.y+dy*L;
+    /* 半平面 */
+    ctx.fillStyle='rgba(184,92,56,.06)';
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.lineTo(bx+nx*L,by+ny*L); ctx.lineTo(ax+nx*L,ay+ny*L); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(95,126,154,.06)';
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.lineTo(bx-nx*L,by-ny*L); ctx.lineTo(ax-nx*L,ay-ny*L); ctx.closePath(); ctx.fill();
+    /* ± 侧标注 */
+    const mx=(A.x+B.x)/2, my=(A.y+B.y)/2;
+    ctx.font='600 15px Georgia,serif'; ctx.textAlign='center';
+    ctx.fillStyle='rgba(156,74,40,.55)';
+    ctx.fillText('+ 侧',mx+nx*180,my+ny*180);
+    ctx.fillStyle='rgba(95,126,154,.6)';
+    ctx.fillText('− 侧',mx-nx*180,my-ny*180);
+    /* 延长虚线 */
+    ctx.strokeStyle='#CDBFA5'; ctx.lineWidth=1.2; ctx.setLineDash([6,6]);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); ctx.setLineDash([]);
+    /* △ABP 面积 */
+    ctx.fillStyle='rgba(184,92,56,.16)';
+    triPath(ctx,[A,B,P]); ctx.fill();
+    ctx.strokeStyle='rgba(156,74,40,.4)'; ctx.lineWidth=1.2; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(A.x,A.y); ctx.moveTo(P.x,P.y); ctx.lineTo(B.x,B.y); ctx.stroke(); ctx.setLineDash([]);
+    /* 垂足 */
+    const t=((P.x-A.x)*dx+(P.y-A.y)*dy);
+    const fx=A.x+dx*t, fy=A.y+dy*t;
+    ctx.strokeStyle='rgba(44,39,33,.35)'; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(fx,fy); ctx.stroke(); ctx.setLineDash([]);
+    /* 有向边 AB + 箭头 */
+    ctx.strokeStyle='#9C4A28'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+    ctx.fillStyle='#9C4A28';
+    ctx.beginPath();
+    ctx.moveTo(B.x+dx*14,B.y+dy*14);
+    ctx.lineTo(B.x-dy*6,B.y+dx*6); ctx.lineTo(B.x+dy*6,B.y-dx*6);
+    ctx.closePath(); ctx.fill();
+    /* 把手 */
+    dot(ctx,A.x,A.y,10,'rgb('+VC[0][0]+','+VC[0][1]+','+VC[0][2]+')','#fff');
+    dot(ctx,B.x,B.y,10,'rgb('+VC[1][0]+','+VC[1][1]+','+VC[1][2]+')','#fff');
+    dot(ctx,P.x,P.y,10,'#2C2721','#fff');
+    ctx.font='600 13px sans-serif'; ctx.fillStyle='#2C2721'; ctx.textAlign='center';
+    ctx.fillText('A',A.x,A.y-17); ctx.fillText('B',B.x,B.y-17); ctx.fillText('P',P.x,P.y-17);
+    /* 数值面板 */
+    const E=(P.x-A.x)*(B.y-A.y)-(P.y-A.y)*(B.x-A.x);
+    rr(ctx,W-256,16,240,96,12);
+    ctx.fillStyle='rgba(255,255,255,.93)'; ctx.fill();
+    ctx.strokeStyle='#E4DAC2'; ctx.lineWidth=1; ctx.stroke();
+    ctx.textAlign='left'; ctx.fillStyle='#8B7F6E'; ctx.font='12px sans-serif';
+    ctx.fillText('E = (B−A) × (P−A)',W-240,38);
+    ctx.fillStyle='#2C2721'; ctx.font='700 20px Georgia,serif';
+    const Es=(E>=0?'+ ':'− ')+Math.abs(Math.round(E)).toLocaleString('en-US').replace(/,/g,' ');
+    ctx.fillText(Es,W-240,64);
+    ctx.font='12px sans-serif'; ctx.fillStyle='#8B7F6E';
+    ctx.fillText('面积(△ABP) = |E| / 2 = '+Math.abs(Math.round(E/2)).toLocaleString('en-US').replace(/,/g,' '),W-240,84);
+    /* 状态 chip */
+    let label,bg,fg;
+    if(E>1e-6){ label='P 在 + 侧'; bg='#B85C38'; fg='#fff'; }
+    else if(E<-1e-6){ label='P 在 − 侧'; bg='#5F7E9A'; fg='#fff'; }
+    else { label='P 正好在线上'; bg='#B4A88F'; fg='#fff'; }
+    ctx.font='600 12px sans-serif';
+    const tw=ctx.measureText(label).width+22;
+    rr(ctx,W-240,90,tw,20,10);
+    ctx.fillStyle=bg; ctx.fill();
+    ctx.fillStyle=fg; ctx.fillText(label,W-240+11,104);
+  }
+  function toL(e){
+    const r=cv.getBoundingClientRect();
+    return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
+  }
+  cv.addEventListener('pointerdown',function(e){
+    const q=toL(e), arr=pts();
+    for(let i=0;i<3;i++){ if(Math.hypot(q.x-arr[i].x,q.y-arr[i].y)<24){ drag=i; break; } }
+    if(drag>=0) cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove',function(e){
+    if(drag<0) return;
+    const q=toL(e), arr=pts();
+    arr[drag].x=Math.max(12,Math.min(W-12,q.x));
+    arr[drag].y=Math.max(12,Math.min(H-12,q.y));
+    draw();
+  });
+  cv.addEventListener('pointerup',function(){drag=-1;});
+  cv.addEventListener('pointercancel',function(){drag=-1;});
+  draw();
+})();
+
+/* ================= 03 静态图：像素覆盖测试 ================= */
+(function(){
+  const W=860,H=520,cols=16,rows=10,cw=(W-40)/cols,ch=(H-40)/rows,ox=20,oy=20;
+  const p=prep('cvCoverage',W,H), ctx=p.ctx;
+  const tri=[{x:130,y:440},{x:740,y:380},{x:430,y:70}];
+  raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:tri,mode:'solid',samples:1});
+  drawGrid(ctx,ox,oy,cols,rows,cw,ch,'#E9E0CF');
+  drawTriOutline(ctx,tri,'#9C4A28',2.5);
+  drawCenters(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:tri});
+})();
+
+/* ================= 04 实验台：重心坐标 ================= */
+(function(){
+  const W=860,H=480,BAR=H-58;
+  const p=prep('cvBary',W,H), ctx=p.ctx, cv=p.cv;
+  const st={V:[{x:150,y:392},{x:700,y:360},{x:420,y:70}],P:{x:420,y:300}};
+  let drag=-1;
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const V=st.V,P=st.P;
+    const l=bary(V,P.x,P.y);
+    /* 三块子三角形（颜色 = 对面顶点的 λ） */
+    const subs=[[P,V[1],V[2]],[P,V[2],V[0]],[P,V[0],V[1]]];
+    for(let i=0;i<3;i++){
+      ctx.fillStyle='rgba('+VC[i][0]+','+VC[i][1]+','+VC[i][2]+',.26)';
+      triPath(ctx,subs[i]); ctx.fill();
+    }
+    drawTriOutline(ctx,V,'rgba(44,39,33,.55)',2);
+    ctx.strokeStyle='#B9AC93'; ctx.lineWidth=1.2; ctx.setLineDash([4,4]);
+    for(let i=0;i<3;i++){ ctx.beginPath(); ctx.moveTo(P.x,P.y); ctx.lineTo(V[i].x,V[i].y); ctx.stroke(); }
+    ctx.setLineDash([]);
+    /* P 的颜色 = λ 混合 */
+    const pc=mixL(VC[0],VC[1],VC[2],Math.max(0,l.l0),Math.max(0,l.l1),Math.max(0,l.l2));
+    dot(ctx,P.x,P.y,11,pc,'#fff');
+    ctx.strokeStyle='#2C2721'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(P.x,P.y,11,0,7); ctx.stroke();
+    drawHandles(ctx,V,10,['V0','V1','V2']);
+    ctx.fillStyle='#2C2721'; ctx.font='600 13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('P',P.x,P.y-19);
+    /* 提示：P 在外 */
+    if(!l.inside){
+      ctx.textAlign='center'; ctx.font='600 13.5px sans-serif'; ctx.fillStyle='#9C4A28';
+      ctx.fillText('P 在三角形外 → 有 λ 变成负数：这就是「不在内」的数学长相',W/2,24);
+    }
+    /* λ 条面板 */
+    const ls=[l.l0,l.l1,l.l2];
+    for(let i=0;i<3;i++){
+      const x=40+i*280, y=BAR, bw=220;
+      ctx.fillStyle='#EFE7D3'; rr(ctx,x,y,bw,12,6); ctx.fill();
+      const v=ls[i], neg=v<0;
+      const w=Math.min(1,Math.abs(v))*bw;
+      ctx.fillStyle=neg?'rgba(156,74,40,.4)':'rgb('+VC[i][0]+','+VC[i][1]+','+VC[i][2]+')';
+      if(w>0.5){ rr(ctx,x,y,w,12,6); ctx.fill(); }
+      if(neg){ ctx.strokeStyle='#9C4A28'; ctx.lineWidth=1.5; rr(ctx,x,y,bw,12,6); ctx.stroke(); }
+      ctx.textAlign='left'; ctx.font='600 13px Georgia,serif';
+      ctx.fillStyle=neg?'#9C4A28':'#2C2721';
+      ctx.fillText('λ'+i+' = '+v.toFixed(2),x,y-8);
+    }
+    ctx.textAlign='right'; ctx.font='12.5px sans-serif'; ctx.fillStyle='#8B7F6E';
+    ctx.fillText('Σλ = '+(l.l0+l.l1+l.l2).toFixed(2)+'（恒成立）',W-36,BAR+13);
+  }
+  function toL(e){
+    const r=cv.getBoundingClientRect();
+    return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
+  }
+  cv.addEventListener('pointerdown',function(e){
+    const q=toL(e);
+    if(Math.hypot(q.x-st.P.x,q.y-st.P.y)<24){ drag=99; }
+    else { for(let i=0;i<3;i++){ if(Math.hypot(q.x-st.V[i].x,q.y-st.V[i].y)<24){ drag=i; break; } } }
+    if(drag>=0) cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove',function(e){
+    if(drag<0) return;
+    const q=toL(e);
+    const pt=drag===99?st.P:st.V[drag];
+    pt.x=Math.max(12,Math.min(W-12,q.x));
+    pt.y=Math.max(12,Math.min(BAR-30,q.y));
+    draw();
+  });
+  cv.addEventListener('pointerup',function(){drag=-1;});
+  cv.addEventListener('pointercancel',function(){drag=-1;});
+  draw();
+})();
+
+/* ================= 04 静态图：属性插值 ================= */
+(function(){
+  const W=860,H=520,cols=16,rows=10,cw=(W-40)/cols,ch=(H-40)/rows,ox=20,oy=20;
+  const p=prep('cvInterp',W,H), ctx=p.ctx;
+  const tri=[{x:130,y:440},{x:740,y:380},{x:430,y:70}];
+  raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:tri,mode:'interp',colors:VC,samples:1});
+  drawGrid(ctx,ox,oy,cols,rows,cw,ch,'rgba(233,224,207,.7)');
+  drawTriOutline(ctx,tri,'rgba(44,39,33,.5)',2);
+  drawHandles(ctx,tri,10,['V0','V1','V2']);
+})();
+
+/* ================= 05 静态图：透视校正对比 ================= */
+(function(){
+  const W=860,H=330;
+  const p=prep('cvPersp',W,H), ctx=p.ctx;
+  function perspS(t){ const z0=1,z1=6,z=z0+t*(z1-z0); return (1/z-1/z0)/(1/z1-1/z0); }
+  function panel(ox,correct,title,tcolor){
+    const VP={x:ox+200,y:76}, L0={x:ox+40,y:298}, R0={x:ox+360,y:298};
+    ctx.textAlign='center'; ctx.font='600 14px sans-serif'; ctx.fillStyle=tcolor;
+    ctx.fillText(title,ox+200,24);
+    ctx.strokeStyle='#C9BCA4'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(L0.x,L0.y); ctx.lineTo(VP.x,VP.y);
+    ctx.moveTo(R0.x,R0.y); ctx.lineTo(VP.x,VP.y); ctx.stroke();
+    dot(ctx,VP.x,VP.y,3,'#B4A88F');
+    const N=9;
+    for(let i=0;i<N;i++){
+      const t=i/(N-1), s=correct?perspS(t):t;
+      const lx=L0.x+(VP.x-L0.x)*s, ly=L0.y+(VP.y-L0.y)*s;
+      const rx=R0.x+(VP.x-R0.x)*s, ry=R0.y+(VP.y-R0.y)*s;
+      ctx.strokeStyle=correct?'#9C4A28':'#7A6F60';
+      ctx.lineWidth=correct?2.5:2;
+      ctx.globalAlpha=correct?0.9:0.75;
+      ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(rx,ry); ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    ctx.font='12px sans-serif'; ctx.fillStyle='#8B7F6E'; ctx.textAlign='center';
+    ctx.fillText(correct?'3D 中等距 → 屏幕上近疏远密 ✓':'假设屏幕上等距 → 3D 被压扁 ✗',ox+200,H-14);
+  }
+  panel(20,false,'屏幕均匀插值（错误）','#7A6F60');
+  panel(440,true,'透视校正插值（正确）','#9C4A28');
+  ctx.strokeStyle='#E4DAC2'; ctx.setLineDash([4,6]);
+  ctx.beginPath(); ctx.moveTo(430,14); ctx.lineTo(430,H-30); ctx.stroke(); ctx.setLineDash([]);
+})();
+
+/* ================= 07 静态图：填充规则 ================= */
+(function(){
+  const W=860,H=340;
+  const p=prep('cvTL',W,H), ctx=p.ctx;
+  const cols=10,cw=40,rows=7,ch=40,oy=32;
+  function panel(ox,agreed,title){
+    ctx.textAlign='center'; ctx.font='600 14px sans-serif'; ctx.fillStyle='#2C2721';
+    ctx.fillText(title,ox+200,20);
+    const T1=[{x:ox+60,y:250},{x:ox+220,y:50},{x:ox+220,y:250}];
+    const T2=[{x:ox+220,y:50},{x:ox+380,y:250},{x:ox+220,y:250}];
+    if(!agreed){
+      raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:T1,mode:'solid',samples:1,color:ACCENT,alpha:0.55});
+      raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:T2,mode:'solid',samples:1,color:BLUE,alpha:0.55});
+    }else{
+      raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:T1,mode:'solid',samples:1,color:ACCENT,alpha:0.85});
+      raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:T2,mode:'solid',samples:1,color:BLUE,alpha:0.85,strict:true});
+    }
+    drawGrid(ctx,ox,oy,cols,rows,cw,ch,'rgba(233,224,207,.85)');
+    drawTriOutline(ctx,T1,'rgba(44,39,33,.45)',1.8);
+    drawTriOutline(ctx,T2,'rgba(44,39,33,.45)',1.8);
+  }
+  panel(20,false,'没有约定：边界画两次 ✗');
+  panel(440,true,'top-left rule：恰好一个主人 ✓');
+  ctx.strokeStyle='#E4DAC2'; ctx.setLineDash([4,6]);
+  ctx.beginPath(); ctx.moveTo(430,12); ctx.lineTo(430,H-12); ctx.stroke(); ctx.setLineDash([]);
+})();
+
+/* ================= 08 静态图：锯齿对比 ================= */
+function aliasPanel(id,samples){
+  const W=430,H=340,cols=12,rows=9,cw=(W-24)/cols,ch=(H-24)/rows,ox=12,oy=12;
+  const p=prep(id,W,H), ctx=p.ctx;
+  const tri=[{x:55,y:290},{x:385,y:255},{x:215,y:45}];
+  raster(ctx,{ox:ox,oy:oy,cols:cols,rows:rows,cw:cw,ch:ch,tri:tri,mode:'solid',samples:samples});
+  drawGrid(ctx,ox,oy,cols,rows,cw,ch,'#E9E0CF');
+  drawTriOutline(ctx,tri,'rgba(44,39,33,.45)',2);
+}
+aliasPanel('cvAlias1',1);
+aliasPanel('cvAlias4',4);
+
+/* ================= 09 实验场 ================= */
+(function(){
+  const PW=860,PH=600;
+  const p=prep('cvPlay',PW,PH), ctx=p.ctx, cv=p.cv;
+  const state={
+    cols:22, showCenters:true, showSmooth:true, msaa:false,
+    tri:[{x:170,y:500},{x:730,y:440},{x:430,y:100}]
+  };
+  let drag=-1;
+  function draw(){
+    ctx.clearRect(0,0,PW,PH);
+    const cw=PW/state.cols, rows=Math.max(3,Math.floor(PH/cw)), ch=cw, oy=(PH-rows*ch)/2;
+    raster(ctx,{ox:0,oy:oy,cols:state.cols,rows:rows,cw:cw,ch:ch,tri:state.tri,mode:'interp',colors:VC,samples:state.msaa?4:1});
+    drawGrid(ctx,0,oy,state.cols,rows,cw,ch,'#E7DECB');
+    if(state.showSmooth){ ctx.fillStyle='rgba(44,39,33,.07)'; triPath(ctx,state.tri); ctx.fill(); }
+    drawTriOutline(ctx,state.tri,'rgba(44,39,33,.6)',2);
+    if(state.showCenters){ drawCenters(ctx,{ox:0,oy:oy,cols:state.cols,rows:rows,cw:cw,ch:ch,tri:state.tri}); }
+    drawHandles(ctx,state.tri,11,['V0','V1','V2']);
+  }
+  function toL(e){
+    const r=cv.getBoundingClientRect();
+    return {x:(e.clientX-r.left)*PW/r.width,y:(e.clientY-r.top)*PH/r.height};
+  }
+  cv.addEventListener('pointerdown',function(e){
+    const q=toL(e);
+    for(let i=0;i<3;i++){ if(Math.hypot(q.x-state.tri[i].x,q.y-state.tri[i].y)<24){ drag=i; break; } }
+    if(drag>=0) cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove',function(e){
+    if(drag<0) return;
+    const q=toL(e);
+    state.tri[drag].x=Math.max(8,Math.min(PW-8,q.x));
+    state.tri[drag].y=Math.max(8,Math.min(PH-8,q.y));
+    draw();
+  });
+  cv.addEventListener('pointerup',function(){drag=-1;});
+  cv.addEventListener('pointercancel',function(){drag=-1;});
+  document.getElementById('density').addEventListener('input',function(e){
+    state.cols=+e.target.value;
+    document.getElementById('densityVal').textContent=state.cols+' 列';
+    draw();
+  });
+  document.getElementById('cbCenters').addEventListener('change',function(e){state.showCenters=e.target.checked;draw();});
+  document.getElementById('cbSmooth').addEventListener('change',function(e){state.showSmooth=e.target.checked;draw();});
+  document.getElementById('cbMsaa').addEventListener('change',function(e){state.msaa=e.target.checked;draw();});
+  draw();
+})();
+
+/* ================= 滚动入场 ================= */
+(function(){
+  var els=document.querySelectorAll('.reveal');
+  if(!('IntersectionObserver' in window)){
+    for(var i=0;i<els.length;i++) els[i].classList.add('in');
+    return;
+  }
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+    });
+  },{threshold:0.08});
+  for(var i=0;i<els.length;i++) io.observe(els[i]);
+})();
+</script>
+</body>
+</html>
