@@ -425,12 +425,6 @@ mjx-container[display="true"]{margin:.6em 0 !important}
     </div>
   </div>
 
-  <h3>回头验证第 1 节</h3>
-  <p>把 \(z_2=i\) 代进去。\(i\) 的模是 \(1\)、辐角是 \(90°\)，所以乘以 \(i\) 的效果是：<strong>模不变，角度加 90°</strong>——正好就是纯旋转 90°。第 1 节靠直觉猜的事，在这里被证明了。</p>
-
-  <p>再让 \(z_1=z_2=\cdots=z_n\)，立刻得到棣莫弗公式：</p>
-  <div class="mathbox tight">\[\big[\rho(\cos\theta+i\sin\theta)\big]^n=\rho^n\big(\cos n\theta+i\sin n\theta\big)\]</div>
-  <p>注意这里已经出现了欧拉公式的影子：<strong>指数（幂次）作用在角度上，是"乘法"变成了"加法"</strong>。这正是指数函数的招牌行为。</p>
 </section>
 
 <!-- ══════════════ 4 ══════════════ -->
@@ -549,47 +543,6 @@ mjx-container[display="true"]{margin:.6em 0 !important}
     \(e^{i\theta}\) 不是"\(e\) 自乘 \(i\theta\) 次"——虚数次幂本来没有意义。我们是在<strong>定义一个延拓</strong>，
     要求延拓后 \(y'=y\) 与 \(e^{x+y}=e^xe^y\) 依然成立。神奇之处在于：这个要求<strong>只有一种解</strong>，
     而它恰好就是旋转。
-  </div>
-</section>
-
-<!-- ══════════════ 6 ══════════════ -->
-<section id="s6">
-  <div class="sec-head"><span class="sec-num">06</span><h2>合起来看：增长与旋转是同一个运算的两个分量</h2></div>
-
-  <p>最后把指数放开成一般复数 \(s=a+bi\)：</p>
-
-  <div class="mathbox">\[e^{(a+bi)t}=\underbrace{e^{at}}_{\text{缩放}}\cdot\underbrace{\big(\cos bt+i\sin bt\big)}_{\text{旋转}}\]</div>
-
-  <p>指数的本质是"沿某个固定方向持续流动"，而这个方向由 \(s\) 决定：</p>
-
-  <table>
-    <tr><th>指数</th><th>速度相对位置</th><th>轨迹</th></tr>
-    <tr><td>\(a>0,\ b=0\)</td><td>同向</td><td>指数增长（射线上加速外奔）</td></tr>
-    <tr><td>\(a=0,\ b\ne 0\)</td><td>垂直（转 90°）</td><td>单位圆，匀速旋转</td></tr>
-    <tr><td>\(a\ne 0,\ b\ne 0\)</td><td>斜向固定夹角</td><td>对数螺线</td></tr>
-  </table>
-
-  <div class="demo">
-    <div class="demo-bar"><span>Demo · e^(a+bi)t 的轨迹</span><span class="hint">a 管缩放 · b 管旋转</span></div>
-    <div class="demo-body">
-      <canvas id="cvE" height="360"></canvas>
-      <div class="controls">
-        <div class="ctl"><label>a</label><input type="range" id="aE" min="-0.45" max="0.45" step="0.005" value="0"><span class="val" id="vE1">0.00</span></div>
-        <div class="ctl"><label>b</label><input type="range" id="bE" min="0" max="2.5" step="0.01" value="1"><span class="val" id="vE2">1.00</span></div>
-      </div>
-      <div class="btns">
-        <button id="btnE1">纯旋转 a=0</button>
-        <button id="btnE2">纯增长 b=0</button>
-        <button id="btnE3">螺旋</button>
-      </div>
-      <div class="readout" id="oE">a = 0 ⟹ 半径不变，这是纯旋转：轨迹是圆。</div>
-    </div>
-  </div>
-
-  <div class="key">
-    <span class="label">修正一句常见说法</span>
-    <p>"指数增长和旋转是同一件事"说得太满。<strong>准确的版本是：它们是同一个运算沿不同方向的两种表现。</strong>
-    实部让你<em>伸缩</em>，虚部让你<em>旋转</em>，一般情形是二者叠加的螺旋。欧拉公式正是把"虚部方向"这一半单独提取出来的结果。</p>
   </div>
 </section>
 
