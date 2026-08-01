@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="title" content="从复利到自然常数 e">
+  <meta name="date" content="2026-08-01">
+  <meta name="summary" content="以两次结息为起点推导分期复利公式，通过交互演示说明结息频率趋于无穷时，年末余额收敛于自然常数 e。">
+  <meta name="category" content="Inbox">
+  <meta name="tags" content="自然常数 e|复利|连续复利|极限|交互笔记">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从两次复利逐步理解自然常数 e 的交互笔记">
+  <title>从复利到自然常数 e</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --paper: light-dark(#f6f2e9, #171916);
+      --surface: light-dark(#fffdf8, #20231f);
+      --ink: light-dark(#20251f, #f0f1ea);
+      --muted: light-dark(#6f756c, #aeb4aa);
+      --line: light-dark(#d9d7cc, #3a3e37);
+      --soft: light-dark(#ebe7db, #2a2e28);
+      --blue: light-dark(#315bd6, #87a5ff);
+      --blue-soft: light-dark(#dfe7ff, #253359);
+      --green: light-dark(#15866f, #62cbb3);
+      --green-soft: light-dark(#d9f0e9, #183d34);
+      --orange: light-dark(#cc6b28, #f1a267);
+      --shadow: light-dark(0 18px 55px rgba(43, 45, 36, .10), 0 18px 55px rgba(0, 0, 0, .28));
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% 4%, color-mix(in srgb, var(--blue) 9%, transparent), transparent 27rem),
+        radial-gradient(circle at 92% 28%, color-mix(in srgb, var(--green) 8%, transparent), transparent 24rem),
+        var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 45%, transparent); outline-offset: 3px; }
+
+    .page { width: min(100% - 32px, 940px); margin: 0 auto; padding: 54px 0 80px; }
+
+    .hero {
+      padding: 54px clamp(24px, 6vw, 66px);
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "e";
+      position: absolute;
+      right: clamp(18px, 6vw, 64px);
+      top: -42px;
+      color: color-mix(in srgb, var(--blue) 10%, transparent);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(150px, 26vw, 260px);
+      font-style: italic;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .eyebrow { margin: 0 0 10px; color: var(--blue); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2 { margin: 0; line-height: 1.18; letter-spacing: -.035em; }
+    h1 { max-width: 650px; font-size: clamp(40px, 8vw, 72px); }
+    h2 { font-size: clamp(27px, 4.8vw, 40px); }
+    .hero p { max-width: 640px; margin: 22px 0 0; color: var(--muted); font-size: 1.08rem; position: relative; z-index: 1; }
+
+    .chapter {
+      display: grid;
+      grid-template-columns: 66px minmax(0, 1fr);
+      gap: 24px;
+      padding-top: 76px;
+    }
+    .chapter-no {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      position: sticky;
+      top: 22px;
+      background: var(--paper);
+    }
+    .chapter-body > p { max-width: 720px; color: var(--muted); margin: 14px 0 0; }
+    .chapter-body strong { color: var(--ink); }
+
+    .assumption {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      margin-top: 24px;
+      padding: 14px 18px;
+      border-left: 3px solid var(--orange);
+      background: color-mix(in srgb, var(--surface) 75%, transparent);
+      color: var(--muted);
+    }
+    .assumption strong { flex: 0 0 auto; color: var(--orange); }
+
+    .formula {
+      margin: 24px 0;
+      padding: 22px clamp(14px, 4vw, 28px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      overflow-x: auto;
+      text-align: center;
+    }
+    math { font-family: "STIX Two Math", "Cambria Math", Georgia, serif; font-size: clamp(1.15rem, 3.3vw, 1.55rem); }
+    .formula-stack { display: grid; gap: 12px; }
+    .formula-note { margin-top: 14px; color: var(--muted); font-size: .92rem; }
+
+    .demo {
+      margin-top: 28px;
+      padding: clamp(20px, 4vw, 32px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      box-shadow: 0 12px 34px color-mix(in srgb, var(--ink) 8%, transparent);
+    }
+    .demo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    .demo-label { font-weight: 750; }
+    .live-detail { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .step-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .step-buttons button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
+    }
+    .step-buttons button:hover { transform: translateY(-1px); }
+    .step-buttons button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+    .timeline { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; margin: 42px 2px 32px; }
+    .timeline::before, .timeline-progress { content: ""; position: absolute; top: 28px; left: 16.666%; right: 16.666%; height: 2px; background: var(--line); }
+    .timeline-progress { right: auto; width: 0; background: var(--blue); transition: width .42s cubic-bezier(.2,.8,.2,1); }
+    .time-node { position: relative; z-index: 1; display: grid; justify-items: center; gap: 8px; color: var(--muted); }
+    .time-dot {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--line);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--muted);
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+      transition: background .28s ease, color .28s ease, border-color .28s ease, transform .28s ease;
+    }
+    .time-node.done .time-dot { background: var(--blue); border-color: var(--blue); color: var(--paper); }
+    .time-node.current .time-dot { transform: scale(1.1); box-shadow: 0 0 0 6px color-mix(in srgb, var(--blue) 14%, transparent); }
+    .time-node small { color: var(--muted); }
+
+    .balance-legend { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 8px; color: var(--muted); font-size: .9rem; }
+    .balance-track { height: 48px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; background: var(--soft); }
+    .balance-base, .balance-interest { height: 100%; transition: width .48s cubic-bezier(.2,.8,.2,1); }
+    .balance-base { background: var(--blue); }
+    .balance-interest { background: var(--green); }
+    .balance-total { margin-top: 8px; text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; }
+
+    .meaning-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .meaning {
+      padding: 17px 18px;
+      border-radius: 16px;
+      background: var(--soft);
+    }
+    .meaning b { display: block; margin-bottom: 3px; }
+    .meaning span { color: var(--muted); }
+
+    .slider-wrap { margin-top: 22px; }
+    .slider-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+    .slider-head output { color: var(--blue); font-weight: 800; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; margin: 14px 0 5px; accent-color: var(--blue); cursor: pointer; }
+    .range-scale { display: flex; justify-content: space-between; color: var(--muted); font-size: .82rem; }
+    .metrics { display: flex; gap: 18px 28px; flex-wrap: wrap; margin: 20px 0 10px; color: var(--muted); }
+    .metrics strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .chart-key { display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: .9rem; }
+    .key-item { display: inline-flex; align-items: center; gap: 7px; }
+    .key-line { width: 24px; height: 3px; border-radius: 999px; background: var(--blue); }
+    .key-line.green { background: var(--green); height: 2px; }
+    canvas { display: block; width: 100%; height: 310px; margin-top: 8px; }
+
+    .conclusion {
+      margin-top: 78px;
+      padding: clamp(26px, 5vw, 46px);
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: var(--paper);
+      text-align: center;
+    }
+    .conclusion p { margin: 0 0 14px; opacity: .72; }
+    .conclusion math { color: inherit; font-size: clamp(1.25rem, 4vw, 1.8rem); }
+
+    @media (max-width: 680px) {
+      .page { width: min(100% - 20px, 940px); padding-top: 10px; }
+      .hero { padding: 38px 22px; border-radius: 22px; }
+      .chapter { grid-template-columns: 1fr; gap: 16px; padding-top: 58px; }
+      .chapter-no { position: static; width: 38px; height: 38px; }
+      .meaning-grid { grid-template-columns: 1fr; }
+      .demo { padding: 18px 14px; }
+      .live-detail { width: 100%; }
+      canvas { height: 270px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+
+    /* Refined editorial system */
+    :root {
+      --paper: light-dark(#f7f8fa, #111418);
+      --surface: light-dark(#ffffff, #191d22);
+      --ink: light-dark(#172033, #eef2f7);
+      --muted: light-dark(#687386, #9ba6b7);
+      --line: light-dark(#e2e7ee, #303741);
+      --soft: light-dark(#f0f3f7, #222831);
+      --blue: light-dark(#2858d8, #7c9cff);
+      --blue-soft: light-dark(#e8eeff, #202d52);
+      --green: light-dark(#14836f, #59c7af);
+      --green-soft: light-dark(#e4f4ef, #173a33);
+      --orange: light-dark(#c8662e, #ed9b68);
+      --shadow: light-dark(0 16px 42px rgba(25, 42, 70, .07), 0 16px 42px rgba(0, 0, 0, .24));
+      --radius: 20px;
+    }
+    body { background: var(--paper); line-height: 1.68; }
+    .page { width: min(100% - 36px, 900px); padding: 22px 0 68px; }
+    .hero {
+      padding: 26px 0 30px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      overflow: visible;
+    }
+    .hero::after { display: none; }
+    .eyebrow { margin-bottom: 7px; font-size: .78rem; letter-spacing: .16em; }
+    h1 { max-width: none; font-size: clamp(34px, 6vw, 50px); }
+    h2 { font-size: clamp(25px, 4vw, 32px); }
+    .hero p { max-width: 720px; margin-top: 12px; font-size: 1rem; }
+
+    .chapter { grid-template-columns: 44px minmax(0, 1fr); gap: 20px; padding-top: 54px; }
+    .chapter-no {
+      width: auto;
+      height: auto;
+      display: block;
+      border: 0;
+      border-radius: 0;
+      color: var(--blue);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      position: static;
+      background: transparent;
+      padding-top: 7px;
+    }
+    .chapter-body > p { margin-top: 11px; }
+    .assumption {
+      margin-top: 20px;
+      padding: 13px 16px;
+      border: 1px solid color-mix(in srgb, var(--orange) 28%, var(--line));
+      border-left: 3px solid var(--orange);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--orange) 5%, var(--surface));
+    }
+    .formula {
+      margin: 20px 0;
+      padding: 20px clamp(12px, 3vw, 24px);
+      border-color: var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--surface) 88%, var(--soft));
+    }
+
+    .demo {
+      margin-top: 24px;
+      padding: clamp(18px, 4vw, 28px);
+      border-color: var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .demo-label { font-weight: 800; letter-spacing: -.01em; }
+    .live-detail {
+      width: fit-content;
+      margin: 14px auto 0;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: .94rem;
+      font-weight: 650;
+      text-align: center;
+    }
+    .step-buttons {
+      width: fit-content;
+      padding: 4px;
+      gap: 2px;
+      margin: 20px auto 0;
+      border-radius: 14px;
+      background: var(--soft);
+    }
+    .step-buttons button {
+      border: 0;
+      border-radius: 10px;
+      padding: 7px 12px;
+      background: transparent;
+      color: var(--muted);
+      box-shadow: none;
+    }
+    .step-buttons button[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--ink);
+      border-color: transparent;
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--ink) 9%, transparent);
+    }
+    .step-buttons button:hover { transform: none; color: var(--ink); }
+
+    .timeline { height: 114px; margin: 74px 8px 22px; align-items: start; }
+    .timeline::before, .timeline-progress { top: 32px; height: 2px; }
+    .timeline::before { background: var(--line); }
+    .time-node { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .time-node small { position: absolute; top: -38px; color: var(--muted); font-weight: 650; }
+    .time-dot {
+      width: 66px;
+      height: 66px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: inset 0 0 0 4px var(--surface), inset 0 0 0 5px var(--line), 0 7px 18px color-mix(in srgb, var(--ink) 8%, transparent);
+    }
+    .coin-mark { font-size: .67rem; line-height: 1; opacity: .68; }
+    .coin-value { font-size: .94rem; line-height: 1.1; font-weight: 800; }
+    .time-node.done .time-dot {
+      background: var(--blue-soft);
+      border-color: color-mix(in srgb, var(--blue) 36%, var(--line));
+      color: var(--blue);
+      box-shadow: inset 0 0 0 4px var(--surface), inset 0 0 0 5px color-mix(in srgb, var(--blue) 34%, var(--line)), 0 7px 18px color-mix(in srgb, var(--blue) 12%, transparent);
+    }
+    .time-node.current .time-dot { transform: translateY(-2px); box-shadow: inset 0 0 0 4px var(--surface), inset 0 0 0 5px var(--blue), 0 10px 24px color-mix(in srgb, var(--blue) 20%, transparent); }
+    .connector-label {
+      position: absolute;
+      top: -4px;
+      z-index: 2;
+      transform: translateX(-50%);
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 700;
+    }
+    .connector-one { left: 33.333%; }
+    .connector-two { left: 66.667%; }
+    .balance-panel { padding-top: 24px; border-top: 1px solid var(--line); }
+    .balance-legend { margin-bottom: 9px; font-size: .84rem; }
+    .balance-track { position: relative; height: 46px; border: 1px solid var(--line); border-radius: 10px; overflow: visible; background: var(--surface); }
+    .balance-base { background: color-mix(in srgb, var(--blue) 72%, white); border-radius: 9px; }
+    .balance-interest { background: color-mix(in srgb, var(--green) 72%, white); border-radius: 9px; }
+    .balance-marker {
+      position: absolute;
+      top: -7px;
+      bottom: -7px;
+      left: 44.444%;
+      width: 2px;
+      border-radius: 999px;
+      background: var(--ink);
+      transform: translateX(-1px);
+      transition: left .48s cubic-bezier(.2,.8,.2,1);
+    }
+    .balance-total {
+      position: relative;
+      left: 44.444%;
+      width: max-content;
+      margin-top: 15px;
+      font-size: .9rem;
+      transform: translateX(-50%);
+      transition: left .48s cubic-bezier(.2,.8,.2,1);
+    }
+    .balance-total.at-end { transform: translateX(-100%); }
+
+    .meaning-grid { gap: 10px; margin-top: 16px; }
+    .meaning { padding: 15px 16px; border: 1px solid var(--line); background: var(--surface); }
+    .meaning b { color: var(--blue); }
+
+    .repeat-equation {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: clamp(10px, 2.5vw, 22px);
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .repeat-product { min-width: max-content; flex: 0 0 auto; }
+    .repeat-product math { display: block; }
+    .repeat-result { flex: 0 0 auto; }
+    .underbrace {
+      width: calc(100% - 8px);
+      height: 13px;
+      margin: -2px auto 0;
+      border-bottom: 2px solid var(--ink);
+      border-radius: 0 0 48% 48%;
+      position: relative;
+    }
+    .underbrace::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -7px;
+      width: 10px;
+      height: 10px;
+      background: var(--surface);
+      border-right: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .underbrace-label { margin-top: 6px; color: var(--muted); font-family: Georgia, serif; font-style: italic; }
+
+    .slider-head output { color: var(--blue); font-weight: 800; }
+    .range-shell { --thumb-size: 18px; margin-top: 12px; }
+    input[type="range"] {
+      appearance: none;
+      width: 100%;
+      height: 22px;
+      margin: 0;
+      background: transparent;
+      accent-color: var(--blue);
+    }
+    input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: var(--line); }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: var(--thumb-size);
+      height: var(--thumb-size);
+      margin-top: -7px;
+      border: 4px solid var(--surface);
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue), 0 3px 8px color-mix(in srgb, var(--blue) 28%, transparent);
+    }
+    input[type="range"]::-moz-range-track { height: 4px; border-radius: 999px; background: var(--line); }
+    input[type="range"]::-moz-range-thumb {
+      width: calc(var(--thumb-size) - 8px);
+      height: calc(var(--thumb-size) - 8px);
+      border: 4px solid var(--surface);
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 1px var(--blue);
+    }
+    .range-scale {
+      display: block;
+      position: relative;
+      height: 24px;
+      margin: 2px calc(var(--thumb-size) / 2) 0;
+      color: var(--muted);
+      font-size: .76rem;
+    }
+    .range-scale span { position: absolute; top: 0; width: max-content; white-space: nowrap; transform: translateX(-50%); }
+    .tick-1 { left: 0; transform: none !important; }
+    .tick-12 { left: 37.5%; }
+    .tick-365 { left: 62.5%; }
+    .tick-million { left: 100%; transform: translateX(-100%) !important; }
+    .inline-math {
+      display: inline-block;
+      margin: 0 .08em;
+      color: var(--ink);
+      font-size: 1.06em;
+      line-height: 1;
+      vertical-align: middle;
+      transform: translateY(-.03em);
+    }
+    h2 .inline-math { margin-inline: .02em; font-size: 1.06em; vertical-align: middle; }
+    .meaning b .inline-math { margin: 0; color: inherit; font-size: 1.08em; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin: 22px 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--line);
+    }
+    .metrics > span { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; background: var(--surface); font-size: .82rem; }
+    .metric-label { color: var(--muted); }
+    .metrics strong { font-size: 1rem; }
+    .chart-key { font-size: .82rem; }
+    canvas { height: 280px; margin-top: 4px; }
+    .conclusion { display: none; }
+
+    @media (max-width: 680px) {
+      .page { width: min(100% - 24px, 900px); padding-top: 8px; }
+      .hero { padding: 22px 0 24px; }
+      .chapter { grid-template-columns: 1fr; gap: 6px; padding-top: 44px; }
+      .chapter-no { padding: 0; }
+      .demo { padding: 17px 14px; }
+      .live-detail { width: auto; max-width: 100%; }
+      .step-buttons { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+      .step-buttons button { padding-inline: 6px; }
+      .timeline { margin-inline: 0; }
+      .time-dot { width: 58px; height: 58px; }
+      .timeline::before, .timeline-progress { top: 28px; }
+      .connector-label { top: -3px; }
+      .balance-track { height: 38px; }
+      .metrics { grid-template-columns: 1fr; }
+      .metrics > span { flex-direction: row; justify-content: space-between; align-items: baseline; }
+      .repeat-equation { justify-content: flex-start; }
+      .repeat-equation { gap: 14px; }
+      .repeat-product math, .repeat-result { font-size: .98rem; }
+      canvas { height: 250px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">自然常数 e</p>
+      <h1>从复利到自然常数 <em>e</em></h1>
+      <p><strong>e 是连续复利的极限：</strong>增长被切分得越细，利息越早进入下一轮本金，1 元的年末余额就越接近 2.7182818…</p>
+    </header>
+
+    <section class="chapter" aria-labelledby="part-one-title">
+      <div class="chapter-no">01</div>
+      <div class="chapter-body">
+        <h2 id="part-one-title">从 1 元开始，分成两次</h2>
+        <div class="assumption"><strong>设定</strong><span>名义年增长率为 100%，把一年平均分成两期，所以每期增长 50%。</span></div>
+        <div class="formula formula-stack" aria-label="两次结息的计算">
+          <math display="block"><mrow><mn>1</mn><mo>+</mo><mn>1</mn><mo>×</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>=</mo><mn>1</mn><mo>×</mo><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo><mo>=</mo><mn>1.5</mn></mrow></math>
+          <math display="block"><mrow><mn>1.5</mn><mo>+</mo><mn>1.5</mn><mo>×</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>=</mo><mn>1.5</mn><mo>×</mo><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo><mo>=</mo><mn>2.25</mn></mrow></math>
+        </div>
+        <p>第二期以 <strong>1.50</strong> 为新本金，因此增加的是 0.75，而不是再次增加 0.50。这就是“利息也产生利息”。</p>
+
+        <div class="demo" id="two-step-demo">
+          <div class="step-buttons" role="group" aria-label="选择结息步骤">
+            <button type="button" data-step="0" aria-pressed="true">开始</button>
+            <button type="button" data-step="1" aria-pressed="false">第 1 次结息</button>
+            <button type="button" data-step="2" aria-pressed="false">第 2 次结息</button>
+          </div>
+          <div class="live-detail" id="step-detail" aria-live="polite">从本金 1.00 开始，还没有结息</div>
+          <div class="timeline" aria-hidden="true">
+            <div class="timeline-progress" id="timeline-progress"></div>
+            <span class="connector-label connector-one">增长 50%</span>
+            <span class="connector-label connector-two">再增长 50%</span>
+            <div class="time-node done current"><small>开始</small><div class="time-dot"><strong class="coin-value">1.00</strong></div></div>
+            <div class="time-node"><small>半年</small><div class="time-dot"><strong class="coin-value">1.50</strong></div></div>
+            <div class="time-node"><small>一年</small><div class="time-dot"><strong class="coin-value">2.25</strong></div></div>
+          </div>
+          <div class="balance-panel">
+            <div class="balance-legend"><span id="base-label">本期本金 1.00</span><span id="interest-label">尚未增加利息</span></div>
+            <div class="balance-track" aria-hidden="true"><div class="balance-base" id="balance-base"></div><div class="balance-interest" id="balance-interest"></div><div class="balance-marker" id="balance-marker"></div></div>
+            <div class="balance-total" id="balance-total">余额 1.00</div>
+          </div>
+        </div>
+
+        <div class="formula">
+          <math display="block"><mrow><mn>1</mn><mo>×</mo><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo><mo>×</mo><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo><mo>=</mo><msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo></mrow><mn>2</mn></msup></mrow></math>
+          <div class="formula-note">指数 2，表示同一个增长倍率连续乘了 2 次。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" aria-labelledby="part-two-title">
+      <div class="chapter-no">02</div>
+      <div class="chapter-body">
+        <h2 id="part-two-title">当前余额为 <math class="inline-math"><mi>B</mi></math> 时</h2>
+        <p>如果一年分成 <math class="inline-math"><mi>n</mi></math> 期，每期增长当前余额的 <math class="inline-math"><mfrac><mn>1</mn><mi>n</mi></mfrac></math>。一次结息后：</p>
+        <div class="formula">
+          <math display="block"><mrow><mi>B</mi><mo>+</mo><mfrac><mi>B</mi><mi>n</mi></mfrac><mo>=</mo><mi>B</mi><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo></mrow></math>
+        </div>
+        <div class="meaning-grid">
+          <div class="meaning"><b><math class="inline-math"><mn>1</mn></math></b><span>保留当前余额 <math class="inline-math"><mi>B</mi></math> 的 100%</span></div>
+          <div class="meaning"><b><math class="inline-math"><mfrac><mn>1</mn><mi>n</mi></mfrac></math></b><span>本期新增当前余额 <math class="inline-math"><mi>B</mi></math> 的 <math class="inline-math"><mfrac><mn>1</mn><mi>n</mi></mfrac></math></span></div>
+        </div>
+        <p>因此，每经过一期，余额都乘一次同样的倍率 <math class="inline-math"><mrow><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac></mrow></math>。</p>
+      </div>
+    </section>
+
+    <section class="chapter" aria-labelledby="part-three-title">
+      <div class="chapter-no">03</div>
+      <div class="chapter-body">
+        <h2 id="part-three-title">推广到 <math class="inline-math"><mi>n</mi></math> 次</h2>
+        <p>从 1 元开始，同一个倍率连续乘 <math class="inline-math"><mi>n</mi></math> 次：</p>
+        <div class="formula">
+          <math display="block"><mrow><msub><mi>B</mi><mrow><mi>k</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>B</mi><mi>k</mi></msub><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo></mrow></math>
+        </div>
+        <div class="formula repeat-equation" aria-label="一加一除以 n 连续相乘 n 次，等于一加一除以 n 的 n 次方">
+          <div class="repeat-product">
+            <math><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo><mo>⋯</mo><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo></mrow></math>
+            <div class="underbrace" aria-hidden="true"></div>
+            <div class="underbrace-label">n 次</div>
+          </div>
+          <math class="repeat-result"><mrow><mo>=</mo><msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo></mrow><mi>n</mi></msup></mrow></math>
+        </div>
+        <p>指数 <math class="inline-math"><mi>n</mi></math> 只是在计数：这个增长动作一共重复了多少次。</p>
+      </div>
+    </section>
+
+    <section class="chapter" aria-labelledby="part-four-title">
+      <div class="chapter-no">04</div>
+      <div class="chapter-body">
+        <h2 id="part-four-title">当结息越来越频繁</h2>
+        <p>拖动结息次数。阶梯越来越细，年末余额逐渐稳定在一个固定数字附近。</p>
+        <div class="demo" id="limit-demo">
+          <div class="slider-head"><label for="frequency">一年内结息次数</label><output id="frequency-output" for="frequency">12 次</output></div>
+          <div class="range-shell">
+            <input id="frequency" type="range" min="0" max="8" step="1" value="3">
+            <div class="range-scale" aria-hidden="true"><span class="tick-1">1</span><span class="tick-12">12</span><span class="tick-365">365</span><span class="tick-million">1,000,000</span></div>
+          </div>
+          <div class="metrics" aria-live="polite">
+            <span><span class="metric-label">每期增长</span><strong id="rate-output">8.3333%</strong></span>
+            <span><span class="metric-label">年末余额</span><strong id="final-output">2.613035</strong></span>
+            <span><span class="metric-label">与 <math class="inline-math"><mi>e</mi></math> 相差</span><strong id="gap-output">0.105247</strong></span>
+          </div>
+          <div class="chart-key"><span class="key-item"><i class="key-line"></i>分次复利</span><span class="key-item"><i class="key-line green"></i>连续增长</span></div>
+          <canvas id="growth-chart" role="img" aria-label="十二次结息时，年末余额为 2.613035，逐渐接近 e"></canvas>
+        </div>
+        <div class="formula">
+          <math display="block"><mrow><mi>e</mi><mo>=</mo><munder><mo>lim</mo><mrow><mi>n</mi><mo>→</mo><mi>∞</mi></mrow></munder><msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mfrac><mn>1</mn><mi>n</mi></mfrac><mo>)</mo></mrow><mi>n</mi></msup><mo>≈</mo><mn>2.7182818</mn></mrow></math>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (() => {
+      const steps = [
+        { base: 1, interest: 0, balance: 1, detail: '从本金 1.00 开始' },
+        { base: 1, interest: .5, balance: 1.5, detail: '本金 1.00 + 利息 0.50 = 1.50' },
+        { base: 1.5, interest: .75, balance: 2.25, detail: '本金 1.50 + 利息 0.75 = 2.25' }
+      ];
+      const buttons = [...document.querySelectorAll('[data-step]')];
+      const nodes = [...document.querySelectorAll('.time-node')];
+      const progress = document.getElementById('timeline-progress');
+      const stepDetail = document.getElementById('step-detail');
+      const baseLabel = document.getElementById('base-label');
+      const interestLabel = document.getElementById('interest-label');
+      const baseBar = document.getElementById('balance-base');
+      const interestBar = document.getElementById('balance-interest');
+      const balanceMarker = document.getElementById('balance-marker');
+      const balanceTotal = document.getElementById('balance-total');
+
+      function selectStep(index) {
+        const state = steps[index];
+        buttons.forEach((button) => {
+          const selected = Number(button.dataset.step) === index;
+          button.setAttribute('aria-pressed', String(selected));
+        });
+        nodes.forEach((node, i) => {
+          node.classList.toggle('done', i <= index);
+          node.classList.toggle('current', i === index);
+        });
+        progress.style.width = `${index * 33.334}%`;
+        stepDetail.textContent = state.detail;
+        baseLabel.textContent = `本期本金 ${state.base.toFixed(2)}`;
+        interestLabel.textContent = state.interest ? `本期增加 ${state.interest.toFixed(2)}` : '尚未增加利息';
+        baseBar.style.width = `${state.base / 2.25 * 100}%`;
+        interestBar.style.width = `${state.interest / 2.25 * 100}%`;
+        const totalPosition = state.balance / 2.25 * 100;
+        balanceMarker.style.left = `${totalPosition}%`;
+        balanceTotal.style.left = `${totalPosition}%`;
+        balanceTotal.classList.toggle('at-end', index === 2);
+        balanceTotal.textContent = `余额 ${state.balance.toFixed(2)}`;
+      }
+      buttons.forEach((button) => button.addEventListener('click', () => selectStep(Number(button.dataset.step))));
+      selectStep(0);
+
+      const frequencies = [1, 2, 4, 12, 52, 365, 1000, 10000, 1000000];
+      const slider = document.getElementById('frequency');
+      const frequencyOutput = document.getElementById('frequency-output');
+      const rateOutput = document.getElementById('rate-output');
+      const finalOutput = document.getElementById('final-output');
+      const gapOutput = document.getElementById('gap-output');
+      const canvas = document.getElementById('growth-chart');
+      const ctx = canvas.getContext('2d');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let currentN = frequencies[Number(slider.value)];
+      let visualN = currentN;
+      let animationFrame = 0;
+
+      const colorProbe = document.createElement('span');
+      colorProbe.setAttribute('aria-hidden', 'true');
+      colorProbe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+      document.body.appendChild(colorProbe);
+      let chartColors = {};
+
+      function resolveColor(name) {
+        colorProbe.style.color = `var(${name})`;
+        return getComputedStyle(colorProbe).color;
+      }
+      function refreshChartColors() {
+        chartColors = {
+          line: resolveColor('--line'),
+          muted: resolveColor('--muted'),
+          blue: resolveColor('--blue'),
+          green: resolveColor('--green'),
+          surface: resolveColor('--surface')
+        };
+      }
+      refreshChartColors();
+
+      function frequencyName(n) {
+        if (n === 1000000) return '100 万次';
+        if (n === 10000) return '1 万次';
+        return `${n.toLocaleString('zh-CN')} 次`;
+      }
+
+      function sizeCanvas() {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = Math.max(1, Math.round(rect.width * ratio));
+        canvas.height = Math.max(1, Math.round(rect.height * ratio));
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        drawChart(visualN);
+      }
+
+      function drawChart(n) {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        if (!width || !height) return;
+        const compact = width < 520;
+        const m = { left: compact ? 36 : 44, right: 14, top: 18, bottom: 34 };
+        const pw = width - m.left - m.right;
+        const ph = height - m.top - m.bottom;
+        const x = (t) => m.left + t * pw;
+        const y = (v) => m.top + (2.82 - v) / 1.82 * ph;
+        const { line, muted, blue, green, surface } = chartColors;
+        ctx.clearRect(0, 0, width, height);
+        ctx.font = `${compact ? 11 : 12}px Inter, system-ui, sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.strokeStyle = line;
+        ctx.fillStyle = muted;
+        ctx.lineWidth = 1;
+        [1, 1.5, 2, 2.5].forEach((tick) => {
+          const yy = y(tick);
+          ctx.beginPath(); ctx.moveTo(m.left, yy); ctx.lineTo(width - m.right, yy); ctx.stroke();
+          ctx.textAlign = 'right'; ctx.fillText(tick.toFixed(1), m.left - 7, yy);
+        });
+        [['开始', 0], ['半年', .5], ['年末', 1]].forEach(([label, t]) => {
+          ctx.textAlign = t === 0 ? 'left' : t === 1 ? 'right' : 'center';
+          ctx.fillText(label, x(t), height - 10);
+        });
+
+        ctx.strokeStyle = green;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= 160; i += 1) {
+          const t = i / 160;
+          const px = x(t), py = y(Math.exp(t));
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        const stepsToDraw = n <= 180 ? Math.max(1, Math.round(n)) : 360;
+        ctx.strokeStyle = blue;
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        let previousY = 0;
+        for (let i = 0; i <= stepsToDraw; i += 1) {
+          const t = i / stepsToDraw;
+          const completed = t === 1 ? n : Math.floor(t * n + 1e-9);
+          const value = Math.pow(1 + 1 / n, completed);
+          const px = x(t), py = y(value);
+          if (i === 0) ctx.moveTo(px, py); else { ctx.lineTo(px, previousY); ctx.lineTo(px, py); }
+          previousY = py;
+        }
+        ctx.stroke();
+
+        const finalValue = Math.pow(1 + 1 / n, n);
+        ctx.fillStyle = surface;
+        ctx.strokeStyle = blue;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x(1), y(finalValue), 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = green;
+        ctx.beginPath(); ctx.arc(x(1), y(Math.E), 4, 0, Math.PI * 2); ctx.fill();
+      }
+
+      function updateOutputs(n) {
+        const balance = Math.pow(1 + 1 / n, n);
+        frequencyOutput.textContent = frequencyName(n);
+        rateOutput.textContent = `${(100 / n).toLocaleString('zh-CN', { maximumFractionDigits: n > 10000 ? 6 : 4 })}%`;
+        finalOutput.textContent = balance.toFixed(6);
+        gapOutput.textContent = (Math.E - balance).toFixed(6);
+        canvas.setAttribute('aria-label', `${frequencyName(n)}结息时，年末余额为 ${balance.toFixed(6)}，逐渐接近 e`);
+      }
+
+      function setFrequency(n) {
+        currentN = n;
+        updateOutputs(n);
+        cancelAnimationFrame(animationFrame);
+        if (reducedMotion) { visualN = n; drawChart(n); return; }
+        const startN = visualN;
+        const start = performance.now();
+        const duration = 360;
+        const tick = (now) => {
+          const p = Math.min(1, (now - start) / duration);
+          const eased = 1 - Math.pow(1 - p, 3);
+          visualN = Math.exp(Math.log(startN) + (Math.log(n) - Math.log(startN)) * eased);
+          drawChart(visualN);
+          if (p < 1) animationFrame = requestAnimationFrame(tick);
+          else visualN = n;
+        };
+        animationFrame = requestAnimationFrame(tick);
+      }
+
+      slider.addEventListener('input', () => setFrequency(frequencies[Number(slider.value)]));
+      new ResizeObserver(sizeCanvas).observe(canvas);
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        refreshChartColors();
+        drawChart(visualN);
+      });
+      updateOutputs(currentN);
+    })();
+  </script>
+</body>
+</html>
