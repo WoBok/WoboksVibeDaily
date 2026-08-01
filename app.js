@@ -141,6 +141,33 @@
     return `/content/notes/${body.split('/').map(encodeURIComponent).join('/')}`;
   }
 
+  function resolveLocalArticleRoute(value, articlePath, options = {}) {
+    let raw = String(value || '').trim();
+    if (options.stripAngleBrackets) raw = raw.replace(/^<([\s\S]+)>$/, '$1');
+    if (!raw || /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(raw)) return '';
+
+    const parts = splitResourceUrl(raw);
+    if (!/\.(?:md|markdown|html)$/i.test(parts.path)) return '';
+
+    let contentPath = '';
+    if (parts.path.startsWith('/content/notes/')) {
+      contentPath = normalizeRelativeSegments(`notes/${parts.path.slice('/content/notes/'.length)}`);
+    } else if (parts.path.startsWith('/notes/')) {
+      contentPath = normalizeRelativeSegments(parts.path.slice(1));
+    } else if (parts.path.startsWith('notes/')) {
+      contentPath = normalizeRelativeSegments(parts.path);
+    } else if (parts.path.startsWith('/')) {
+      return '';
+    } else {
+      const baseDir = normalizePath(articlePath).split('/').slice(0, -1).join('/');
+      if (!baseDir) return '';
+      contentPath = normalizeRelativeSegments(`${baseDir}/${parts.path}`);
+    }
+
+    if (!contentPath.startsWith('notes/')) return '';
+    return routeHash('article', contentPath);
+  }
+
   function resolveResourceUrl(value, articlePath, options = {}) {
     let raw = String(value || '').trim();
     if (options.stripAngleBrackets) raw = raw.replace(/^<([\s\S]+)>$/, '$1');
@@ -1275,7 +1302,11 @@
     });
 
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => {
-      const resolvedHref = safeLinkHref(resolveResourceUrl(decodeHtmlEntities(href), context.articlePath, { stripAngleBrackets: true }));
+      const decodedHref = decodeHtmlEntities(href);
+      const resolvedHref = safeLinkHref(
+        resolveLocalArticleRoute(decodedHref, context.articlePath, { stripAngleBrackets: true })
+        || resolveResourceUrl(decodedHref, context.articlePath, { stripAngleBrackets: true })
+      );
       return resolvedHref ? `<a href="${escapeAttr(resolvedHref)}">${label}</a>` : label;
     });
 
