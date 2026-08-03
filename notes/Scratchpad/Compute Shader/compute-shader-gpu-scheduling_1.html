@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compute Shader 的 GPU 调度路径</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#15191D; --ink2:#4A545E; --ink3:#7A858F;
+  --paper:#ECEEF0; --surface:#FFFFFF;
+  --rule:#D2D8DD; --rule2:#B7C0C7;
+  --accent:#1B5A87; --accent-soft:#E2ECF3;
+  --flag:#8A5A0B; --flag-soft:#F7EFDD;
+  --ok:#3D5C21; --ok-soft:#EAF0E0;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#DEE3E7; --ink2:#9AA4AD; --ink3:#6E7880;
+    --paper:#14181B; --surface:#1B2125;
+    --rule:#2C333A; --rule2:#3D464E;
+    --accent:#74ADD4; --accent-soft:#1C2B37;
+    --flag:#D6A64A; --flag-soft:#302818;
+    --ok:#9DC06C; --ok-soft:#202917;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:15.5px; line-height:1.78;
+  font-weight:400;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 28px 100px}
+
+/* ---------- hero ---------- */
+.hero{padding:76px 0 44px;border-bottom:1px solid var(--rule2)}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 20px
+}
+h1{
+  font-size:clamp(30px,5vw,46px);line-height:1.2;font-weight:700;
+  letter-spacing:-.015em;margin:0 0 20px;max-width:16em
+}
+.lede{font-size:17px;color:var(--ink2);margin:0;max-width:40em}
+.lede code{font-size:15px}
+
+.strip{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:1px;background:var(--rule);border:1px solid var(--rule);
+  margin:40px 0 0
+}
+.strip div{background:var(--surface);padding:16px 18px}
+.strip b{
+  display:block;font-family:var(--mono);font-size:20px;font-weight:500;
+  letter-spacing:-.02em;color:var(--ink)
+}
+.strip span{font-size:12px;color:var(--ink3);letter-spacing:.02em}
+
+/* ---------- rail layout ---------- */
+.doc{display:grid;grid-template-columns:132px 1fr;gap:0}
+.rail{
+  position:relative;border-right:1px solid var(--rule);
+}
+.body{padding:0 0 0 40px;min-width:0}
+
+section{padding:52px 0 0;position:relative}
+section:first-child{padding-top:44px}
+.tick{
+  position:absolute;left:-40px;transform:translateX(-100%);
+  width:132px;padding-right:17px;text-align:right;
+  font-family:var(--mono);font-size:11.5px;line-height:1.5;
+  color:var(--ink3);letter-spacing:.06em;padding-top:4px
+}
+.tick b{display:block;color:var(--accent);font-weight:500}
+.tick::after{
+  content:"";position:absolute;right:-4px;top:12px;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);
+}
+.tick.plain{color:var(--ink3)}
+.tick.plain::after{background:var(--rule2)}
+.tick.plain b{color:var(--ink3)}
+
+h2{
+  font-size:22px;font-weight:700;letter-spacing:-.01em;
+  margin:0 0 6px;line-height:1.35
+}
+h3{
+  font-size:15px;font-weight:700;margin:30px 0 6px;
+  letter-spacing:.01em
+}
+p{margin:0 0 14px;max-width:44em}
+.sub{color:var(--ink3);font-size:13.5px;margin:0 0 22px;font-family:var(--mono);letter-spacing:.01em}
+
+code{
+  font-family:var(--mono);font-size:.88em;
+  background:var(--accent-soft);padding:.1em .35em;border-radius:2px;
+  color:var(--ink)
+}
+pre{
+  font-family:var(--mono);font-size:13px;line-height:1.7;
+  background:var(--surface);border:1px solid var(--rule);
+  padding:16px 18px;overflow-x:auto;margin:0 0 18px
+}
+pre code{background:none;padding:0;font-size:13px}
+
+ul{margin:0 0 14px;padding-left:20px;max-width:44em}
+li{margin:0 0 6px}
+li::marker{color:var(--ink3)}
+
+figure{margin:26px 0;background:var(--surface);border:1px solid var(--rule);padding:20px}
+figure svg{display:block;width:100%;height:auto}
+figcaption{
+  font-family:var(--mono);font-size:11.5px;color:var(--ink3);
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);
+  letter-spacing:.02em;line-height:1.6
+}
+
+table{
+  width:100%;border-collapse:collapse;font-size:13.5px;
+  margin:0 0 18px;background:var(--surface);
+  border:1px solid var(--rule)
+}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+th{
+  font-family:var(--mono);font-size:11px;font-weight:500;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);
+  background:var(--paper)
+}
+tbody tr:last-child td{border-bottom:none}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bind{color:var(--accent);font-weight:500}
+
+.tag{
+  display:inline-block;font-family:var(--mono);font-size:10px;
+  letter-spacing:.06em;padding:2px 6px;border-radius:2px;
+  white-space:nowrap;line-height:1.5
+}
+.tag.o{background:var(--ok-soft);color:var(--ok)}
+.tag.f{background:var(--flag-soft);color:var(--flag)}
+
+.note{
+  border-left:2px solid var(--accent);background:var(--surface);
+  padding:14px 18px;margin:0 0 18px;font-size:14px;max-width:44em
+}
+.note p:last-child{margin-bottom:0}
+.note .h{font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--accent);display:block;margin-bottom:5px}
+
+.foot{
+  margin-top:64px;padding-top:22px;border-top:1px solid var(--rule2);
+  font-size:12.5px;color:var(--ink3);font-family:var(--mono);line-height:1.8
+}
+.foot a{color:var(--accent)}
+
+@media (max-width:820px){
+  .doc{grid-template-columns:1fr}
+  .rail{display:none}
+  .body{padding-left:0}
+  .tick{
+    position:static;transform:none;width:auto;text-align:left;
+    padding:0 0 10px;display:flex;gap:10px;align-items:baseline
+  }
+  .tick::after{display:none}
+  .tick b{display:inline}
+  .strip{grid-template-columns:repeat(2,1fr)}
+  .wrap{padding:0 20px 70px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">GPU 执行模型 · NVIDIA Blackwell</p>
+  <h1>一次 Dispatch 在 GPU 里的四次切分</h1>
+  <p class="lede">从 <code>Dispatch(64,64,1)</code> 配 <code>numthreads(8,8,1)</code>，到执行单元上的一条 32 lane 指令，中间发生了四次切分。每一次切分对应一层硬件，也对应一类性能约束——理解调度，就是理解这四层的边界在哪、代价是什么。</p>
+  <div class="strip">
+    <div><b>4096</b><span>线程组</span></div>
+    <div><b>262144</b><span>线程</span></div>
+    <div><b>8192</b><span>warp</span></div>
+    <div><b>4</b><span>次切分</span></div>
+  </div>
+</header>
+
+<div class="doc">
+<div class="rail"></div>
+<main class="body">
+
+<!-- ============ 概览 ============ -->
+<section>
+  <div class="tick plain"><b>概览</b>整条路径</div>
+  <h2>整条路径</h2>
+  <p class="sub">Dispatch → SM → Warp → SMSP → Lane</p>
+  <p>下面这条链路是全文的骨架。左侧是每一层的工作单位，右侧是这一层实际发生的事。</p>
+  <p>注意有<b>两个独立的参数</b>在不同层生效：<code>Dispatch</code> 决定有多少个线程组，<code>numthreads</code> 决定每组有多少线程。两者互不影响，来源也不同——前者是 CPU 运行时传入的，后者编译时就写死在 shader 里。</p>
+
+  <figure>
+  <svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从 Dispatch 到 Lane 的五层调度链路图">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="var(--rule2)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="11.5" fill="var(--ink3)" letter-spacing=".06em">
+      <text x="10" y="46">Dispatch</text>
+      <text x="10" y="122">SM</text>
+      <text x="10" y="198">Warp</text>
+      <text x="10" y="274">SMSP</text>
+      <text x="10" y="350">Lane</text>
+    </g>
+
+    <g fill="var(--surface)" stroke="var(--rule2)" stroke-width="1">
+      <rect x="120" y="16" width="580" height="54"/>
+      <rect x="120" y="92" width="580" height="54"/>
+      <rect x="120" y="168" width="580" height="54"/>
+      <rect x="120" y="244" width="580" height="54"/>
+      <rect x="120" y="320" width="580" height="54"/>
+    </g>
+    <g fill="var(--accent)">
+      <rect x="120" y="16" width="3" height="54"/>
+      <rect x="120" y="92" width="3" height="54"/>
+      <rect x="120" y="168" width="3" height="54"/>
+      <rect x="120" y="244" width="3" height="54"/>
+      <rect x="120" y="320" width="3" height="54"/>
+    </g>
+
+    <g font-family="Noto Sans SC, system-ui, sans-serif" font-size="14" font-weight="500" fill="var(--ink)">
+      <text x="142" y="38">展开为线程组网格</text>
+      <text x="142" y="114">整组派发，不可拆分</text>
+      <text x="142" y="190">按线性序切成 warp</text>
+      <text x="142" y="266">绑定子分区，终身不变</text>
+      <text x="142" y="342">一条指令，32 条 lane</text>
+    </g>
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12" fill="var(--ink3)">
+      <text x="142" y="58">Dispatch(64,64,1) → 64 × 64 × 1 = 4096 个组</text>
+      <text x="142" y="134">groupshared 与 barrier 要求同一 SM</text>
+      <text x="142" y="210">numthreads(8,8,1) → 每组 64 线程 ÷ 32 = 2 个 warp</text>
+      <text x="142" y="286">寄存器在该分区就地分配</text>
+      <text x="142" y="362">发散时同一 warp 走两遍</text>
+    </g>
+
+    <g stroke="var(--rule2)" stroke-width="1.2" marker-end="url(#ar)">
+      <line x1="410" y1="70" x2="410" y2="86"/>
+      <line x1="410" y1="146" x2="410" y2="162"/>
+      <line x1="410" y1="222" x2="410" y2="238"/>
+      <line x1="410" y1="298" x2="410" y2="314"/>
+    </g>
+  </svg>
+  <figcaption>四次切分：Dispatch→组、组→warp、warp→子分区、warp→lane。前两次是软件语义的落地，后两次是硬件资源的绑定。<br>本例中 64 这个数字出现了两次，但含义无关：一次是 Dispatch 的网格边长，一次是 numthreads 相乘得到的每组线程数。</figcaption>
+  </figure>
+</section>
+
+<!-- ============ L1 ============ -->
+<section>
+  <div class="tick"><b>切分 1</b>Dispatch → 线程组</div>
+  <h2>Dispatch 展开成线程组</h2>
+  <p class="sub">4096 个互不相干的任务包</p>
+
+  <p>两个数字来自两个不同的地方，这是最容易混淆的一点：</p>
+<pre><code>[numthreads(8, 8, 1)]      // 编译时写死在 shader 字节码里
+void CSMain(...) { }
+
+ctx-&gt;Dispatch(64, 64, 1);  // 运行时由 CPU 传入</code></pre>
+  <p><b>组的数量</b> = Dispatch 三参数相乘 = 4096。<b>每组线程数</b> = numthreads 三参数相乘 = 64。两者都是纯软件概念，与 GPU 有多少 SM 无关——同一份代码在任何一张卡上都是 4096 组 × 64 线程，只是大卡能同时处理更多组。这正是 GPU 程序可移植的来源。</p>
+
+  <h3>线程组是什么</h3>
+  <p>同一个东西在各处的叫法：HLSL 的 <b>thread group</b>、CUDA 的 <b>block</b>、Vulkan 的 <b>workgroup</b>、NVIDIA 硬件文档里的 <b>CTA</b>。它的本质定义是「一批能互相协作的线程」，而协作只有两种形式：共享 <code>groupshared</code> 内存，以及用 barrier 互相等待。跨组做不到这两件事，所以这个边界才有意义。</p>
+
+  <h3>为什么整组不可拆分</h3>
+  <p>因为这两个特性逼着硬件必须为每个在飞的组维护一份状态：</p>
+  <ul>
+    <li><code>groupshared</code> 要求组内所有线程看到同一份数据 → 硬件要在某个 SM 的 L1/Shared 里划一块，并<b>记住基址与长度</b></li>
+    <li><code>GroupMemoryBarrierWithGroupSync()</code> 要知道这组共几个 warp、到了几个 → 需要<b>一个计数器</b></li>
+    <li>组内 warp 全部退出后才能释放上面两样 → 需要<b>存活 warp 计数</b></li>
+  </ul>
+  <p>这三份状态没法存在 warp 里（warp 之间不知道彼此存在），必须存在一个 per-block 的地方。这个「地方」就是下文的 block 槽位。</p>
+  <p>组与组之间则完全没有顺序保证：第 4000 组可能比第 3 组先跑完。这就是 compute shader 里无法跨组同步的硬件原因。</p>
+</section>
+
+<!-- ============ L2 ============ -->
+<section>
+  <div class="tick"><b>切分 2</b>线程组 → Warp</div>
+  <h2>组内按线性序切成 warp</h2>
+  <p class="sub">行主序展平，每 32 个一刀</p>
+
+  <p>线程组进入 SM 后，按行主序展平成一维，再每 32 个切成一个 warp：</p>
+<pre><code>linearIdx = GTid.x + GTid.y * 8      // 即 SV_GroupIndex
+warp 0  →  GTid.y = 0..3   (32 个线程)
+warp 1  →  GTid.y = 4..7   (32 个线程)</code></pre>
+  <p>不能整除时，最后一个 warp 会用无效 lane 补齐。<code>numthreads(10,10,1)</code> = 100 线程需要 4 个 warp，最后一个只有 4 条 lane 活跃，直接浪费 22% 的发射槽——<b>线程组大小应当是 32 的倍数</b>，这是最基本的一条。</p>
+
+  <h3>warp 的形状决定访存效率</h3>
+  <p>切分方式还有一个不那么直观的后果：<code>8×8</code> 布局下，一个 warp 覆盖的是 <b>4 行 × 8 列</b>，而不是一行 32 个。</p>
+
+  <figure>
+  <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="两种线程组形状下 warp 覆盖范围的对比">
+    <text x="0" y="14" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12" fill="var(--ink)">numthreads(8, 8, 1)</text>
+    <g stroke="var(--surface)" stroke-width="1.5">
+      <g fill="var(--accent)" opacity=".85">
+        <rect x="0" y="28" width="160" height="80"/>
+      </g>
+      <g fill="var(--accent)" opacity=".35">
+        <rect x="0" y="108" width="160" height="80"/>
+      </g>
+      <g fill="none" stroke="var(--surface)" stroke-width="1.5">
+        <path d="M20 28V188M40 28V188M60 28V188M80 28V188M100 28V188M120 28V188M140 28V188"/>
+        <path d="M0 48H160M0 68H160M0 88H160M0 108H160M0 128H160M0 148H160M0 168H160"/>
+      </g>
+    </g>
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12" fill="var(--ink2)">
+      <text x="180" y="62">warp 0 = 第 0–3 行</text>
+      <text x="180" y="140">warp 1 = 第 4–7 行</text>
+    </g>
+    <text x="180" y="182" font-family="Noto Sans SC, system-ui, sans-serif" font-size="13" font-weight="500" fill="var(--ink)">一个 warp 跨 4 行 → 4 段不连续访存</text>
+
+    <text x="0" y="232" font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12" fill="var(--ink)">numthreads(32, 2, 1)</text>
+    <g>
+      <rect x="0" y="246" width="320" height="20" fill="var(--accent)" opacity=".85"/>
+      <rect x="0" y="266" width="320" height="20" fill="var(--accent)" opacity=".35"/>
+      <g fill="none" stroke="var(--surface)" stroke-width="1.5">
+        <path d="M10 246V286M20 246V286M30 246V286M40 246V286M50 246V286M60 246V286M70 246V286M80 246V286M90 246V286M100 246V286M110 246V286M120 246V286M130 246V286M140 246V286M150 246V286M160 246V286M170 246V286M180 246V286M190 246V286M200 246V286M210 246V286M220 246V286M230 246V286M240 246V286M250 246V286M260 246V286M270 246V286M280 246V286M290 246V286M300 246V286M310 246V286"/>
+        <path d="M0 266H320"/>
+      </g>
+    </g>
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12" fill="var(--ink2)">
+      <text x="340" y="260">warp 0 = 第 0 行</text>
+      <text x="340" y="280">warp 1 = 第 1 行</text>
+    </g>
+    <text x="340" y="308" font-family="Noto Sans SC, system-ui, sans-serif" font-size="13" font-weight="500" fill="var(--ink)">一个 warp 覆盖连续 32 个 → 1 段合并访存</text>
+  </svg>
+  <figcaption>两者都是 64 线程、2 个 warp，占用率完全相同，但访存行为差一个数量级。深色 = warp 0，浅色 = warp 1。</figcaption>
+  </figure>
+
+  <p>同理，分支也应当尽量对齐 warp 边界。在 <code>8×8</code> 下，<code>if (GTid.y &lt; 4)</code> 恰好按 warp 分界、零发散；而 <code>if (GTid.x &lt; 4)</code> 会让每个 warp 内部一半 lane 走 A 路、一半走 B 路，两条路径串行执行。</p>
+</section>
+
+<!-- ============ L3 ============ -->
+<section>
+  <div class="tick"><b>切分 3</b>Warp → 子分区</div>
+  <h2>warp 绑定到子分区</h2>
+  <p class="sub">一次绑定，终身不变</p>
+
+  <p>一个 SM 被切成 4 个子分区（SMSP），每个子分区有独立的 L0 指令缓存、Warp Scheduler、Dispatch Unit、寄存器堆、CUDA Cores、Tensor Core、LD/ST 和 SFU。L1 指令缓存、L1/Shared Memory、纹理单元则是整个 SM 共享的。</p>
+  <p>warp 被分派到某个子分区后<b>永久绑定</b>，这带来两个后果：</p>
+  <ul>
+    <li>它的寄存器<b>静态占用</b>该子分区的寄存器堆，直到整个 block 结束才释放</li>
+    <li>它只能使用<b>这一个</b>子分区的执行单元，用不到隔壁的</li>
+  </ul>
+
+  <h3>64 线程的组会让 2 个子分区空闲吗</h3>
+  <p>不会。工作分发器不是「发一个组、等它跑完再发下一个」，而是<b>持续灌入直到撞上资源上限</b>。SM 上同时驻留着几十个组，硬件按空闲槽位轮转分配，所以 block 0 的两个 warp 去 SMSP 0/1，block 1 的去 SMSP 2/3，block 2 又回到 0/1……四个分区都是满的。</p>
+  <p>真正会空闲的只有两种情况：Dispatch 的组数少于 GPU 的 SM 数量，以及整个 Dispatch 收尾时的拖尾阶段。</p>
+</section>
+
+<!-- ============ L4 ============ -->
+<section>
+  <div class="tick"><b>切分 4</b>Warp → Lane</div>
+  <h2>发射：32 这个数字从哪来</h2>
+  <p class="sub">架构常数，不是核心数推导出来的</p>
+
+  <p>常见的误解是「因为一个子分区有 32 个 CUDA Core，所以 warp 是 32 线程」。<b>因果关系是反的</b>：warp = 32 线程是从 2006 年 G80 起就写死在 ISA 里的架构常数，NVIDIA 后来才把 FP32 数据通路做成 32 宽去匹配它。</p>
+  <p>历史上两者经常不相等。G80 每个分区只有 8 个 SP，warp 照样是 32，一条 FP32 指令要分 4 个时钟才发射完；Turing 每分区 16 个 FP32 单元，一条 FP32 指令占 2 个时钟。真正的规律是：</p>
+  <div class="note">
+    <span class="h">核心规律</span>
+    <p>一条指令永远作用于 32 条 lane。执行单元有几条，只决定这条指令要占用几个周期。</p>
+  </div>
+  <p>用同一个 SM 里的其他单元就能验证：</p>
+
+  <table>
+    <thead><tr><th>单元</th><th>每子分区宽度</th><th>一条 warp 指令耗时</th><th>典型 HLSL 操作</th></tr></thead>
+    <tbody>
+      <tr><td>CUDA Core</td><td class="n">32</td><td class="n">1 周期</td><td>FP32 / INT32 算术</td></tr>
+      <tr><td>LD/ST</td><td class="n">8</td><td class="n">4 周期</td><td>Buffer 与 groupshared 读写</td></tr>
+      <tr><td>SFU</td><td class="n">4</td><td class="n">8 周期</td><td><code>sin</code> <code>rsqrt</code> <code>exp</code></td></tr>
+    </tbody>
+  </table>
+  <p>这解释了为什么超越函数比乘加慢一个数量级——不是延迟高，是<b>吞吐窄</b>。</p>
+  <p>Blackwell 在这一层有个变化：白皮书说明 GB20x 把 INT32 核心与 FP32 核心完全统一，许多整数指令吞吐相对 Ada 翻倍，但统一后的核心在任一时钟周期内只能作为 FP32 <i>或</i> INT32 之一工作。</p>
+</section>
+
+<!-- ============ 驻留 ============ -->
+<section>
+  <div class="tick plain"><b>约束</b>驻留与占用率</div>
+  <h2>驻留：延迟掩盖能力的度量</h2>
+  <p class="sub">同时摊开在一个 SM 上的 warp 数量</p>
+
+  <p>warp 从进驻 SM 那一刻起，它的寄存器和所属 block 的 <code>groupshared</code> 就被<b>静态占住，中途不释放</b>，直到整个 block 结束。</p>
+  <p>好处是<b>切换 warp 零开销</b>：不需要保存和恢复上下文，因为所有 warp 的寄存器本来就同时躺在寄存器堆里，调度器只是换一个索引去读。代价是寄存器堆有限，能同时摊开的 warp 数有硬上限。</p>
+  <p>这个数量直接等于延迟掩盖能力。一次显存访问要 400~600 个周期：驻留 1 个 warp 就只能干等，执行单元全程空转；驻留 32 个，就能在等待期间轮流执行另外 31 个。</p>
+
+  <h3>四个约束，取最小值</h3>
+  <p>一个 block 想进驻，必须<b>同时</b>拿到四样东西——block 表项、warp 槽位、寄存器、共享内存。任何一样不足就在队列里等。</p>
+
+  <figure>
+  <svg viewBox="0 0 720 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="四个约束各自允许的驻留组数对比，warp 槽位为瓶颈">
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12" fill="var(--ink2)">
+      <text x="0" y="34">warp 槽位</text>
+      <text x="0" y="74">block 槽位</text>
+      <text x="0" y="114">寄存器</text>
+      <text x="0" y="154">共享内存</text>
+    </g>
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="11" fill="var(--ink3)">
+      <text x="0" y="50">48 ÷ 2</text>
+      <text x="0" y="90">上限 32</text>
+      <text x="0" y="130">65536 ÷ (64×32)</text>
+      <text x="0" y="170">未使用</text>
+    </g>
+    <g fill="var(--rule)">
+      <rect x="150" y="20" width="420" height="26"/>
+      <rect x="150" y="60" width="420" height="26"/>
+      <rect x="150" y="100" width="420" height="26"/>
+      <rect x="150" y="140" width="420" height="26"/>
+    </g>
+    <rect x="150" y="20" width="315" height="26" fill="var(--accent)"/>
+    <g fill="var(--rule2)">
+      <rect x="150" y="60" width="420" height="26"/>
+      <rect x="150" y="100" width="420" height="26"/>
+    </g>
+    <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="12.5" fill="var(--ink2)">
+      <text x="586" y="38" fill="var(--accent)" font-weight="500">24 组 ←</text>
+      <text x="586" y="78">32 组</text>
+      <text x="586" y="118">32 组</text>
+      <text x="586" y="158">不限</text>
+    </g>
+    <line x1="150" y1="186" x2="700" y2="186" stroke="var(--rule)" stroke-width="1"/>
+    <text x="150" y="206" font-family="Noto Sans SC, system-ui, sans-serif" font-size="13" font-weight="500" fill="var(--ink)">取最小 → 驻留 24 组 = 48 warp = 1536 线程 = 满占用</text>
+  </svg>
+  <figcaption>以 RTX Blackwell、<code>numthreads(8,8,1)</code>、每线程 32 个寄存器为例。深色段为实际生效的瓶颈。</figcaption>
+  </figure>
+
+  <p>把这条规则用起来只需要三步：算出每个约束各自允许多少组，取最小值，再乘以每组的 warp 数。占用率 = 得到的 warp 数 ÷ 硬件上限。</p>
+
+  <h3>block 槽位到底是什么</h3>
+  <p>就是前面那三份 per-block 状态（shared 基址、barrier 计数、存活 warp 数）的存放位置——SM 里一张固定行数的硬件表。行数在流片时定死，因为它是实打实的触发器面积。</p>
+  <p>关键性质是：<b>一条表项的成本与组的大小无关</b>。32 线程的组和 1024 线程的组各占一行。所以线程组过小时，会出现「block 表用光了，warp 槽位还空着一半」的浪费——这在 Ampere 消费级（16 条表项）上很常见，Blackwell 把表项提到 32 条后大幅缓解。</p>
+
+  <h3>组太大也有代价</h3>
+  <ul>
+    <li><b>粒度太粗</b>：1024 线程 = 32 warp，一个 SM 只放得下 1~2 个组，Dispatch 收尾时拖尾明显</li>
+    <li><b>barrier 更贵</b>：要等 32 个 warp 全部到齐，只要一个卡在慢速访存上，其余 31 个全部干等</li>
+    <li><b>寄存器要一次凑齐</b>：组是原子进驻的，拿不到全部资源就一个都进不来</li>
+  </ul>
+  <p>实际甜点区通常是 <b>128~256 线程</b>（4~8 个 warp）。</p>
+
+  <div class="note">
+    <span class="h">反直觉但重要</span>
+    <p>占用率不是越高越好。如果 shader 是纯 ALU 密集、几乎不访存，就没有延迟需要掩盖，20% 的占用率也能跑满执行单元；此时给每线程多分配寄存器、减少重复计算反而更快。占用率是<b>手段</b>，只在被内存延迟卡住时才重要。</p>
+  </div>
+</section>
+
+<!-- ============ 规格 ============ -->
+<section>
+  <div class="tick plain"><b>规格</b>Blackwell 实测数字</div>
+  <h2>Blackwell 的实际配额</h2>
+  <p class="sub">两个版本的差异不可忽略</p>
+
+  <p>「Blackwell」下有两条产品线，SM 内部配额不同，容易混用。带 <b>TMEM</b>（Tensor Memory）和 <b>256 KB L1/Shared</b> 的 SM 框图属于数据中心版；GeForce 的 RTX Blackwell 没有 TMEM，L1/Shared 只有一半。</p>
+
+  <table>
+    <thead><tr><th>项目</th><th>数据中心 Blackwell<br>CC 10.0</th><th>RTX Blackwell<br>CC 12.0</th><th>来源</th></tr></thead>
+    <tbody>
+      <tr><td>CUDA Cores / SM</td><td class="n">128</td><td class="n">128</td><td><span class="tag o">白皮书</span></td></tr>
+      <tr><td>Tensor Cores / SM</td><td class="n">4（5th Gen）</td><td class="n">4（5th Gen）</td><td><span class="tag o">白皮书</span></td></tr>
+      <tr><td>寄存器 / SM</td><td class="n">64K × 32-bit</td><td class="n">64K × 32-bit</td><td><span class="tag o">Tuning Guide</span></td></tr>
+      <tr><td>每线程最大寄存器</td><td class="n">255</td><td class="n">255</td><td><span class="tag o">Tuning Guide</span></td></tr>
+      <tr><td><b>最大驻留 warp / SM</b></td><td class="n bind">64</td><td class="n bind">48</td><td><span class="tag o">Tuning Guide</span></td></tr>
+      <tr><td><b>最大驻留 block / SM</b></td><td class="n bind">32</td><td class="n bind">32</td><td><span class="tag o">Tuning Guide</span></td></tr>
+      <tr><td>L1 / Shared per SM</td><td class="n">256 KB（shared 可配至 228 KB）</td><td class="n">128 KB</td><td><span class="tag o">白皮书 + Tuning Guide</span></td></tr>
+      <tr><td>TMEM</td><td class="n">有</td><td class="n">无</td><td><span class="tag o">白皮书未提及</span></td></tr>
+      <tr><td>LD/ST 每子分区</td><td class="n">8</td><td class="n">8</td><td><span class="tag f">未官方确认</span></td></tr>
+      <tr><td>SFU 每子分区</td><td class="n">4</td><td class="n">4</td><td><span class="tag f">未官方确认</span></td></tr>
+      <tr><td>warp → 子分区映射规则</td><td class="n">轮转</td><td class="n">轮转</td><td><span class="tag f">未官方确认</span></td></tr>
+    </tbody>
+  </table>
+  <p>标记为「未官方确认」的三项来自社区微基准测试，NVIDIA 公开文档中查不到，作近似值使用即可。</p>
+
+  <h3>代际对比：block 槽位的变化</h3>
+  <p>这一项的世代差异很大，是很多旧调优经验失效的原因：</p>
+  <table>
+    <thead><tr><th>架构</th><th>CC</th><th>最大 warp / SM</th><th>最大 block / SM</th></tr></thead>
+    <tbody>
+      <tr><td>Ampere 消费级</td><td class="n">8.6</td><td class="n">48</td><td class="n">16</td></tr>
+      <tr><td>Ada Lovelace</td><td class="n">8.9</td><td class="n">48</td><td class="n">24</td></tr>
+      <tr><td>Blackwell 数据中心</td><td class="n">10.0</td><td class="n">64</td><td class="n">32</td></tr>
+      <tr><td>Blackwell RTX</td><td class="n">12.0</td><td class="n">48</td><td class="n">32</td></tr>
+    </tbody>
+  </table>
+  <p>在 Ampere 消费级上，<code>numthreads(8,8,1)</code> 只能驻留 16 组 = 32 warp，占用率被 block 槽位卡在 67%。同样的代码放到 Blackwell 上，block 槽位提到 32，瓶颈让位给 warp 槽位（48 ÷ 2 = 24 组），<b>反而能打满 48 个 warp</b>。</p>
+</section>
+
+<!-- ============ 实践 ============ -->
+<section>
+  <div class="tick plain"><b>实践</b>可直接执行的结论</div>
+  <h2>调优检查清单</h2>
+  <p class="sub">按收益从高到低</p>
+
+  <ul>
+    <li><b>线程组大小取 32 的倍数。</b>否则最后一个 warp 会带着无效 lane 空跑，浪费是纯损失。</li>
+    <li><b>先看 warp 形状，再看占用率。</b>访存密集的 shader 里，把 <code>8×8</code> 改成 <code>32×2</code> 常常比提升占用率收益更大——两者线程数相同、占用率相同，但合并访存效率差一个数量级。</li>
+    <li><b>组大小落在 128~256。</b>太小浪费 block 表项，太大导致粒度粗、barrier 贵、拖尾严重。</li>
+    <li><b>盯住寄存器用量。</b>每线程 128 个寄存器时，256 线程的组只能驻留 2 个 = 16 warp，占用率掉到 33%。减少活跃变量生命周期、避免大的临时数组，比调组大小更有效。</li>
+    <li><b>分支对齐 warp 边界。</b><code>8×8</code> 下 <code>GTid.y &lt; 4</code> 零发散，<code>GTid.x &lt; 4</code> 则两条路径全部串行。</li>
+    <li><b>先确认自己是否被延迟卡住。</b>纯 ALU 密集的 shader 提升占用率没有收益，用 Nsight Graphics 或 RGP 看实际瓶颈再动手。</li>
+  </ul>
+</section>
+
+<div class="foot">
+  数据来源 ·
+  <a href="https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf">NVIDIA RTX Blackwell GPU Architecture Whitepaper v1.1</a><br>
+  <a href="https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html">NVIDIA Blackwell Tuning Guide</a> · CUDA C++ Programming Guide, Compute Capabilities
+</div>
+
+</main>
+</div>
+</div>
+</body>
+</html>
