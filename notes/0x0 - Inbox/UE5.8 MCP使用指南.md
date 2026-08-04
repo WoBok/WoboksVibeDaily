@@ -13,8 +13,6 @@ tags:
 
 > 参考：[Epic 官方文档](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor)
 
----
-
 ## 一、接入步骤
 
 ### 1. 启用插件
@@ -70,8 +68,6 @@ cd D:/YourProject && claude
 
 服务器跑在编辑器进程内，**全程保持编辑器打开**。连上后让 Agent 列一下工具，能看到 `unreal-mcp` 提供的工具即为成功。
 
----
-
 ## 二、控制台命令
 
 | 命令 | 作用 |
@@ -87,8 +83,6 @@ cd D:/YourProject && claude
 -ModelContextProtocolStartServer
 -ModelContextProtocolPort=N
 ```
-
----
 
 ## 三、设置项
 
@@ -111,8 +105,6 @@ cd D:/YourProject && claude
 | `ModelContextProtocol.PaginationPageSize` | `0` | 分页大小，0 为不分页 |
 | `ModelContextProtocol.EnableAnalytics` | `true` | 上报使用分析数据 |
 
----
-
 ## 四、随附工具集
 
 启用 **All Toolsets** 后可用：
@@ -126,8 +118,6 @@ cd D:/YourProject && claude
 | **AttributeSetToolset** | 位于 `GASToolsets` 插件，可作为 C++ 工具集的参考实现 |
 
 具体工具名官方未逐一列出，连上后让 Agent 列出工具列表即可。
-
----
 
 ## 五、编写自定义工具
 
