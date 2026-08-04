@@ -238,7 +238,7 @@
 
     .sm-overlay.visible { opacity: 1; pointer-events: auto; }
     .sm-overlay.dragging { cursor: grabbing; }
-    .sm-overlay svg { width: min(98%, 1160px); height: 98%; filter: drop-shadow(0 18px 32px rgba(0,0,0,.35)); }
+    .sm-overlay svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 18px 32px rgba(0,0,0,.35)); }
 
     .overlay-note {
       position: absolute;
@@ -639,6 +639,7 @@
       let view = { ...FULL };
       let baseViewWidth = FULL.w;
       let smView = { ...SM_FULL };
+      let baseSmViewWidth = SM_FULL.w;
       let activeSm = 0;
       let drag = null;
       let smDrag = null;
@@ -934,16 +935,22 @@
       function updateOverlayLabel() {
         const box = smBoxes[activeSm] || smBoxes[0];
         if (!box) return;
-        const detailScale = SM_FULL.w / smView.w;
+        const detailScale = smScale();
         overlayLabel.textContent = `GPC ${box.gpc + 1} · TPC ${box.tpc + 1} · SM ${activeSm} · 详情 ${Math.round(detailScale * 100)}%`;
       }
 
+      function smScale() {
+        return baseSmViewWidth / smView.w;
+      }
+
       function clampSmView() {
-        const minW = SM_FULL.w / 8;
-        smView.w = clamp(smView.w, minW, SM_FULL.w);
-        smView.h = smView.w * SM_FULL.h / SM_FULL.w;
-        smView.x = clamp(smView.x, SM_FULL.x, SM_FULL.x + SM_FULL.w - smView.w);
-        smView.y = clamp(smView.y, SM_FULL.y, SM_FULL.y + SM_FULL.h - smView.h);
+        const aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+        const fullView = fitBox(SM_FULL);
+        const minW = fullView.w / 8;
+        smView.w = clamp(smView.w, minW, fullView.w);
+        smView.h = smView.w / aspect;
+        smView.x = clampAxis(smView.x, smView.w, SM_FULL.x, SM_FULL.w);
+        smView.y = clampAxis(smView.y, smView.h, SM_FULL.y, SM_FULL.h);
       }
 
       function updateSmView() {
@@ -951,12 +958,25 @@
         smDetail.setAttribute("viewBox", `${smView.x} ${smView.y} ${smView.w} ${smView.h}`);
         updateOverlayLabel();
         if (smOverlay.classList.contains("visible")) {
-          zoomLabel.textContent = `SM ${Math.round(SM_FULL.w / smView.w * 100)}%`;
+          zoomLabel.textContent = `SM ${Math.round(smScale() * 100)}%`;
         }
       }
 
       function resetSmView() {
-        smView = { ...SM_FULL };
+        smView = fitBox(SM_FULL);
+        baseSmViewWidth = smView.w;
+        updateSmView();
+      }
+
+      function refitSmView() {
+        const scale = smScale();
+        const centerX = smView.x + smView.w / 2;
+        const centerY = smView.y + smView.h / 2;
+        baseSmViewWidth = fitBox(SM_FULL).w;
+        smView.w = baseSmViewWidth / scale;
+        smView.h = smView.w / (stage.clientWidth / Math.max(1, stage.clientHeight));
+        smView.x = centerX - smView.w / 2;
+        smView.y = centerY - smView.h / 2;
         updateSmView();
       }
 
@@ -1019,7 +1039,7 @@
           viewLabel.textContent = "第 1 层 / 全芯片 › 12 GPC › 192 SM";
         }
         const displayScale = baseViewWidth / view.w;
-        zoomLabel.textContent = smLevel ? `SM ${Math.round(SM_FULL.w / smView.w * 100)}%` : `${Math.round(displayScale * 100)}%`;
+        zoomLabel.textContent = smLevel ? `SM ${Math.round(smScale() * 100)}%` : `${Math.round(displayScale * 100)}%`;
       }
 
       function zoomAt(clientX, clientY, factor) {
@@ -1083,7 +1103,7 @@
           return;
         }
         const factor = Math.exp(event.deltaY * .0014);
-        const detailScale = SM_FULL.w / smView.w;
+        const detailScale = smScale();
         if (event.deltaY > 0 && detailScale <= 1.001) {
           zoomAt(event.clientX, event.clientY, factor);
         } else {
@@ -1127,17 +1147,24 @@
 
       stage.addEventListener("pointerdown", (event) => {
         if (event.button !== 0 || smOverlay.classList.contains("visible")) return;
-        drag = { id: event.pointerId, x: event.clientX, y: event.clientY, viewX: view.x, viewY: view.y };
-        stage.setPointerCapture(event.pointerId);
-        stage.classList.add("dragging");
+        drag = { id: event.pointerId, x: event.clientX, y: event.clientY, viewX: view.x, viewY: view.y, active: false };
       });
 
       stage.addEventListener("pointermove", (event) => {
         if (drag && drag.id === event.pointerId) {
-          const box = arch.getBoundingClientRect();
-          view.x = drag.viewX - (event.clientX - drag.x) * view.w / box.width;
-          view.y = drag.viewY - (event.clientY - drag.y) * view.h / box.height;
-          updateView();
+          const deltaX = event.clientX - drag.x;
+          const deltaY = event.clientY - drag.y;
+          if (!drag.active && Math.hypot(deltaX, deltaY) >= 4) {
+            drag.active = true;
+            stage.setPointerCapture(event.pointerId);
+            stage.classList.add("dragging");
+          }
+          if (drag.active) {
+            const box = arch.getBoundingClientRect();
+            view.x = drag.viewX - deltaX * view.w / box.width;
+            view.y = drag.viewY - deltaY * view.h / box.height;
+            updateView();
+          }
         }
         const target = event.target.closest ? event.target.closest("[data-tip]") : null;
         if (!target || smOverlay.classList.contains("visible")) {
@@ -1177,7 +1204,7 @@
         const box = stage.getBoundingClientRect();
         const x = box.left + box.width / 2;
         const y = box.top + box.height / 2;
-        if (smOverlay.classList.contains("visible") && SM_FULL.w / smView.w > 1.001) zoomSmAt(x, y, 1.38);
+        if (smOverlay.classList.contains("visible") && smScale() > 1.001) zoomSmAt(x, y, 1.38);
         else zoomAt(x, y, 1.38);
       });
 
@@ -1193,7 +1220,7 @@
         baseViewWidth = fullView.w;
         if (scale < 1.25) view = fullView;
         updateView();
-        updateSmView();
+        refitSmView();
       });
     })();
   </script>

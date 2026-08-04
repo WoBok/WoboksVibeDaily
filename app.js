@@ -2025,22 +2025,92 @@
     return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
   }
 
-  function htmlArticleSurfaceTone(doc) {
-    const layers = [doc.documentElement, doc.body]
-      .filter(Boolean)
-      .map(element => parseRenderedRgb(doc.defaultView?.getComputedStyle(element).backgroundColor));
-    let surface = { red: 249, green: 248, blue: 244 };
+  function compositeRenderedColor(surface, layer) {
+    if (!layer || layer.alpha <= 0) return surface;
+    const alpha = Math.min(1, Math.max(0, layer.alpha));
+    return {
+      red: layer.red * alpha + surface.red * (1 - alpha),
+      green: layer.green * alpha + surface.green * (1 - alpha),
+      blue: layer.blue * alpha + surface.blue * (1 - alpha)
+    };
+  }
 
-    layers.forEach(layer => {
-      if (!layer || layer.alpha <= 0) return;
-      const alpha = Math.min(1, Math.max(0, layer.alpha));
-      surface = {
-        red: layer.red * alpha + surface.red * (1 - alpha),
-        green: layer.green * alpha + surface.green * (1 - alpha),
-        blue: layer.blue * alpha + surface.blue * (1 - alpha)
-      };
+  function splitCssBackgroundLayers(value) {
+    const source = String(value || '');
+    const layers = [];
+    let depth = 0;
+    let start = 0;
+
+    for (let index = 0; index < source.length; index += 1) {
+      const character = source[index];
+      if (character === '(') depth += 1;
+      else if (character === ')') depth = Math.max(0, depth - 1);
+      else if (character === ',' && depth === 0) {
+        layers.push(source.slice(start, index).trim());
+        start = index + 1;
+      }
+    }
+
+    const tail = source.slice(start).trim();
+    if (tail) layers.push(tail);
+    return layers;
+  }
+
+  function averageRenderedColors(value) {
+    const colors = (String(value || '').match(/rgba?\([^)]*\)/gi) || [])
+      .map(parseRenderedRgb)
+      .filter(Boolean);
+    if (!colors.length) return null;
+
+    const alpha = colors.reduce((total, color) => total + color.alpha, 0) / colors.length;
+    const visibleWeight = colors.reduce((total, color) => total + color.alpha, 0);
+    if (visibleWeight <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+
+    return {
+      red: colors.reduce((total, color) => total + color.red * color.alpha, 0) / visibleWeight,
+      green: colors.reduce((total, color) => total + color.green * color.alpha, 0) / visibleWeight,
+      blue: colors.reduce((total, color) => total + color.blue * color.alpha, 0) / visibleWeight,
+      alpha
+    };
+  }
+
+  function declaredHtmlSurfaceTone(doc) {
+    const values = [
+      doc.querySelector('meta[name="color-scheme"]')?.getAttribute('content'),
+      doc.defaultView?.getComputedStyle(doc.documentElement).colorScheme
+    ];
+
+    for (const value of values) {
+      const match = String(value || '').toLowerCase().match(/\b(dark|light)\b/);
+      if (match) return match[1];
+    }
+    return '';
+  }
+
+  function htmlArticleSurfaceTone(doc) {
+    let surface = { red: 249, green: 248, blue: 244 };
+    let hasRenderedSurface = false;
+
+    [doc.documentElement, doc.body].filter(Boolean).forEach(element => {
+      const style = doc.defaultView?.getComputedStyle(element);
+      if (!style) return;
+
+      const backgroundColor = parseRenderedRgb(style.backgroundColor);
+      if (backgroundColor?.alpha > 0) {
+        hasRenderedSurface = true;
+        surface = compositeRenderedColor(surface, backgroundColor);
+      }
+
+      const backgroundLayers = splitCssBackgroundLayers(style.backgroundImage)
+        .map(averageRenderedColors)
+        .filter(Boolean);
+      if (backgroundLayers.some(layer => layer.alpha > 0)) hasRenderedSurface = true;
+      backgroundLayers.reverse().forEach(layer => {
+        surface = compositeRenderedColor(surface, layer);
+      });
     });
 
+    if (!hasRenderedSurface) return declaredHtmlSurfaceTone(doc) || 'light';
     return relativeLuminance(surface) < 0.42 ? 'dark' : 'light';
   }
 
@@ -2391,6 +2461,7 @@
 
         doc.addEventListener('wheel', event => {
           if (event.ctrlKey || event.metaKey) return;
+          if (event.defaultPrevented) return;
 
           const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
           const deltaX = event.deltaX * unit;
