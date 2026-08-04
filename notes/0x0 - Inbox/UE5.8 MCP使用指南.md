@@ -90,7 +90,7 @@ cd D:/YourProject && claude
 
 | 设置 | 默认值 | 说明 |
 |---|---|---|
-| Auto Start Server | `false` | 编辑器启动时自动开服 |
+| Auto Start Server | `false` | 编辑器启动时自动开启服务 |
 | Server Port Number | `8000` | 监听端口（绑定 127.0.0.1） |
 | Server URL Path | `/mcp` | 服务路径 |
 | Enable Tool Search | `true` | 让 Agent 按需检索工具，而非一次性加载全部 schema，显著省上下文。建议保持开启 |
