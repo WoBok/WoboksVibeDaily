@@ -1,0 +1,1201 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="title" content="GB202 GPU 交互式架构图">
+  <meta name="date" content="2026-08-04">
+  <meta name="summary" content="通过可缩放交互图展示 NVIDIA Blackwell GB202 的全芯片、GPC 与 SM 层级结构，并汇总核心参数和架构术语。">
+  <meta name="category" content="Inbox">
+  <meta name="tags" content="NVIDIA|Blackwell|GB202|GPU 架构|交互式可视化">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>NVIDIA RTX Blackwell GB202 交互式架构图</title>
+  <style>
+    :root {
+      --bg: #090b0a;
+      --panel: #151816;
+      --panel-2: #1d211e;
+      --chip: #3d3e3d;
+      --chip-2: #323432;
+      --line: #aeb2ae;
+      --line-soft: #59605b;
+      --text: #f4f7f3;
+      --muted: #aeb8b0;
+      --nvidia: #76b900;
+      --green: #4d8600;
+      --green-dark: #315800;
+      --green-bright: #74bd00;
+      --orange: #f5840c;
+      --orange-dark: #9d4605;
+      --teal: #205f6d;
+      --blue: #2e59a3;
+      --sky: #72afd5;
+      --red: #963c34;
+      --yellow: #efff5c;
+      --yellow-ink: #121600;
+      --shadow: 0 18px 70px rgba(0, 0, 0, .34);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% -10%, rgba(118,185,0,.16), transparent 32rem),
+        linear-gradient(180deg, #0d100e 0, var(--bg) 38rem);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+
+    a { color: #a9dc61; }
+    button { font: inherit; }
+
+    .page {
+      width: min(1920px, calc(100% - 8px));
+      margin: 0 auto;
+      padding: 28px 0 72px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 24px;
+      margin-left: clamp(18px, 1.5vw, 28px);
+      margin-right: clamp(28px, 4.5vw, 84px);
+      padding: 18px 0 24px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px;
+      color: #acd76b;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 24px;
+      height: 3px;
+      background: var(--nvidia);
+      border-radius: 99px;
+    }
+
+    h1 {
+      max-width: 1050px;
+      margin: 0;
+      font-size: clamp(30px, 4.7vw, 68px);
+      line-height: 1.03;
+      letter-spacing: -.045em;
+    }
+
+    .lead {
+      max-width: 920px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: clamp(15px, 1.5vw, 19px);
+    }
+
+    .source-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      color: #d8e3da;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 999px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .source-chip::before {
+      content: "↗";
+      color: var(--nvidia);
+      font-weight: 800;
+    }
+
+    .diagram-shell {
+      overflow: hidden;
+      margin-inline: clamp(28px, 4.5vw, 84px);
+      background: linear-gradient(180deg, #171a18, #101311);
+      border: 1px solid #353a36;
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 14px;
+      border-bottom: 1px solid #343a35;
+      background: rgba(25, 29, 26, .96);
+    }
+
+    .where {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #cbd4cd;
+      font-size: 13px;
+    }
+
+    .where strong {
+      overflow: hidden;
+      color: white;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .level-dot {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--nvidia);
+      box-shadow: 0 0 0 4px rgba(118,185,0,.12);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .control-button {
+      min-height: 36px;
+      padding: 7px 11px;
+      color: #e9eee9;
+      background: #272b28;
+      border: 1px solid #454b46;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background .16s ease, border-color .16s ease, transform .16s ease;
+    }
+
+    .control-button:hover { background: #323833; border-color: #697069; }
+    .control-button:active { transform: translateY(1px); }
+    .control-button:focus-visible { outline: 3px solid rgba(118,185,0,.42); outline-offset: 2px; }
+    .control-button.primary { color: #101608; background: var(--nvidia); border-color: #8dd01d; font-weight: 800; }
+    .icon-button { width: 36px; padding: 6px; font-size: 20px; line-height: 1; }
+
+    .stage {
+      position: relative;
+      height: min(77vh, 900px);
+      min-height: 570px;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px),
+        #070908;
+      background-size: 32px 32px;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .stage.dragging { cursor: grabbing; }
+    #arch { display: block; width: 100%; height: 100%; }
+
+    #arch .shape { vector-effect: non-scaling-stroke; }
+    #arch .module { cursor: pointer; }
+    #arch .module:hover > .hoverable,
+    #arch .sm-shell:hover > .hoverable { filter: brightness(1.18); }
+    #arch text { fill: #fff; font-family: inherit; pointer-events: none; }
+    #arch .muted-svg { fill: #cad0cb; }
+    #arch .ink-dark { fill: var(--yellow-ink); }
+    #arch .ink-black { fill: #000; }
+    #arch .lod-gpc-only { opacity: 0; transition: opacity .18s ease; }
+    #arch.lod-gpc .lod-gpc-only { opacity: 1; }
+    #arch.lod-sm { opacity: .08; transition: opacity .2s ease; }
+    #arch .active-outline { opacity: 0; }
+    #arch .sm-shell.is-active .active-outline { opacity: 1; }
+
+    .sm-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(118,185,0,.08), transparent 35%),
+        rgba(5,7,6,.96);
+      transition: opacity .2s ease;
+      cursor: grab;
+    }
+
+    .sm-overlay.visible { opacity: 1; pointer-events: auto; }
+    .sm-overlay.dragging { cursor: grabbing; }
+    .sm-overlay svg { width: min(98%, 1160px); height: 98%; filter: drop-shadow(0 18px 32px rgba(0,0,0,.35)); }
+
+    .overlay-note {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      color: #dce6dc;
+      background: rgba(19,23,20,.82);
+      border: 1px solid #3d463e;
+      border-radius: 999px;
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+    }
+
+    .legend {
+      display: flex;
+      gap: 8px 16px;
+      flex-wrap: wrap;
+      padding: 11px 14px 13px;
+      color: #bfc8c1;
+      background: #121513;
+      border-top: 1px solid #2a2f2b;
+      font-size: 12px;
+    }
+
+    .legend-item { display: inline-flex; align-items: center; gap: 7px; }
+    .swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+    .tip {
+      position: absolute;
+      z-index: 5;
+      max-width: 290px;
+      padding: 8px 10px;
+      color: #ecf3ed;
+      background: rgba(19, 23, 20, .96);
+      border: 1px solid #4a514b;
+      border-radius: 9px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
+      font-size: 12px;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translateY(4px);
+      pointer-events: none;
+      transition: opacity .12s ease, transform .12s ease;
+    }
+
+    .tip.show { opacity: 1; transform: translateY(0); }
+
+    .hint-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 14px;
+      color: #97a39a;
+      background: #0d100e;
+      border-top: 1px solid #252a26;
+      font-size: 12px;
+    }
+
+    .hint-row kbd {
+      padding: 2px 6px;
+      color: #e8eee9;
+      background: #252a27;
+      border: 1px solid #444b45;
+      border-bottom-color: #202421;
+      border-radius: 5px;
+      font-family: inherit;
+    }
+
+    .content { width: min(1320px, 100%); margin: 0 auto; }
+    .section { padding: 64px 4px 0; }
+    .section-header { max-width: 860px; margin-bottom: 24px; }
+    .section-kicker { margin: 0 0 7px; color: #93c64b; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h2 { margin: 0; font-size: clamp(25px, 3vw, 42px); line-height: 1.15; letter-spacing: -.025em; }
+    h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.3; }
+    .section-copy { margin: 10px 0 0; color: var(--muted); }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      min-height: 126px;
+      padding: 18px;
+      background: linear-gradient(145deg, #1b201c, #141715);
+      border: 1px solid #333a34;
+      border-radius: 14px;
+    }
+
+    .stat .value { display: block; color: #fff; font-size: clamp(25px, 3vw, 40px); font-weight: 800; line-height: 1; letter-spacing: -.035em; }
+    .stat .label { display: block; margin-top: 8px; color: #dce5dd; font-weight: 700; }
+    .stat .detail { display: block; margin-top: 3px; color: #87938a; font-size: 13px; }
+
+    .scope-note {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      margin-top: 14px;
+      padding: 16px 18px;
+      background: rgba(239,255,92,.055);
+      border: 1px solid rgba(239,255,92,.25);
+      border-radius: 14px;
+    }
+
+    .scope-mark { color: var(--yellow); font-size: 22px; font-weight: 900; }
+    .scope-note strong { color: #f2f7c5; }
+    .scope-note p { margin: 3px 0 0; color: #b7c1b8; }
+
+    .hierarchy {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: stretch;
+      gap: 28px;
+      margin-top: 26px;
+    }
+
+    .hierarchy-step {
+      position: relative;
+      min-height: 180px;
+      padding: 20px;
+      background: #171b18;
+      border: 1px solid #353b36;
+      border-top: 4px solid var(--nvidia);
+      border-radius: 14px;
+    }
+
+    .hierarchy-step:not(:last-child)::after {
+      content: "×";
+      position: absolute;
+      top: 50%;
+      right: -24px;
+      display: grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      color: #88aa58;
+      font-weight: 900;
+      transform: translateY(-50%);
+    }
+
+    .hierarchy-step .count { display: block; margin-bottom: 8px; color: #a8d963; font-size: 30px; font-weight: 900; }
+    .hierarchy-step p { margin: 0; color: #9da89f; font-size: 14px; }
+
+    .equations {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .equation { padding: 13px 14px; color: #d9e2db; background: #121512; border: 1px solid #2b302c; border-radius: 10px; font-variant-numeric: tabular-nums; }
+    .equation b { color: #aadc61; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 20px;
+      align-items: stretch;
+      margin-top: 25px;
+    }
+
+    .flow-node {
+      position: relative;
+      min-height: 134px;
+      padding: 15px;
+      background: #171a18;
+      border: 1px solid #343a35;
+      border-radius: 12px;
+    }
+
+    .flow-node:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -19px;
+      color: #7caf38;
+      font-size: 22px;
+      transform: translateY(-50%);
+    }
+
+    .flow-node .flow-index { display: inline-grid; width: 25px; height: 25px; place-items: center; margin-bottom: 10px; color: #101608; background: var(--nvidia); border-radius: 50%; font-size: 12px; font-weight: 900; }
+    .flow-node strong { display: block; line-height: 1.3; }
+    .flow-node small { display: block; margin-top: 6px; color: #8e9a91; line-height: 1.45; }
+
+    .term-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .term {
+      padding: 19px;
+      background: #151916;
+      border: 1px solid #303631;
+      border-radius: 13px;
+    }
+
+    .term .tag { display: inline-block; margin-bottom: 11px; padding: 3px 8px; color: #cceaa3; background: rgba(118,185,0,.12); border: 1px solid rgba(118,185,0,.28); border-radius: 999px; font-size: 11px; font-weight: 800; }
+    .term p { margin: 0; color: #aab4ac; font-size: 14px; }
+    .term code { color: #d8efb7; }
+
+    .relation-table { width: 100%; border-collapse: collapse; overflow: hidden; background: #141815; border: 1px solid #303631; border-radius: 13px; }
+    .relation-table th, .relation-table td { padding: 13px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid #2b302c; }
+    .relation-table th { color: #d9e6db; background: #1b201c; font-size: 13px; }
+    .relation-table td { color: #aab5ac; font-size: 14px; }
+    .relation-table td:first-child { color: #e5eee7; font-weight: 750; }
+    .relation-table tr:last-child td { border-bottom: 0; }
+
+    .provenance {
+      margin-top: 28px;
+      padding: 18px;
+      color: #9ea9a1;
+      background: #111411;
+      border: 1px solid #2b302c;
+      border-radius: 13px;
+      font-size: 13px;
+    }
+
+    .provenance p { margin: 0; }
+    .provenance p + p { margin-top: 8px; }
+
+    @media (max-width: 1080px) {
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+      .hierarchy { grid-template-columns: repeat(2, 1fr); }
+      .hierarchy-step:nth-child(2)::after { display: none; }
+      .equations { grid-template-columns: repeat(2, 1fr); }
+      .flow { grid-template-columns: repeat(2, 1fr); }
+      .flow-node::after { display: none; }
+      .term-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 720px) {
+      .page { width: calc(100% - 4px); padding-top: 12px; }
+      .hero { margin-inline: 10px; }
+      .diagram-shell { margin-inline: 10px; }
+      .hero { grid-template-columns: 1fr; gap: 14px; }
+      .source-chip { justify-self: start; }
+      .toolbar { align-items: flex-start; flex-direction: column; }
+      .controls { justify-content: flex-start; }
+      .stage { min-height: 520px; height: 70vh; }
+      .hint-row { align-items: flex-start; flex-direction: column; }
+      .stat-grid, .hierarchy, .equations, .flow, .term-grid { grid-template-columns: 1fr; }
+      .hierarchy-step::after { display: none; }
+      .section { padding-top: 48px; }
+      .relation-table { display: block; overflow-x: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+
+    @media print {
+      body { background: #fff; color: #111; }
+      .page { width: 100%; }
+      .toolbar, .hint-row { display: none; }
+      .diagram-shell { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">NVIDIA RTX Blackwell · Full-chip Explorer</p>
+        <h1>GB202 GPU 交互式架构图</h1>
+      </div>
+      <a class="source-chip" href="https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf" target="_blank" rel="noreferrer">NVIDIA 官方白皮书 v1.1</a>
+    </header>
+
+    <section class="diagram-shell" aria-labelledby="diagram-title">
+      <h2 id="diagram-title" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">GB202 可缩放架构图</h2>
+      <div class="toolbar">
+        <div class="where"><span class="level-dot"></span><strong id="viewLabel">第 1 层 / 全芯片</strong><span id="zoomLabel">100%</span></div>
+        <div class="controls" aria-label="架构图缩放控制">
+          <button class="control-button primary" id="fullButton" type="button">全芯片</button>
+          <button class="control-button" id="gpcButton" type="button">聚焦 GPC 1</button>
+          <button class="control-button" id="smButton" type="button">进入 SM</button>
+          <button class="control-button icon-button" id="minusButton" type="button" aria-label="缩小">−</button>
+          <button class="control-button icon-button" id="plusButton" type="button" aria-label="放大">＋</button>
+        </div>
+      </div>
+
+      <div class="stage" id="stage">
+        <svg id="arch" viewBox="0 0 2400 1120" role="img" aria-label="NVIDIA RTX Blackwell GB202 完整 GPU 方框图" aria-describedby="arch-desc" preserveAspectRatio="xMidYMid meet">
+          <desc id="arch-desc">图中包含 12 个 GPC、96 个 TPC、192 个 SM、中央 L2 缓存、16 个 32 位内存控制器，以及媒体与调度引擎。放大后显示 GPC 和 SM 细节。</desc>
+          <g id="chipLayer"></g>
+        </svg>
+        <div class="sm-overlay" id="smOverlay" aria-hidden="true">
+          <div class="overlay-note"><span class="level-dot"></span><span id="overlayLabel">SM 0 · 缩小可返回完整芯片</span></div>
+          <svg id="smDetail" viewBox="0 0 1040 1220" role="img" aria-label="Blackwell Streaming Multiprocessor 详细结构"></svg>
+        </div>
+        <div class="tip" id="tip" role="status"></div>
+      </div>
+
+      <div class="legend" aria-label="颜色图例">
+        <span class="legend-item"><span class="swatch" style="background:#f5840c"></span>指令调度</span>
+        <span class="legend-item"><span class="swatch" style="background:#205f6d"></span>缓存 / 寄存器 / 光栅</span>
+        <span class="legend-item"><span class="swatch" style="background:#4d8600"></span>CUDA / Tensor 计算</span>
+        <span class="legend-item"><span class="swatch" style="background:#963c34"></span>访存 / 特殊函数</span>
+        <span class="legend-item"><span class="swatch" style="background:#2e59a3"></span>纹理单元</span>
+        <span class="legend-item"><span class="swatch" style="background:#efff5c"></span>RT Core / 几何</span>
+        <span class="legend-item"><span class="swatch" style="background:#72afd5"></span>L2 缓存</span>
+      </div>
+      <div class="hint-row"><span>滚轮缩放 · 拖动画布 · 双击 GPC 或 SM 快速聚焦 · 进入鼠标所指 SM 后，重新滚动可继续放大内部</span><span><kbd>0</kbd> 全芯片　<kbd>+</kbd>/<kbd>−</kbd> 缩放　<kbd>Esc</kbd> 返回</span></div>
+    </section>
+
+    <main class="content">
+      <section class="section" id="specs">
+        <div class="section-header">
+          <p class="section-kicker">Full GB202</p>
+          <h2>完整芯片参数</h2>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><span class="value">12</span><span class="label">GPC</span><span class="detail">Graphics Processing Cluster</span></div>
+          <div class="stat"><span class="value">96</span><span class="label">TPC</span><span class="detail">每个 GPC 8 个</span></div>
+          <div class="stat"><span class="value">192</span><span class="label">SM</span><span class="detail">每个 TPC 2 个</span></div>
+          <div class="stat"><span class="value">24,576</span><span class="label">CUDA Core</span><span class="detail">每个 SM 128 个</span></div>
+          <div class="stat"><span class="value">384</span><span class="label">FP64 Core</span><span class="detail">每个 SM 2 个</span></div>
+          <div class="stat"><span class="value">768</span><span class="label">Tensor Core</span><span class="detail">第五代 · 每个 SM 4 个</span></div>
+          <div class="stat"><span class="value">192</span><span class="label">RT Core</span><span class="detail">第四代 · 每个 SM 1 个</span></div>
+          <div class="stat"><span class="value">768</span><span class="label">Texture Unit</span><span class="detail">每个 SM 4 个</span></div>
+          <div class="stat"><span class="value">24 MB</span><span class="label">L1/Shared Memory</span><span class="detail">每个 SM 128 KB</span></div>
+          <div class="stat"><span class="value">48 MB</span><span class="label">Register File</span><span class="detail">每个 SM 256 KB</span></div>
+          <div class="stat"><span class="value">192</span><span class="label">ROP</span><span class="detail">每个 GPC 16 个</span></div>
+          <div class="stat"><span class="value">128 MB</span><span class="label">L2 Cache</span><span class="detail">全芯片共享末级缓存</span></div>
+          <div class="stat"><span class="value">16</span><span class="label">显存控制器</span><span class="detail">每个控制器 32-bit</span></div>
+          <div class="stat"><span class="value">512-bit</span><span class="label">显存总线</span><span class="detail">16 × 32-bit 控制器</span></div>
+          <div class="stat"><span class="value">922 亿</span><span class="label">晶体管</span><span class="detail">完整 GB202 芯片</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="terms">
+        <div class="section-header">
+          <p class="section-kicker">Quick glossary</p>
+          <h2>核心术语速查</h2>
+        </div>
+        <div class="term-grid">
+          <article class="term"><span class="tag">01 · 全局调度</span><h3>GigaThread Engine</h3><p>把线程块和图形任务分配到可用的 GPC 与 SM。</p></article>
+          <article class="term"><span class="tag">02 · 固定功能</span><h3>NVENC</h3><p>NVIDIA 的视频编码器，无需依赖 CUDA Core 完成压缩。</p></article>
+          <article class="term"><span class="tag">03 · 图形层级</span><h3>GPC</h3><p>GPU 的大型处理集群，内部包含 Raster Engine、ROP、TPC 和 SM。</p></article>
+          <article class="term"><span class="tag">04 · GPC</span><h3>Raster Engine</h3><p>把三角形等图元转换为屏幕上的像素覆盖范围。</p></article>
+          <article class="term"><span class="tag">05 · GPC</span><h3>ROP</h3><p>处理深度、模板与颜色混合，并把最终像素写入帧缓冲。</p></article>
+          <article class="term"><span class="tag">06 · 图形层级</span><h3>TPC</h3><p>GPC 内的小型处理集群，包含几何前端和两个 SM。</p></article>
+          <article class="term"><span class="tag">07 · 图形层级</span><h3>SM</h3><p>GPU 的主要可编程执行单元，负责线程调度、计算与片上存储。</p></article>
+          <article class="term"><span class="tag">08 · SM 取指</span><h3>L1 Instruction Cache</h3><p>SM 共享的一级指令缓存，为各调度分区提供程序指令。</p></article>
+          <article class="term"><span class="tag">09 · SM 取指</span><h3>L0 Instruction Cache</h3><p>最靠近调度器的小型缓存，快速供应当前 warp 的指令。</p></article>
+          <article class="term"><span class="tag">10 · SM 调度</span><h3>Warp Scheduler</h3><p>从已就绪的 warp 中选择下一条要执行的指令。</p></article>
+          <article class="term"><span class="tag">11 · SM 调度</span><h3>Dispatch Unit</h3><p>把调度器选中的指令送到对应执行管线。</p></article>
+          <article class="term"><span class="tag">12 · SM 计算</span><h3>CUDA Core</h3><p>执行通用浮点、整数和逻辑运算。</p></article>
+          <article class="term"><span class="tag">13 · SM 计算</span><h3>FP64 Core</h3><p>执行双精度浮点运算，GB202 中主要用于程序兼容。</p></article>
+          <article class="term"><span class="tag">14 · SM 计算</span><h3>Tensor Core</h3><p>执行高吞吐矩阵运算，主要服务 AI 与神经渲染。</p></article>
+          <article class="term"><span class="tag">15 · SM 光追</span><h3>RT Core</h3><p>加速光线遍历以及光线与几何体求交。</p></article>
+          <article class="term"><span class="tag">16 · SM 纹理</span><h3>Texture Unit</h3><p>读取纹理、计算纹理坐标并完成采样与过滤。</p></article>
+          <article class="term"><span class="tag">17 · SM 访存</span><h3>LD/ST</h3><p>Load/Store 单元，负责在寄存器、缓存和显存之间读写数据。</p></article>
+          <article class="term"><span class="tag">18 · SM 计算</span><h3>SFU</h3><p>处理平方根、倒数和三角函数等特殊运算。</p></article>
+          <article class="term"><span class="tag">19 · SM 存储</span><h3>Register File</h3><p>保存线程正在使用的数据，是最贴近计算单元的高速存储。</p></article>
+          <article class="term"><span class="tag">20 · SM 存储</span><h3>L1/Shared Memory</h3><p>可作为自动缓存，也可由同一线程块中的线程显式共享。</p></article>
+          <article class="term"><span class="tag">21 · 全芯片存储</span><h3>L2 Cache</h3><p>所有 SM 共享的末级缓存，位于芯片与外部显存之间。</p></article>
+          <article class="term"><span class="tag">22 · 显存接口</span><h3>显存控制器</h3><p>调度显存读写；16 个 32-bit 控制器共同组成 512-bit 接口。</p></article>
+          <article class="term"><span class="tag">23 · 显存接口</span><h3>显存总线</h3><p>GPU 与显存之间的数据通道，位宽决定每次可并行传输的数据量。</p></article>
+          <article class="term"><span class="tag">24 · 芯片规模</span><h3>晶体管</h3><p>构成逻辑与存储电路的基本开关，数量反映芯片集成规模。</p></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+      const NS = "http://www.w3.org/2000/svg";
+      const FULL = { x: 0, y: 0, w: 2400, h: 1120 };
+      const CHIP_BOUNDS = { x: 35, y: 16, w: 2330, h: 1090 };
+      const SM_FULL = { x: 0, y: 0, w: 1040, h: 1220 };
+      const COLORS = {
+        chip: "#3d3e3d", panel: "#323432", line: "#aeb2ae", soft: "#59605b",
+        green: "#4d8600", greenDark: "#315800", orange: "#f5840c", orangeDark: "#9d4605",
+        teal: "#205f6d", blue: "#2e59a3", sky: "#72afd5", red: "#963c34", yellow: "#efff5c"
+      };
+
+      const arch = document.getElementById("arch");
+      const layer = document.getElementById("chipLayer");
+      const stage = document.getElementById("stage");
+      const smOverlay = document.getElementById("smOverlay");
+      const smDetail = document.getElementById("smDetail");
+      const tip = document.getElementById("tip");
+      const viewLabel = document.getElementById("viewLabel");
+      const zoomLabel = document.getElementById("zoomLabel");
+      const overlayLabel = document.getElementById("overlayLabel");
+      const smBoxes = [];
+      const gpcBoxes = [];
+      let view = { ...FULL };
+      let baseViewWidth = FULL.w;
+      let smView = { ...SM_FULL };
+      let activeSm = 0;
+      let drag = null;
+      let smDrag = null;
+      let smWheelPaused = false;
+      let smWheelPauseTimer = null;
+
+      function node(tag, attrs = {}, text = "") {
+        const el = document.createElementNS(NS, tag);
+        Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, String(value)));
+        if (text) el.textContent = text;
+        return el;
+      }
+
+      function add(parent, tag, attrs, text) {
+        const el = node(tag, attrs, text);
+        parent.appendChild(el);
+        return el;
+      }
+
+      function rect(parent, x, y, w, h, fill, stroke = "#101210", sw = 2, extra = {}) {
+        return add(parent, "rect", { x, y, width: w, height: h, fill, stroke, "stroke-width": sw, class: "shape hoverable", ...extra });
+      }
+
+      function label(parent, x, y, text, size, anchor = "middle", extra = {}) {
+        return add(parent, "text", { x, y, "font-size": size, "text-anchor": anchor, "font-weight": 700, "dominant-baseline": "middle", ...extra }, text);
+      }
+
+      function moduleGroup(parent, tipText, extraClass = "") {
+        return add(parent, "g", { class: `module ${extraClass}`.trim(), "data-tip": tipText });
+      }
+
+      function engineBar(x, y, w, h, title, fill, tipText, labelClass = "") {
+        const g = moduleGroup(layer, tipText);
+        rect(g, x, y, w, h, fill, "#151715", 2);
+        label(g, x + w / 2, y + h / 2 + .5, title, Math.min(13, h * .48), "middle", { class: labelClass });
+      }
+
+      function drawSmThumb(parent, x, y, w, h, smIndex, gpcIndex, tpcIndex) {
+        const g = add(parent, "g", {
+          class: "sm-shell module",
+          "data-sm": smIndex,
+          "data-tip": `SM ${smIndex}: 128 CUDA Core · 4 Tensor Core · 1 RT Core · 4 Texture Unit`
+        });
+        rect(g, x, y, w, h, "#3b3d3b", "#9ba09b", 1.3);
+        label(g, x + 3, y + 6, "SM", 6.2, "start", { class: "lod-gpc-only" });
+        const top = y + 9;
+        rect(g, x + 3, top, w - 6, 4.2, COLORS.teal, "#202522", .7);
+        const coreY = top + 5.5;
+        const coreH = h * .43;
+        for (let i = 0; i < 4; i++) {
+          rect(g, x + 3 + i * (w - 7) / 4, coreY, (w - 9) / 4, coreH, i % 2 ? COLORS.green : COLORS.greenDark, "#1c250f", .55);
+        }
+        rect(g, x + 3, coreY + coreH + 1.8, w - 6, 4.6, COLORS.red, "#2a1715", .7);
+        rect(g, x + 3, coreY + coreH + 7.2, w - 6, 4.4, COLORS.teal, "#172326", .7);
+        const texY = coreY + coreH + 12.8;
+        for (let i = 0; i < 4; i++) rect(g, x + 3 + i * (w - 7) / 4, texY, (w - 9) / 4, 3.5, COLORS.blue, "#17213a", .5);
+        rect(g, x + 3, y + h - 14, w - 6, 11, COLORS.yellow, "#5a6220", .8);
+        add(g, "rect", { x: x - 2.5, y: y - 2.5, width: w + 5, height: h + 5, fill: "none", stroke: "#9bd63f", "stroke-width": 3, rx: 2, class: "shape active-outline" });
+        g.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setActiveSm(smIndex);
+        });
+        g.addEventListener("dblclick", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setActiveSm(smIndex);
+          focusSm(smIndex);
+        });
+        smBoxes.push({ x, y, w, h, index: smIndex, gpc: gpcIndex, tpc: tpcIndex, el: g });
+      }
+
+      function drawGpc(gpcIndex, x, y) {
+        const w = 355;
+        const h = 320;
+        const g = add(layer, "g", { class: "gpc module", "data-gpc": gpcIndex, "data-tip": `GPC ${gpcIndex + 1}: 8 TPC · 16 SM · 16 ROP · 1 Raster Engine` });
+        rect(g, x, y, w, h, COLORS.chip, COLORS.line, 2.2);
+        label(g, x + 8, y + 13, `GPC ${gpcIndex + 1}`, 9.5, "start");
+        const raster = moduleGroup(g, "Raster Engine: 把图元转换为像素/片段覆盖", "lod-gpc-only");
+        rect(raster, x + 8, y + 23, w - 16, 25, COLORS.teal, "#142126", 1.2);
+        label(raster, x + w / 2, y + 35.5, "Raster Engine", 8.5);
+
+        const tpcY = y + 57;
+        const tpcH = 224;
+        const innerX = x + 8;
+        const gap = 4;
+        const tpcW = (w - 16 - gap * 7) / 8;
+        for (let tpc = 0; tpc < 8; tpc++) {
+          const tx = innerX + tpc * (tpcW + gap);
+          const tg = add(g, "g", { class: "tpc module", "data-tip": `TPC ${tpc + 1}: 1 PolyMorph Engine + 2 SM` });
+          rect(tg, tx, tpcY, tpcW, tpcH, "#383a38", "#858a85", 1.1);
+          label(tg, tx + 2.8, tpcY + 8, `TPC ${tpc + 1}`, 5.2, "start", { class: "lod-gpc-only" });
+          rect(tg, tx + 3, tpcY + 14, tpcW - 6, 6, COLORS.teal, "#182426", .6, { class: "shape hoverable lod-gpc-only" });
+          const smW = tpcW - 7;
+          const smH = 89;
+          const smX = tx + 3.5;
+          const sm1Y = tpcY + 25;
+          const first = gpcIndex * 16 + tpc * 2;
+          drawSmThumb(tg, smX, sm1Y, smW, smH, first, gpcIndex, tpc);
+          drawSmThumb(tg, smX, sm1Y + smH + 8, smW, smH, first + 1, gpcIndex, tpc);
+        }
+
+        for (let side = 0; side < 2; side++) {
+          const rx = x + 9 + side * ((w - 20) / 2 + 2);
+          const rw = (w - 24) / 2;
+          const rg = moduleGroup(g, "ROP partition: 8 个像素后端单元", "lod-gpc-only");
+          rect(rg, rx, y + 289, rw, 21, "#454845", "#8b908b", 1);
+          for (let i = 0; i < 8; i++) rect(rg, rx + 5 + i * (rw - 10) / 8, y + 294, (rw - 16) / 8, 11, COLORS.teal, "#1b282b", .6);
+        }
+
+        g.addEventListener("dblclick", (event) => {
+          if (event.target.closest(".sm-shell")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          focusGpc(gpcIndex);
+        });
+        gpcBoxes.push({ x, y, w, h, index: gpcIndex });
+      }
+
+      function buildChip() {
+        rect(layer, 35, 16, 2330, 1090, "#292c29", "#8e948f", 3);
+        label(layer, 54, 38, "GB202 FULL GPU", 17, "start");
+
+        engineBar(90, 50, 2220, 27, "PCI Express 5.0 Host Interface", "#555956", "PCI Express 5.0 Host Interface: CPU 与 GPU 的主机连接");
+        engineBar(90, 81, 1120, 29, "AI Management Processor (AMP)", COLORS.yellow, "AMP: 协调 AI 模型与图形工作负载共享 GPU", "ink-black");
+        engineBar(1214, 81, 1096, 29, "GigaThread Engine", COLORS.orange, "GigaThread Engine: 全局线程与工作分配前端", "ink-black");
+
+        const media = [
+          [90, 113, 240, "Optical Flow Engine"], [334, 113, 250, "NVENC"], [588, 113, 250, "NVENC"],
+          [842, 113, 250, "NVENC"], [1096, 113, 250, "NVENC"], [1350, 113, 235, "NVDEC"],
+          [1589, 113, 235, "NVDEC"], [1828, 113, 235, "NVDEC"], [2067, 113, 243, "NVDEC"]
+        ];
+        media.forEach(([x, y, w, title]) => engineBar(x, y, w, 25, title, COLORS.teal, `${title}: 独立固定功能媒体引擎`));
+
+        for (let i = 0; i < 12; i++) {
+          const col = i % 6;
+          const row = i < 6 ? 0 : 1;
+          drawGpc(i, 110 + col * 365, row === 0 ? 167 : 741);
+        }
+
+        const l2 = moduleGroup(layer, "128 MB L2 Cache: 所有 GPC 共享的片上末级缓存");
+        rect(l2, 110, 508, 2180, 213, COLORS.sky, "#172b36", 2.2);
+        label(l2, 1200, 614, "128 MB L2 CACHE", 28);
+        for (let i = 1; i < 16; i++) add(l2, "line", { x1: 110 + i * 2180 / 16, y1: 508, x2: 110 + i * 2180 / 16, y2: 721, stroke: "rgba(21,58,78,.32)", "stroke-width": 1, class: "shape" });
+
+        for (let side = 0; side < 2; side++) {
+          const x = side === 0 ? 48 : 2312;
+          for (let row = 0; row < 2; row++) {
+            const baseY = row === 0 ? 167 : 741;
+            for (let i = 0; i < 4; i++) {
+              const g = moduleGroup(layer, `32-bit Memory Controller ${side * 8 + row * 4 + i + 1}`);
+              rect(g, x, baseY + i * 80, 40, 72, "#454845", "#929792", 1.2);
+              const t = label(g, x + 20, baseY + i * 80 + 36, "32-bit MC", 6.4);
+              t.setAttribute("transform", `rotate(${side === 0 ? -90 : 90} ${x + 20} ${baseY + i * 80 + 36})`);
+            }
+          }
+        }
+
+        label(layer, 1200, 1087, "12 GPC · 96 TPC · 192 SM · 512-bit GDDR7 interface", 15, "middle", { class: "muted-svg" });
+      }
+
+      function partitionMarkup(x, y, index) {
+        const cells = Array.from({ length: 32 }, (_, i) => {
+          const cx = x + 12 + (i % 8) * 30.4;
+          const cy = y + 185 + Math.floor(i / 8) * 57;
+          return `<rect x="${cx}" y="${cy}" width="29" height="55" fill="${i % 2 ? COLORS.green : COLORS.greenDark}" stroke="#172109" stroke-width="1.5"/>`;
+        }).join("");
+        const ld = Array.from({ length: 4 }, (_, i) => `<rect x="${x + 12 + i * 83}" y="${y + 424}" width="76" height="37" fill="${COLORS.red}" stroke="#241312" stroke-width="2"/><text x="${x + 50 + i * 83}" y="${y + 447}" text-anchor="middle">LD/ST</text>`).join("");
+        return `
+          <g data-detail-tip="执行分区 ${index + 1}: 独立 Warp Scheduler、Dispatch、寄存器片与执行管线">
+            <rect x="${x}" y="${y}" width="480" height="475" fill="#3d3e3d" stroke="#aeb2ae" stroke-width="3"/>
+            <rect x="${x + 10}" y="${y + 10}" width="460" height="31" fill="${COLORS.sky}" stroke="#142631" stroke-width="2"/>
+            <text x="${x + 240}" y="${y + 29}" text-anchor="middle">L0 Instruction Cache</text>
+            <rect x="${x + 10}" y="${y + 48}" width="460" height="31" fill="${COLORS.orange}" stroke="#291708" stroke-width="2"/>
+            <text x="${x + 240}" y="${y + 67}" text-anchor="middle">Warp Scheduler (32 thread/clk)</text>
+            <rect x="${x + 10}" y="${y + 86}" width="460" height="31" fill="${COLORS.orangeDark}" stroke="#291708" stroke-width="2"/>
+            <text x="${x + 240}" y="${y + 105}" text-anchor="middle">Dispatch Unit (32 thread/clk)</text>
+            <rect x="${x + 10}" y="${y + 125}" width="460" height="48" fill="${COLORS.teal}" stroke="#101b1e" stroke-width="2"/>
+            <text x="${x + 240}" y="${y + 155}" text-anchor="middle">Register File (16,384 × 32-bit)</text>
+            ${cells}
+            <rect x="${x + 8}" y="${y + 181}" width="249" height="230" fill="none" stroke="#161d11" stroke-width="3"/>
+            <rect x="${x + 263}" y="${y + 181}" width="207" height="230" fill="${COLORS.green}" stroke="#1c270c" stroke-width="2"/>
+            <rect x="${x + 50}" y="${y + 265}" width="165" height="64" rx="4" fill="#243d06" fill-opacity=".86" stroke="#6a9f22" stroke-width="1.5"/>
+            <text x="${x + 132.5}" y="${y + 287}" text-anchor="middle" class="cuda-label"><tspan x="${x + 132.5}" dy="0">CUDA Cores</tspan><tspan x="${x + 132.5}" dy="25">32×FP32/INT32</tspan></text>
+            <text x="${x + 366}" y="${y + 282}" text-anchor="middle" class="detail-large"><tspan x="${x + 366}" dy="0">5TH GEN</tspan><tspan x="${x + 366}" dy="26">TENSOR CORE</tspan></text>
+            ${ld}
+            <rect x="${x + 352}" y="${y + 424}" width="118" height="37" fill="${COLORS.red}" stroke="#241312" stroke-width="2"/>
+            <text x="${x + 411}" y="${y + 447}" text-anchor="middle">SFU</text>
+          </g>`;
+      }
+
+      function renderSmDetail(index) {
+        const box = smBoxes[index] || smBoxes[0];
+        const p = [partitionMarkup(25, 111, 0), partitionMarkup(535, 111, 1), partitionMarkup(25, 601, 2), partitionMarkup(535, 601, 3)].join("");
+        smDetail.innerHTML = `
+          <style>
+            #smDetail text{fill:#fff;font-family:Inter,ui-sans-serif,"Segoe UI","Noto Sans SC",sans-serif;font-size:15px;font-weight:700;dominant-baseline:middle;pointer-events:none}
+            #smDetail .title{font-size:30px;text-anchor:start}
+            #smDetail .detail-large{font-size:20px}
+            #smDetail .cuda-label{font-size:18px}
+          </style>
+          <rect x="8" y="8" width="1024" height="1204" fill="#3d3e3d" stroke="#bdc1bd" stroke-width="4"/>
+          <text x="26" y="34" class="title">Streaming Multiprocessor · SM ${index}</text>
+          <rect x="25" y="55" width="990" height="43" fill="${COLORS.sky}" stroke="#142631" stroke-width="2"/>
+          <text x="520" y="80" text-anchor="middle" class="detail-large">L1 Instruction Cache</text>
+          ${p}
+          <g>
+            <rect x="25" y="1091" width="990" height="51" fill="${COLORS.teal}" stroke="#111c1e" stroke-width="2"/>
+            <text x="520" y="1119" text-anchor="middle" class="detail-large">128 KB L1 Data Cache / Shared Memory</text>
+            ${[0,1,2,3].map(i => `<rect x="${25 + i * 250}" y="1155" width="240" height="41" fill="${COLORS.blue}" stroke="#131a2a" stroke-width="2"/><text x="${145 + i * 250}" y="1179" text-anchor="middle">Texture Unit ${i + 1}</text>`).join("")}
+          </g>`;
+        updateOverlayLabel();
+      }
+
+      function setActiveSm(index) {
+        activeSm = Math.max(0, Math.min(smBoxes.length - 1, index));
+        smBoxes.forEach((box) => box.el.classList.toggle("is-active", box.index === activeSm));
+        renderSmDetail(activeSm);
+      }
+
+      function nearestSm() {
+        const cx = view.x + view.w / 2;
+        const cy = view.y + view.h / 2;
+        let best = smBoxes[0];
+        let bestD = Infinity;
+        smBoxes.forEach((box) => {
+          const dx = cx - (box.x + box.w / 2);
+          const dy = cy - (box.y + box.h / 2);
+          const d = dx * dx + dy * dy;
+          if (d < bestD) { bestD = d; best = box; }
+        });
+        return best.index;
+      }
+
+      function nearestSmToPoint(x, y) {
+        const pointed = smBoxes.find((box) => x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h);
+        if (pointed) return pointed.index;
+        return smBoxes.reduce((best, box) => {
+          const dx = x - (box.x + box.w / 2);
+          const dy = y - (box.y + box.h / 2);
+          const distance = dx * dx + dy * dy;
+          return distance < best.distance ? { distance, index: box.index } : best;
+        }, { distance: Infinity, index: activeSm }).index;
+      }
+
+      function pauseSmWheelUntilGestureEnds() {
+        smWheelPaused = true;
+        window.clearTimeout(smWheelPauseTimer);
+        smWheelPauseTimer = window.setTimeout(() => { smWheelPaused = false; }, 180);
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function fitBox(box, padding = 0) {
+        const aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+        const targetW = box.w * (1 + padding * 2);
+        const targetH = box.h * (1 + padding * 2);
+        let w;
+        let h;
+        if (targetW / targetH >= aspect) {
+          w = targetW;
+          h = w / aspect;
+        } else {
+          h = targetH;
+          w = h * aspect;
+        }
+        return {
+          x: box.x + box.w / 2 - w / 2,
+          y: box.y + box.h / 2 - h / 2,
+          w,
+          h
+        };
+      }
+
+      function clampAxis(position, size, fullStart, fullSize) {
+        if (size >= fullSize) return fullStart + (fullSize - size) / 2;
+        const padding = size * .08;
+        return clamp(position, fullStart - padding, fullStart + fullSize - size + padding);
+      }
+
+      function clampView() {
+        const aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+        const minW = FULL.w / 14;
+        const fullFitW = Math.max(FULL.w, FULL.h * aspect);
+        const maxW = fullFitW * 1.08;
+        view.w = clamp(view.w, minW, maxW);
+        view.h = view.w / aspect;
+        view.x = clampAxis(view.x, view.w, FULL.x, FULL.w);
+        view.y = clampAxis(view.y, view.h, FULL.y, FULL.h);
+      }
+
+      function updateOverlayLabel() {
+        const box = smBoxes[activeSm] || smBoxes[0];
+        if (!box) return;
+        const detailScale = SM_FULL.w / smView.w;
+        overlayLabel.textContent = `GPC ${box.gpc + 1} · TPC ${box.tpc + 1} · SM ${activeSm} · 详情 ${Math.round(detailScale * 100)}%`;
+      }
+
+      function clampSmView() {
+        const minW = SM_FULL.w / 8;
+        smView.w = clamp(smView.w, minW, SM_FULL.w);
+        smView.h = smView.w * SM_FULL.h / SM_FULL.w;
+        smView.x = clamp(smView.x, SM_FULL.x, SM_FULL.x + SM_FULL.w - smView.w);
+        smView.y = clamp(smView.y, SM_FULL.y, SM_FULL.y + SM_FULL.h - smView.h);
+      }
+
+      function updateSmView() {
+        clampSmView();
+        smDetail.setAttribute("viewBox", `${smView.x} ${smView.y} ${smView.w} ${smView.h}`);
+        updateOverlayLabel();
+        if (smOverlay.classList.contains("visible")) {
+          zoomLabel.textContent = `SM ${Math.round(SM_FULL.w / smView.w * 100)}%`;
+        }
+      }
+
+      function resetSmView() {
+        smView = { ...SM_FULL };
+        updateSmView();
+      }
+
+      function detailGeometry() {
+        const box = smDetail.getBoundingClientRect();
+        const viewAspect = smView.w / smView.h;
+        const elementAspect = box.width / Math.max(1, box.height);
+        if (elementAspect > viewAspect) {
+          const height = box.height;
+          const width = height * viewAspect;
+          return { width, height, left: box.left + (box.width - width) / 2, top: box.top };
+        }
+        const width = box.width;
+        const height = width / viewAspect;
+        return { width, height, left: box.left, top: box.top + (box.height - height) / 2 };
+      }
+
+      function zoomSmAt(clientX, clientY, factor) {
+        const geometry = detailGeometry();
+        const px = clamp((clientX - geometry.left) / Math.max(1, geometry.width), 0, 1);
+        const py = clamp((clientY - geometry.top) / Math.max(1, geometry.height), 0, 1);
+        const worldX = smView.x + px * smView.w;
+        const worldY = smView.y + py * smView.h;
+        const newW = smView.w * factor;
+        const newH = smView.h * factor;
+        smView.x = worldX - px * newW;
+        smView.y = worldY - py * newH;
+        smView.w = newW;
+        smView.h = newH;
+        updateSmView();
+      }
+
+      function updateView(preferredSm = null) {
+        const wasSmLevel = smOverlay.classList.contains("visible");
+        clampView();
+        arch.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+        const scale = FULL.w / view.w;
+        const smLevel = scale >= 5.8;
+        const gpcLevel = scale >= 1.7 && !smLevel;
+        arch.classList.toggle("lod-chip", !gpcLevel && !smLevel);
+        arch.classList.toggle("lod-gpc", gpcLevel);
+        arch.classList.toggle("lod-sm", smLevel);
+        smOverlay.classList.toggle("visible", smLevel);
+        smOverlay.setAttribute("aria-hidden", String(!smLevel));
+        if (smLevel) {
+          const near = preferredSm ?? nearestSm();
+          if (near !== activeSm) setActiveSm(near);
+          if (!wasSmLevel) pauseSmWheelUntilGestureEnds();
+          viewLabel.textContent = `第 3 层 / GPC ${smBoxes[activeSm].gpc + 1} › TPC ${smBoxes[activeSm].tpc + 1} › SM ${activeSm}`;
+          updateOverlayLabel();
+        } else if (gpcLevel) {
+          const cx = view.x + view.w / 2;
+          const cy = view.y + view.h / 2;
+          const gpc = gpcBoxes.reduce((best, box) => {
+            const d = Math.hypot(cx - (box.x + box.w/2), cy - (box.y + box.h/2));
+            return d < best.d ? { d, box } : best;
+          }, { d: Infinity, box: gpcBoxes[0] }).box;
+          viewLabel.textContent = `第 2 层 / GPC ${gpc.index + 1} › 8 TPC › 16 SM`;
+        } else {
+          viewLabel.textContent = "第 1 层 / 全芯片 › 12 GPC › 192 SM";
+        }
+        const displayScale = baseViewWidth / view.w;
+        zoomLabel.textContent = smLevel ? `SM ${Math.round(SM_FULL.w / smView.w * 100)}%` : `${Math.round(displayScale * 100)}%`;
+      }
+
+      function zoomAt(clientX, clientY, factor) {
+        const box = arch.getBoundingClientRect();
+        const px = (clientX - box.left) / box.width;
+        const py = (clientY - box.top) / box.height;
+        const worldX = view.x + px * view.w;
+        const worldY = view.y + py * view.h;
+        const preferredSm = factor < 1 ? nearestSmToPoint(worldX, worldY) : null;
+        const newW = view.w * factor;
+        const newH = view.h * factor;
+        view.x = worldX - px * newW;
+        view.y = worldY - py * newH;
+        view.w = newW;
+        view.h = newH;
+        updateView(preferredSm);
+      }
+
+      function resetView() {
+        view = fitBox(CHIP_BOUNDS, .02);
+        baseViewWidth = view.w;
+        resetSmView();
+        updateView();
+      }
+
+      function focusGpc(index) {
+        const box = gpcBoxes[index];
+        view = fitBox(box, .08);
+        updateView();
+      }
+
+      function focusSm(index) {
+        const box = smBoxes[index];
+        setActiveSm(index);
+        const aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+        view.w = FULL.w / 8;
+        view.h = view.w / aspect;
+        view.x = box.x + box.w / 2 - view.w / 2;
+        view.y = box.y + box.h / 2 - view.h / 2;
+        resetSmView();
+        updateView();
+      }
+
+      buildChip();
+      setActiveSm(0);
+      resetView();
+
+      stage.addEventListener("wheel", (event) => {
+        if (smOverlay.classList.contains("visible")) return;
+        event.preventDefault();
+        const factor = Math.exp(event.deltaY * .0014);
+        zoomAt(event.clientX, event.clientY, factor);
+      }, { passive: false });
+
+      smOverlay.addEventListener("wheel", (event) => {
+        if (!smOverlay.classList.contains("visible")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (smWheelPaused) {
+          pauseSmWheelUntilGestureEnds();
+          return;
+        }
+        const factor = Math.exp(event.deltaY * .0014);
+        const detailScale = SM_FULL.w / smView.w;
+        if (event.deltaY > 0 && detailScale <= 1.001) {
+          zoomAt(event.clientX, event.clientY, factor);
+        } else {
+          zoomSmAt(event.clientX, event.clientY, factor);
+        }
+      }, { passive: false });
+
+      smOverlay.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !smOverlay.classList.contains("visible")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        smDrag = {
+          id: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          viewX: smView.x,
+          viewY: smView.y
+        };
+        smOverlay.setPointerCapture(event.pointerId);
+        smOverlay.classList.add("dragging");
+      });
+
+      smOverlay.addEventListener("pointermove", (event) => {
+        if (!smDrag || smDrag.id !== event.pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const geometry = detailGeometry();
+        smView.x = smDrag.viewX - (event.clientX - smDrag.x) * smView.w / Math.max(1, geometry.width);
+        smView.y = smDrag.viewY - (event.clientY - smDrag.y) * smView.h / Math.max(1, geometry.height);
+        updateSmView();
+      });
+
+      function finishSmDrag(event) {
+        if (!smDrag || smDrag.id !== event.pointerId) return;
+        event.stopPropagation();
+        smDrag = null;
+        smOverlay.classList.remove("dragging");
+      }
+      smOverlay.addEventListener("pointerup", finishSmDrag);
+      smOverlay.addEventListener("pointercancel", finishSmDrag);
+
+      stage.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || smOverlay.classList.contains("visible")) return;
+        drag = { id: event.pointerId, x: event.clientX, y: event.clientY, viewX: view.x, viewY: view.y };
+        stage.setPointerCapture(event.pointerId);
+        stage.classList.add("dragging");
+      });
+
+      stage.addEventListener("pointermove", (event) => {
+        if (drag && drag.id === event.pointerId) {
+          const box = arch.getBoundingClientRect();
+          view.x = drag.viewX - (event.clientX - drag.x) * view.w / box.width;
+          view.y = drag.viewY - (event.clientY - drag.y) * view.h / box.height;
+          updateView();
+        }
+        const target = event.target.closest ? event.target.closest("[data-tip]") : null;
+        if (!target || smOverlay.classList.contains("visible")) {
+          tip.classList.remove("show");
+          return;
+        }
+        tip.textContent = target.getAttribute("data-tip");
+        const stageBox = stage.getBoundingClientRect();
+        const left = Math.min(stageBox.width - 305, Math.max(12, event.clientX - stageBox.left + 15));
+        const top = Math.min(stageBox.height - 72, Math.max(12, event.clientY - stageBox.top + 15));
+        tip.style.left = `${left}px`;
+        tip.style.top = `${top}px`;
+        tip.classList.add("show");
+      });
+
+      function finishDrag(event) {
+        if (drag && drag.id === event.pointerId) {
+          drag = null;
+          stage.classList.remove("dragging");
+        }
+      }
+      stage.addEventListener("pointerup", finishDrag);
+      stage.addEventListener("pointercancel", finishDrag);
+      stage.addEventListener("pointerleave", () => tip.classList.remove("show"));
+
+      document.getElementById("fullButton").addEventListener("click", resetView);
+      document.getElementById("gpcButton").addEventListener("click", () => focusGpc(0));
+      document.getElementById("smButton").addEventListener("click", () => focusSm(activeSm));
+      document.getElementById("plusButton").addEventListener("click", () => {
+        const box = stage.getBoundingClientRect();
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        if (smOverlay.classList.contains("visible")) zoomSmAt(x, y, .72);
+        else zoomAt(x, y, .72);
+      });
+      document.getElementById("minusButton").addEventListener("click", () => {
+        const box = stage.getBoundingClientRect();
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        if (smOverlay.classList.contains("visible") && SM_FULL.w / smView.w > 1.001) zoomSmAt(x, y, 1.38);
+        else zoomAt(x, y, 1.38);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "0" || event.key === "Escape") resetView();
+        if (event.key === "+" || event.key === "=") document.getElementById("plusButton").click();
+        if (event.key === "-") document.getElementById("minusButton").click();
+      });
+
+      window.addEventListener("resize", () => {
+        const scale = FULL.w / view.w;
+        const fullView = fitBox(CHIP_BOUNDS, .02);
+        baseViewWidth = fullView.w;
+        if (scale < 1.25) view = fullView;
+        updateView();
+        updateSmView();
+      });
+    })();
+  </script>
+</body>
+</html>
