@@ -187,6 +187,108 @@ L1 流水线逐条 line 处理（查 tag、取数据）→ 走 M 趟（M 个 wav
 
 ---
 
+## 疑问五：`Dispatch(gx, gy, gz)` 决定了什么？使用逻辑是什么？
+
+### 两级分工
+
+`Dispatch` 和 `numthreads` 是配合工作的两级：
+
+- `numthreads`：决定**每个线程组有多大**（写在 shader 里，编译期固定）
+- `Dispatch(gx, gy, gz)`：决定**发射多少个线程组**（CPU 侧调用，运行期决定）
+- 注意：Dispatch 的参数是**组数，不是线程数**——最常见的初学者错误
+
+```
+总线程数 = (gx × numX) × (gy × numY) × (gz × numZ)
+```
+
+例如 `numthreads(8,8,1)` + `Dispatch(3,2,1)`：
+
+```
+→ 3×2 = 6 个线程组，每组 64 线程，共 384 线程
+→ 覆盖 24×16 的区域
+
+        x → 24
+   ┌────────┬────────┬────────┐
+ y │ Group  │ Group  │ Group  │
+ ↓ │ (0,0)  │ (1,0)  │ (2,0)  │   每格 = 8×8 线程
+   ├────────┼────────┼────────┤
+16 │ Group  │ Group  │ Group  │
+   │ (0,1)  │ (1,1)  │ (2,1)  │
+   └────────┴────────┴────────┘
+```
+
+### 使用时的思考逻辑（四步）
+
+1. **确定一个线程干一份什么工作**——通常是"一个线程处理一个像素/一个数组元素"。
+2. **工作总量是多少**——比如 1920×1080 的图像。
+3. **每组多少线程**——`numthreads(8,8,1)`，每组覆盖 8×8 像素。
+4. **Dispatch = 总量 ÷ 组大小，向上取整**：
+
+```cpp
+// CPU 侧
+cmd->Dispatch((width + 7) / 8, (height + 7) / 8, 1);
+```
+
+不能整除时，最后一组会有部分线程越界，shader 里必须自己挡掉：
+
+```hlsl
+[numthreads(8,8,1)]
+void CS(uint3 dtid : SV_DispatchThreadID)
+{
+    if (dtid.x >= width || dtid.y >= height) return;  // 边界检查
+    // 正常处理像素 (dtid.x, dtid.y)
+}
+```
+
+### shader 里四套 ID 及关系式
+
+```hlsl
+void CS(uint3 dtid : SV_DispatchThreadID,  // 全局线程 ID（最常用，直接当像素坐标）
+        uint3 gid  : SV_GroupID,           // 组 ID，范围 0..(gx-1, gy-1, gz-1)
+        uint3 gtid : SV_GroupThreadID,     // 组内线程 ID，范围 0..(numX-1, ...)
+        uint  gidx : SV_GroupIndex)        // 组内线性序号（x 优先展开）
+```
+
+```
+SV_DispatchThreadID = SV_GroupID × numthreads + SV_GroupThreadID
+```
+
+例如上图中 Group (2,1) 内的线程 (5,3)：`dtid = (2×8+5, 1×8+3) = (21, 11)`，正好是它在 24×16 区域里的像素坐标。**Dispatch 和 numthreads 共同保证每个线程的 dtid 不重不漏地覆盖整个工作区域**——这是设计 Dispatch 参数时要验证的核心等式。
+
+### 为什么要分"组"这一级，而不直接指定线程总数？
+
+- **同步与共享的边界**：`groupshared` 和 `GroupMemoryBarrierWithGroupSync()` 只在组内有效；组是最小的"可互相协作"的单位。
+- **调度单位**：GPU 以组为单位派活给各 SM；组与组之间独立、无序、默认无法同步（跨组协调靠原子操作或拆成多个 pass）。
+- **维度上限**：Dispatch 每维最多 65535 组；超大任务可用二维/三维展开，或用 `DispatchIndirect`（参数来自 GPU 缓冲，由 GPU 自己决定发射多少组，常用于剔除、粒子等数量动态的场景）。
+
+### 设计上的分工
+
+`numthreads` 编译期写死在 shader 里（warp 形状、groupshared 布局都依赖它），`Dispatch` 每次调用时传入——同一个 shader 不改代码就能处理任意尺寸的输入。因此实际项目里 Dispatch 参数几乎总是 `(size + tile - 1) / tile` 这种 ceil 除法形式。
+
+### 实例验证：512×512 图片 + `numthreads(8,8,1)`
+
+```
+组数：   512 / 8 = 64        → Dispatch(64, 64, 1)
+总线程： 64×64 组 × 64 线程 = 262144 = 512×512  ✓
+最大 ID：dtid 最大 = (63,63)×8 + (7,7) = (511, 511)，正好停在右下角
+```
+
+512 恰好被 8 整除 → 严丝合缝、零浪费，边界检查都可以省掉（特例）。"至少 Dispatch(64,64,1)" 的说法很准确：
+
+- **少于 64**（如 `Dispatch(63,64,1)`）：右侧 8 列永远没有线程处理——常见 bug，症状是图像右边缘一条未处理的竖条。
+- **多于 64**（如 `Dispatch(65,64,1)`）：dtid.x = 512~519 的线程越界，会读写不属于自己的内存，必须靠 `if` 守卫挡掉。
+- **不能整除**（如 510×510）：`Dispatch((510+7)/8, ...)` = 64 组，覆盖 512 > 510，多出的 2 列 2 行线程越界 → 边界检查变成**必须**。
+
+换形状只是换切法，覆盖逻辑不变（总线程都是 262144）：
+
+| numthreads | Dispatch | 每组覆盖 |
+|---|---|---|
+| (8,8,1) | (64, 64, 1) | 8×8 |
+| (16,16,1) | (32, 32, 1) | 16×16 |
+| (32,2,1) | (16, 256, 1) | 32×2 |
+
+---
+
 ## 生活化类比：仓库拣货
 
 > 你在仓库**下单一次**买了 **32 件货**（一条指令、32 条 lane）。
@@ -227,6 +329,7 @@ L1 流水线逐条 line 处理（查 tag、取数据）→ 走 M 趟（M 个 wav
 | sector | 32B | 内存取数粒度（浪费按它算） |
 | cache line | 128B = 4 sector | L1 管理粒度（流水线趟数按它算） |
 | numthreads 总量 | ≤ 1024，z ≤ 64 | 常用 64~256，取 warp 整数倍 |
+| Dispatch 每维组数 | ≤ 65535 | 参数是**组数**不是线程数；超大任务用多维展开或 DispatchIndirect |
 
 ### 形状选择经验法则
 
@@ -237,4 +340,5 @@ L1 流水线逐条 line 处理（查 tag、取数据）→ 走 M 趟（M 个 wav
 5. 让 warp 落在分支条件一致的维度上。
 6. 用到 wave/subgroup 内在函数时，记住 lane 按 x 优先线性排布。
 7. 行宽（pitch）按 32B 对齐。
-8. 纯逐像素操作对形状不敏感（差距通常仅几个百分点）——先写对，再 profile，用 Nsight Compute 的 wavefronts / sectors 指标验证。
+8. Dispatch 的参数是**组数**：`Dispatch(ceil(W/numX), ceil(H/numY), 1)`，并配合边界守卫（除非保证整除）。
+9. 纯逐像素操作对形状不敏感（差距通常仅几个百分点）——先写对，再 profile，用 Nsight Compute 的 wavefronts / sectors 指标验证。

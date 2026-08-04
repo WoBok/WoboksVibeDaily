@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compute Shader 运作原理 · 交互笔记</title>
+<style>
+:root{
+  --bg:#07090d; --bg2:#0b0e14; --panel:#10141c; --panel2:#151a24;
+  --line:#1e2431; --line2:#2b3345; --line3:#3a4459;
+  --fg:#e9edf5; --fg2:#98a2b8; --fg3:#68718a;
+  --c1:#22d3ee; --c2:#a78bfa; --c3:#4ade80; --c4:#fbbf24; --c5:#fb7185;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Mono",Consolas,"Courier New",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:var(--sans); font-size:15px; line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(900px 500px at 15% -10%, rgba(34,211,238,.10), transparent 70%),
+    radial-gradient(700px 500px at 90% 5%, rgba(167,139,250,.09), transparent 70%),
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px) 0 0/48px 48px,
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px) 0 0/48px 48px;
+}
+.wrap{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:0 24px 120px}
+
+/* ---------- hero ---------- */
+header{padding:88px 0 56px; border-bottom:1px solid var(--line)}
+.tagline{
+  font-family:var(--mono); font-size:12px; letter-spacing:.28em; text-transform:uppercase;
+  color:var(--c1); margin-bottom:20px; display:flex; align-items:center; gap:12px;
+}
+.tagline::after{content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--line2),transparent)}
+h1{
+  font-size:clamp(30px,5.2vw,48px); line-height:1.18; margin:0 0 18px; font-weight:650;
+  letter-spacing:-.02em;
+}
+h1 em{font-style:normal; background:linear-gradient(100deg,var(--c1),var(--c2)); -webkit-background-clip:text; background-clip:text; color:transparent}
+.sub{color:var(--fg2); max-width:60ch; margin:0}
+.meta{margin-top:28px; display:flex; flex-wrap:wrap; gap:8px}
+.chip{
+  font-family:var(--mono); font-size:11.5px; color:var(--fg2);
+  border:1px solid var(--line2); border-radius:999px; padding:4px 12px; background:rgba(255,255,255,.02);
+}
+
+/* ---------- sections ---------- */
+section{padding:64px 0 8px; border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:none}
+h2{
+  display:flex; align-items:baseline; gap:16px; font-size:24px; font-weight:640;
+  margin:0 0 10px; letter-spacing:-.01em; scroll-margin-top:20px;
+}
+h2 .num{
+  font-family:var(--mono); font-size:13px; color:var(--c1); letter-spacing:.1em;
+  border:1px solid rgba(34,211,238,.3); border-radius:6px; padding:2px 8px;
+  background:rgba(34,211,238,.06); flex:none;
+}
+h3{font-size:16.5px; font-weight:620; margin:38px 0 12px; color:var(--fg)}
+h3::before{content:"▍"; color:var(--c2); margin-right:8px}
+h4{font-size:14px; font-weight:620; margin:24px 0 8px; color:var(--fg2); font-family:var(--mono); letter-spacing:.02em}
+p{margin:12px 0}
+.lede{color:var(--fg2); margin:0 0 4px}
+a{color:var(--c1); text-decoration:none; border-bottom:1px solid rgba(34,211,238,.3)}
+a:hover{border-bottom-color:var(--c1)}
+ul,ol{padding-left:22px; margin:12px 0}
+li{margin:6px 0}
+li::marker{color:var(--c2)}
+code{font-family:var(--mono); font-size:.88em; background:rgba(255,255,255,.055); border:1px solid var(--line); border-radius:5px; padding:1.5px 5px; color:#cfe6ff}
+strong{color:#fff; font-weight:620}
+
+/* ---------- code block ---------- */
+pre{
+  margin:14px 0; background:#080b11; border:1px solid var(--line); border-left:2px solid var(--c1);
+  border-radius:10px; padding:14px 18px; overflow-x:auto;
+  font-family:var(--mono); font-size:12.8px; line-height:1.75; color:#c8d3e6;
+}
+pre .c{color:#4e5a72; font-style:italic}
+pre .k{color:#c084fc}
+pre .t{color:#22d3ee}
+pre .n{color:#fbbf24}
+pre .f{color:#4ade80}
+pre .a{color:#fb7185}
+pre .s{color:#86efac}
+
+/* ---------- table ---------- */
+.tbl{width:100%; border-collapse:collapse; margin:16px 0; font-size:13.5px}
+.tbl th{
+  text-align:left; font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--fg3); font-weight:600; padding:8px 12px; border-bottom:1px solid var(--line2);
+}
+.tbl td{padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--fg2)}
+.tbl td:first-child{color:var(--fg); font-family:var(--mono); font-size:12.5px; white-space:nowrap}
+.tbl tr:hover td{background:rgba(255,255,255,.018)}
+.tbl .good{color:var(--c3)} .tbl .bad{color:var(--c5)} .tbl .mid{color:var(--c4)}
+
+/* ---------- note ---------- */
+.note{
+  margin:18px 0; padding:13px 16px; background:rgba(167,139,250,.05);
+  border:1px solid rgba(167,139,250,.18); border-left:2px solid var(--c2);
+  border-radius:8px; font-size:13.5px; color:var(--fg2);
+}
+.note b{color:var(--c2); font-weight:620}
+.note.cy{background:rgba(34,211,238,.05); border-color:rgba(34,211,238,.18); border-left-color:var(--c1)}
+.note.cy b{color:var(--c1)}
+.note.am{background:rgba(251,191,36,.05); border-color:rgba(251,191,36,.18); border-left-color:var(--c4)}
+.note.am b{color:var(--c4)}
+
+/* ---------- flow diagram ---------- */
+.flow{display:flex; flex-wrap:wrap; align-items:stretch; gap:0; margin:26px 0 10px}
+.fnode{
+  flex:1 1 150px; min-width:140px; background:var(--panel); border:1px solid var(--line2);
+  border-radius:10px; padding:13px 14px; position:relative;
+}
+.fnode .ft{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--c1); margin-bottom:6px}
+.fnode .fb{font-size:13px; font-weight:600; color:var(--fg)}
+.fnode .fd{font-size:11.5px; color:var(--fg3); margin-top:4px; line-height:1.5}
+.farrow{flex:0 0 34px; display:flex; align-items:center; justify-content:center; color:var(--line3); font-size:16px}
+.fnode.v2{border-color:rgba(167,139,250,.3)} .fnode.v2 .ft{color:var(--c2)}
+.fnode.v3{border-color:rgba(74,222,128,.3)} .fnode.v3 .ft{color:var(--c3)}
+.fnode.v4{border-color:rgba(251,191,36,.3)} .fnode.v4 .ft{color:var(--c4)}
+
+/* ---------- widget ---------- */
+.w{
+  margin:26px 0; background:linear-gradient(180deg,var(--panel),var(--bg2));
+  border:1px solid var(--line2); border-radius:14px; overflow:hidden;
+}
+.whead{
+  display:flex; align-items:center; gap:10px; padding:12px 18px;
+  border-bottom:1px solid var(--line); background:rgba(255,255,255,.017);
+}
+.whead .dot{width:7px; height:7px; border-radius:50%; background:var(--c1); box-shadow:0 0 10px var(--c1); flex:none}
+.whead .wt{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--fg2)}
+.whead .wh{margin-left:auto; font-size:11.5px; color:var(--fg3)}
+.wbody{padding:18px}
+.ctrls{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px 20px; margin-bottom:18px}
+.ctrl label{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--fg3); margin-bottom:5px;
+}
+.ctrl label b{color:var(--c1); font-size:13px; font-weight:600}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:3px; border-radius:2px;
+  background:var(--line2); outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--c1); border:2px solid var(--bg); box-shadow:0 0 0 1px var(--c1); cursor:pointer;
+}
+input[type=range]::-moz-range-thumb{
+  width:12px; height:12px; border-radius:50%; background:var(--c1);
+  border:2px solid var(--bg); box-shadow:0 0 0 1px var(--c1); cursor:pointer;
+}
+.segs{display:flex; flex-wrap:wrap; gap:5px}
+.seg{
+  font-family:var(--mono); font-size:11.5px; color:var(--fg2); cursor:pointer;
+  background:rgba(255,255,255,.03); border:1px solid var(--line2); border-radius:6px; padding:4.5px 10px;
+  transition:.13s; user-select:none;
+}
+.seg:hover{border-color:var(--line3); color:var(--fg)}
+.seg.on{background:rgba(34,211,238,.13); border-color:var(--c1); color:var(--c1)}
+.grp{margin-bottom:14px}
+.grp>.gl{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--fg3); margin-bottom:6px}
+canvas{display:block; max-width:100%; border-radius:8px}
+.cvsbox{background:#060810; border:1px solid var(--line); border-radius:10px; padding:12px; overflow:auto}
+
+.readout{
+  margin-top:14px; background:#060810; border:1px solid var(--line); border-radius:10px;
+  padding:13px 16px; font-family:var(--mono); font-size:12.5px; line-height:1.95; overflow-x:auto;
+}
+.readout .rk{color:var(--fg3); display:inline-block; min-width:200px}
+.readout .rv{color:var(--c1)}
+.readout .rf{color:var(--fg2)}
+.readout .hl{color:var(--c4)}
+.readout .dim{color:var(--fg3)}
+.stats{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px}
+.stat{
+  flex:1 1 120px; background:#060810; border:1px solid var(--line); border-radius:9px; padding:10px 13px;
+}
+.stat .sl{font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--fg3)}
+.stat .sv{font-family:var(--mono); font-size:19px; font-weight:600; color:var(--c1); margin-top:3px}
+.stat.g .sv{color:var(--c3)} .stat.r .sv{color:var(--c5)} .stat.a .sv{color:var(--c4)} .stat.v .sv{color:var(--c2)}
+.legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; font-size:11.5px; color:var(--fg3); font-family:var(--mono)}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:6px; vertical-align:-1px}
+
+/* occupancy bars */
+.bars{display:flex; flex-direction:column; gap:9px; margin-top:6px}
+.bar{display:grid; grid-template-columns:132px 1fr 118px; gap:12px; align-items:center; font-family:var(--mono); font-size:11.5px}
+.bar .bl{color:var(--fg2)}
+.bar .btrack{height:20px; background:#060810; border:1px solid var(--line); border-radius:5px; overflow:hidden; position:relative}
+.bar .bfill{height:100%; background:linear-gradient(90deg,rgba(34,211,238,.5),rgba(34,211,238,.22)); border-right:2px solid var(--c1)}
+.bar.min .bfill{background:linear-gradient(90deg,rgba(251,113,133,.5),rgba(251,113,133,.22)); border-right-color:var(--c5)}
+.bar .bv{color:var(--fg3); text-align:right}
+.bar.min .bl{color:var(--c5)} .bar.min .bv{color:var(--c5)}
+.occbig{
+  margin-top:16px; display:flex; align-items:baseline; gap:14px; padding:14px 16px;
+  background:#060810; border:1px solid var(--line); border-radius:10px; flex-wrap:wrap;
+}
+.occbig .on{font-family:var(--mono); font-size:34px; font-weight:650; line-height:1}
+.occbig .od{font-size:12.5px; color:var(--fg3); font-family:var(--mono)}
+
+/* sector strip */
+.sectors{display:flex; flex-wrap:wrap; gap:5px; margin-top:6px}
+.sec{
+  width:60px; border:1px solid var(--line2); border-radius:6px; background:#060810; overflow:hidden;
+  font-family:var(--mono); font-size:9.5px; color:var(--fg3); text-align:center;
+}
+.sec .sbar{height:26px; position:relative; background:rgba(251,113,133,.10)}
+.sec .sfill{position:absolute; left:0; bottom:0; width:100%; background:linear-gradient(180deg,rgba(34,211,238,.55),rgba(34,211,238,.3))}
+.sec .sp{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#dff; font-size:10px}
+.sec .slab{padding:2px 0; border-top:1px solid var(--line); background:rgba(255,255,255,.02)}
+
+.ref{
+  display:flex; gap:12px; align-items:flex-start; margin:16px 0; padding:13px 16px;
+  background:var(--panel); border:1px solid var(--line2); border-radius:10px; font-size:13px;
+}
+.ref .ri{font-family:var(--mono); font-size:11px; color:var(--c2); border:1px solid rgba(167,139,250,.3); border-radius:5px; padding:2px 7px; flex:none; margin-top:2px}
+.ref div{color:var(--fg2)}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:20px}
+@media(max-width:760px){
+  .two{grid-template-columns:1fr}
+  .bar{grid-template-columns:100px 1fr; }
+  .bar .bv{grid-column:2; text-align:left}
+  .readout .rk{min-width:150px; display:block}
+  .farrow{flex-basis:100%; height:22px; transform:rotate(90deg)}
+}
+footer{padding:46px 0 0; color:var(--fg3); font-size:12.5px; font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tagline">Compute Shader · 从 Dispatch 到 Lane</div>
+  <h1>一次 <em>Dispatch</em> 到底发生了什么</h1>
+  <p class="sub">线程怎么被编号、怎么被切成 warp、怎么塞进 SM、什么在限制它们的驻留、以及 warp 的"形状"如何决定显存带宽的浪费程度。硬件参数以 NVIDIA Blackwell（GB202 / 计算能力 12.0）为准。</p>
+  <div class="meta">
+    <span class="chip">HLSL / D3D11–12</span>
+    <span class="chip">NVIDIA Blackwell GB202</span>
+    <span class="chip">warp = 32 threads</span>
+    <span class="chip">sector = 32 B</span>
+    <span class="chip">4 个交互实验台</span>
+  </div>
+</header>
+
+<!-- ============================ 00 ============================ -->
+<section>
+<h2><span class="num">00</span> 一条链路看全貌</h2>
+<p class="lede">整个 Compute Shader 的执行，是一条从"软件描述的任务规模"逐级降解到"硬件执行单元"的链路。后面每一节都是在拆解这条链路上的某一段。</p>
+
+<div class="flow">
+  <div class="fnode">
+    <div class="ft">CPU 端</div>
+    <div class="fb">Dispatch(gx,gy,gz)</div>
+    <div class="fd">决定发多少个<b>线程组</b></div>
+  </div>
+  <div class="farrow">→</div>
+  <div class="fnode v2">
+    <div class="ft">Shader 端</div>
+    <div class="fb">[numthreads(X,Y,Z)]</div>
+    <div class="fd">决定每组多少<b>线程</b></div>
+  </div>
+  <div class="farrow">→</div>
+  <div class="fnode v3">
+    <div class="ft">硬件分发</div>
+    <div class="fb">线程组 → SM</div>
+    <div class="fd">整组不可拆分地驻留</div>
+  </div>
+  <div class="farrow">→</div>
+  <div class="fnode v4">
+    <div class="ft">SM 内部</div>
+    <div class="fb">32 线程 → 1 warp</div>
+    <div class="fd">warp 是真正的调度单位</div>
+  </div>
+</div>
+
+<p style="color:var(--fg2);font-size:13.5px;margin-top:18px">
+一句话串起来：<code>Dispatch</code> 说"要多少组"，<code>numthreads</code> 说"每组多少人"，两者相乘得到总线程数；硬件把<b>组</b>整体丢到某个 SM 上，SM 再把组内线程按 <code>SV_GroupIndex</code> 每 32 个打包成一个 <b>warp</b>，warp 才是发射指令、访问显存的最小实体。
+</p>
+</section>
+
+<!-- ============================ 01 ============================ -->
+<section>
+<h2><span class="num">01</span> Dispatch × numthreads</h2>
+<p class="lede">这是两个不同层级的"尺寸"，分别写在两个不同的地方，编译期与运行期各管一半。</p>
+
+<table class="tbl">
+<tr><th>项</th><th>写在哪</th><th>单位</th><th>何时确定</th><th>上限（D3D11/12）</th></tr>
+<tr><td>Dispatch(gx,gy,gz)</td><td>C++ / C# 端，每帧可变</td><td>线程<b>组</b>数</td><td>运行期</td><td>每维 ≤ 65535</td></tr>
+<tr><td>[numthreads(X,Y,Z)]</td><td>HLSL 源码，编译进字节码</td><td><b>线程</b>数 / 组</td><td>编译期常量</td><td>X≤1024, Y≤1024, Z≤64, 且 X·Y·Z ≤ 1024</td></tr>
+</table>
+
+<h4>总线程数 = 逐维相乘</h4>
+<pre><span class="c">// 总线程 = (gx·X, gy·Y, gz·Z)</span>
+Dispatch(<span class="n">16</span>, <span class="n">16</span>, <span class="n">1</span>) × [numthreads(<span class="n">8</span>, <span class="n">8</span>, <span class="n">1</span>)]
+  → 线程组数 = 16×16×1 = <span class="n">256</span>
+  → 每组线程 = 8×8×1  = <span class="n">64</span>
+  → 总线程   = (128, 128, 1) = <span class="n">16384</span></pre>
+
+<h3>如何配合完成一个任务</h3>
+<p>典型任务：处理一张 <code>W × H</code> 的图，让<b>一个线程负责一个像素</b>。你先定组的形状（受硬件偏好约束），再反推需要多少组。</p>
+
+<pre><span class="c">// ---------- Shader 端 ----------</span>
+RWTexture2D&lt;<span class="t">float4</span>&gt; Output;
+<span class="a">[numthreads(8, 8, 1)]</span>              <span class="c">// 每组 64 线程 = 2 个 warp</span>
+<span class="k">void</span> <span class="f">CSMain</span>(<span class="t">uint3</span> tid : <span class="t">SV_DispatchThreadID</span>)
+{
+    <span class="k">if</span> (tid.x &gt;= W || tid.y &gt;= H) <span class="k">return</span>;   <span class="c">// 边界丢弃</span>
+    Output[tid.xy] = <span class="f">Shade</span>(tid.xy);
+}
+
+<span class="c">// ---------- CPU 端 ----------</span>
+<span class="c">// 向上取整，保证覆盖所有像素</span>
+<span class="f">Dispatch</span>( (W + <span class="n">7</span>) / <span class="n">8</span>, (H + <span class="n">7</span>) / <span class="n">8</span>, <span class="n">1</span> );</pre>
+
+<div class="note am">
+<b>向上取整必然多发线程。</b> <code>W=100</code> 时 <code>ceil(100/8)=13</code> 组，实际覆盖 104 列，多出 4 列。所以 shader 里那句 <code>if (tid.x &gt;= W) return;</code> 不是可选项。反过来，如果你能保证分辨率是组尺寸的整数倍，就可以省掉这个分支。
+</div>
+
+<div class="note">
+<b>组与组之间没有任何顺序和同步保证。</b> 它们可能在不同 SM 上并行、也可能排队串行执行。组内可以用 <code>groupshared</code> 内存和 <code>GroupMemoryBarrierWithGroupSync()</code> 协作；跨组想同步，只能拆成两次 Dispatch。这是因为"组"就是硬件的分发单位——一旦分发出去就各跑各的。
+</div>
+
+<h3>交互 · Dispatch 沙盘</h3>
+<p style="font-size:13.5px;color:var(--fg2)">调整两边的尺寸，观察线程网格如何被切分。<b>把鼠标放到任意一个线程格子上</b>，下方会实时算出它的四个 SV 值（第 02 节详解）。切换着色模式可以分别看到 GroupID / GroupIndex / Warp 的划分方式。</p>
+
+<div class="w">
+  <div class="whead"><span class="dot"></span><span class="wt">Interactive · Dispatch Sandbox</span><span class="wh">悬停查看线程 · 点击可锁定</span></div>
+  <div class="wbody">
+    <div class="ctrls">
+      <div class="ctrl"><label>Dispatch.x（组）<b id="l_gx">3</b></label><input type="range" id="gx" min="1" max="8" value="3"></div>
+      <div class="ctrl"><label>Dispatch.y（组）<b id="l_gy">2</b></label><input type="range" id="gy" min="1" max="8" value="2"></div>
+      <div class="ctrl"><label>Dispatch.z（组）<b id="l_gz">1</b></label><input type="range" id="gz" min="1" max="4" value="1"></div>
+      <div class="ctrl"><label>numthreads.X<b id="l_tx">8</b></label><input type="range" id="tx" min="1" max="16" value="8"></div>
+      <div class="ctrl"><label>numthreads.Y<b id="l_ty">8</b></label><input type="range" id="ty" min="1" max="16" value="8"></div>
+      <div class="ctrl"><label>numthreads.Z<b id="l_tz">1</b></label><input type="range" id="tz" min="1" max="4" value="1"></div>
+    </div>
+    <div class="grp" id="zwrap" style="display:none">
+      <div class="gl">显示 Z 切片（全局 z = GroupID.z·Z + GroupThreadID.z）</div>
+      <input type="range" id="zsl" min="0" max="0" value="0">
+    </div>
+    <div class="grp">
+      <div class="gl">着色模式</div>
+      <div class="segs" id="s1modes">
+        <span class="seg on" data-m="warp">按 Warp</span>
+        <span class="seg" data-m="group">按 SV_GroupID</span>
+        <span class="seg" data-m="gindex">按 SV_GroupIndex</span>
+        <span class="seg" data-m="dtid">按 SV_DispatchThreadID</span>
+      </div>
+    </div>
+    <div class="cvsbox"><canvas id="s1cvs"></canvas></div>
+    <div class="stats" id="s1stats"></div>
+    <div class="readout" id="s1read"></div>
+  </div>
+</div>
+</section>
+
+<!-- ============================ 02 ============================ -->
+<section>
+<h2><span class="num">02</span> 四个 SV 值是怎么来的</h2>
+<p class="lede">硬件在启动每个线程时，会把它在"组网格"和"组内"的坐标写进寄存器。四个 SV 值全部由这两个坐标推导，没有别的信息来源。</p>
+
+<table class="tbl">
+<tr><th>语义值</th><th>类型</th><th>含义 / 计算</th><th>取值范围</th></tr>
+<tr><td>SV_GroupID</td><td>uint3</td><td><b>硬件直接给</b>：本组在 Dispatch 网格中的坐标</td><td>[0, gx-1] × [0, gy-1] × [0, gz-1]</td></tr>
+<tr><td>SV_GroupThreadID</td><td>uint3</td><td><b>硬件直接给</b>：本线程在组内的坐标</td><td>[0, X-1] × [0, Y-1] × [0, Z-1]</td></tr>
+<tr><td>SV_DispatchThreadID</td><td>uint3</td><td>GroupID · (X,Y,Z) + GroupThreadID<br><span style="font-size:12px">逐分量相乘再相加 → 全局唯一坐标</span></td><td>[0, gx·X-1] × …</td></tr>
+<tr><td>SV_GroupIndex</td><td>uint</td><td>GroupThreadID.z·X·Y + GroupThreadID.y·X + GroupThreadID.x<br><span style="font-size:12px">组内三维坐标<b>展平</b>成一个标量，X 维变化最快</span></td><td>[0, X·Y·Z - 1]</td></tr>
+</table>
+
+<pre><span class="a">[numthreads(8, 8, 1)]</span>
+<span class="k">void</span> <span class="f">CSMain</span>(
+    <span class="t">uint3</span> gid  : <span class="t">SV_GroupID</span>,           <span class="c">// (1, 0, 0)</span>
+    <span class="t">uint3</span> gtid : <span class="t">SV_GroupThreadID</span>,     <span class="c">// (3, 2, 0)</span>
+    <span class="t">uint3</span> dtid : <span class="t">SV_DispatchThreadID</span>,  <span class="c">// (1*8+3, 0*8+2, 0) = (11, 2, 0)</span>
+    <span class="t">uint</span>  gi   : <span class="t">SV_GroupIndex</span>)        <span class="c">// 2*8 + 3 = 19</span>
+{ ... }</pre>
+
+<div class="note cy">
+<b>SV_GroupIndex 是四个里唯一的标量，也是最重要的一个。</b> 它就是硬件展平线程组的顺序，warp 的划分完全按它来：<code>warp 号 = GroupIndex / 32</code>，<code>lane 号 = GroupIndex % 32</code>。所以"X 维变化最快"这件事直接决定了同一个 warp 里的 32 个线程在二维上长什么形状 —— 这是第 05 节访存效率的根源。它同时也是 <code>groupshared</code> 数组最自然的索引。
+</div>
+
+<p style="font-size:13.5px;color:var(--fg2)">回到上面的沙盘：把着色模式切到 <b>按 SV_GroupIndex</b>，你会看到每个组内部的颜色是逐行（沿 X）由深到浅递增的；切到 <b>按 Warp</b>，就能看到这个递增序列每 32 个被切一刀。</p>
+</section>
+
+<!-- ============================ 03 ============================ -->
+<section>
+<h2><span class="num">03</span> 线程组 → SM → Warp</h2>
+<p class="lede">软件侧的"组"和"线程"到了硬件侧，会变成"驻留在 SM 上的资源占用"和"锁步执行的 32 条 lane"。</p>
+
+<h3>分发：整组不可拆分</h3>
+<p>Dispatch 提交后，GPU 前端的工作分发器把一个个线程组派给有空闲资源的 SM。关键规则：</p>
+<ul>
+<li><b>一个线程组完整地落在一个 SM 上</b>，永远不会被拆到两个 SM。因为组内要共享 <code>groupshared</code> 内存、要能互相同步，而这些机制只在单个 SM 内部存在。</li>
+<li><b>一个 SM 可以同时容纳多个组</b>（Blackwell 上限 24 个）。容纳多少取决于资源够不够 —— 这就是第 04 节的占用率。</li>
+<li>组一旦上了 SM 就<b>不会被换出</b>，占着资源直到整组执行完毕。GPU 没有线程上下文切换到显存的机制。</li>
+</ul>
+
+<div class="ref">
+  <span class="ri">延伸</span>
+  <div>SM（Streaming Multiprocessor）的内部构成、GPC/TPC 层级、L1/L2 的位置等 GPU 架构细节，见 <a href="https://wobok.tech/#/article/notes%2F0x0%20-%20Inbox%2FGB202%20GPU%20%E4%BA%A4%E4%BA%92%E5%BC%8F%E6%9E%B6%E6%9E%84%E5%9B%BE.html" target="_blank" rel="noopener">GB202 GPU 交互式架构图</a>；官方参数见 <a href="https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf" target="_blank" rel="noopener">NVIDIA RTX Blackwell GPU Architecture 白皮书</a>。</div>
+</div>
+
+<h3>Warp 是什么</h3>
+<p><b>Warp = 32 个 GroupIndex 连续的线程被硬件捆成一束，共用一套取指/译码/发射逻辑，一条指令同时喂给 32 条 lane。</b>这就是 SIMT（Single Instruction, Multiple Threads）。</p>
+
+<div class="flow">
+  <div class="fnode">
+    <div class="ft">SM</div>
+    <div class="fb">1 个 SM</div>
+    <div class="fd">Blackwell：4 个处理分区<br>128 KB L1/共享内存</div>
+  </div>
+  <div class="farrow">→</div>
+  <div class="fnode v2">
+    <div class="ft">Partition</div>
+    <div class="fb">1 个处理分区</div>
+    <div class="fd">独立 warp 调度器<br>32 条 lane · 16K 寄存器</div>
+  </div>
+  <div class="farrow">→</div>
+  <div class="fnode v3">
+    <div class="ft">Warp</div>
+    <div class="fb">32 threads</div>
+    <div class="fd">调度与发射的最小单位</div>
+  </div>
+  <div class="farrow">→</div>
+  <div class="fnode v4">
+    <div class="ft">Lane</div>
+    <div class="fb">1 条 lane</div>
+    <div class="fd">硬件执行道<br>warp 的第 i 个线程跑在 lane i</div>
+  </div>
+</div>
+
+<ul>
+<li><b>lane 是硬件通道，thread 是软件概念。</b>一条 lane 在某个时刻执行某个 warp 的某个线程。二者一一对应但不是一回事 —— 说"32 条 lane 同时发出 32 个地址"是在描述硬件行为。</li>
+<li><b>分支发散（divergence）</b>：warp 内的线程走了不同分支，硬件只能<b>串行执行每条路径</b>，用掩码屏蔽掉不该执行的 lane。两条路径的耗时相加。所以分支粒度最好对齐到 32 的倍数。</li>
+<li><b>尾巴浪费</b>：线程组大小不是 32 的倍数时，最后一个 warp 有空闲 lane，但它依然<b>占满一个完整的 warp 槽位</b>。<code>numthreads(10,10,1)</code> = 100 线程 → 4 个 warp，最后一个只有 4 条 lane 有效。</li>
+</ul>
+
+<h3>驻留（Residency）：GPU 隐藏延迟的方式</h3>
+<p>warp 一旦被分配到 SM，它的寄存器就<b>常驻在寄存器堆里不动</b>。调度器每个周期从所有驻留 warp 里挑一个"就绪"的发射指令 —— 切换 warp 是<b>零开销</b>的，因为根本不需要保存/恢复上下文。</p>
+<p style="font-size:13.5px;color:var(--fg2)">这就是 GPU 对付显存延迟（数百个周期）的全部秘密：当 warp A 卡在等数据时，调度器立刻发射 warp B、C、D……只要驻留的 warp 足够多，执行单元就不会闲着。<b>驻留 warp 数量不足 = 延迟藏不住 = 性能掉。</b></p>
+
+<h3>交互 · Warp 切分器</h3>
+<p style="font-size:13.5px;color:var(--fg2)">同一个线程组，形状不同，warp 在二维上的"覆盖形状"完全不同。注意 <code>10×10</code> 这个例子的尾部浪费。</p>
+
+<div class="w">
+  <div class="whead"><span class="dot" style="background:var(--c2);box-shadow:0 0 10px var(--c2)"></span><span class="wt">Interactive · Warp Partition</span><span class="wh">warp 号 = GroupIndex / 32</span></div>
+  <div class="wbody">
+    <div class="grp">
+      <div class="gl">numthreads 形状</div>
+      <div class="segs" id="s2shapes"></div>
+    </div>
+    <div class="cvsbox"><canvas id="s2cvs"></canvas></div>
+    <div class="grp" style="margin-top:16px">
+      <div class="gl">展平后按 GroupIndex 顺序切分（每 32 个一刀）</div>
+      <div id="s2ribbon"></div>
+    </div>
+    <div class="stats" id="s2stats"></div>
+  </div>
+</div>
+</section>
+
+<!-- ============================ 04 ============================ -->
+<section>
+<h2><span class="num">04</span> 占用率 Occupancy：谁在限制驻留</h2>
+<p class="lede">占用率 = SM 上<b>实际驻留的 warp 数</b> ÷ <b>SM 的最大 warp 槽位数</b>。四种资源同时在卡这个数，取最紧的那个。</p>
+
+<h4>Blackwell GB202（计算能力 12.0）每 SM 的硬上限</h4>
+<table class="tbl">
+<tr><th>资源</th><th>上限 / SM</th><th>说明</th></tr>
+<tr><td>Warp 槽位</td><td><b>48</b>（= 1536 线程）</td><td>4 个分区各 12 个槽位</td></tr>
+<tr><td>Block 槽位</td><td><b>24</b> 个线程组</td><td>能同时驻留的组数上限</td></tr>
+<tr><td>寄存器堆</td><td><b>65536</b> 个 32-bit</td><td>4 个分区各 16384 个；单线程最多 255 个</td></tr>
+<tr><td>共享内存</td><td><b>100 KB</b> 可分配</td><td>与 L1 共用 128 KB；D3D 单组 <code>groupshared</code> 上限 32 KB</td></tr>
+</table>
+
+<div class="note">
+<b>"block" 就是"线程组"。</b> NVIDIA/CUDA 文档叫 thread block（简称 block），D3D/HLSL 叫 thread group，Vulkan/GL 叫 work group —— 同一个东西的三个名字。所以"block 槽位"= 一个 SM 能同时装下的线程组个数。
+</div>
+
+<h4>计算规则</h4>
+<pre><span class="c">// 每组占几个 warp（不足 32 也算一个）</span>
+warpsPerGroup = ceil(threadsPerGroup / 32)
+
+<span class="c">// 四个限制器，各自算出「能驻留几个组」</span>
+byWarpSlot  = floor(48 / warpsPerGroup)
+byBlockSlot = 24
+byRegister  = floor( 4 × floor(16384 / regsPerWarp) / warpsPerGroup )
+              <span class="c">// regsPerWarp = ceil(regsPerThread × 32 / 256) × 256   ← 按 256 粒度分配</span>
+bySharedMem = floor(102400 / sharedBytesPerGroup)
+
+groups   = min(四者)
+occupancy = groups × warpsPerGroup / 48</pre>
+
+<h3>交互 · 占用率计算器</h3>
+<div class="w">
+  <div class="whead"><span class="dot" style="background:var(--c3);box-shadow:0 0 10px var(--c3)"></span><span class="wt">Interactive · Occupancy Calculator</span><span class="wh">GB202 / CC 12.0</span></div>
+  <div class="wbody">
+    <div class="ctrls">
+      <div class="ctrl"><label>线程组大小（线程）<b id="l_ts">256</b></label><input type="range" id="ts" min="32" max="1024" step="32" value="256"></div>
+      <div class="ctrl"><label>每线程寄存器<b id="l_rg">32</b></label><input type="range" id="rg" min="16" max="128" step="4" value="32"></div>
+      <div class="ctrl"><label>每组 groupshared (KB)<b id="l_sm">0</b></label><input type="range" id="sm" min="0" max="32" step="1" value="0"></div>
+    </div>
+    <div class="bars" id="occbars"></div>
+    <div class="occbig" id="occbig"></div>
+    <div class="readout" id="occread"></div>
+  </div>
+</div>
+
+<h4>几个直觉</h4>
+<ul>
+<li><b>组太小很吃亏。</b> <code>numthreads(32,1,1)</code> 每组只有 1 个 warp，24 个 block 槽位用光也只驻留 24 个 warp → 占用率天花板 50%。</li>
+<li><b>寄存器是最常见的瓶颈。</b> 每线程 64 个寄存器时，每 warp 吃 2048 个，一个分区只放得下 8 个 warp（16384/2048）→ 上限 32 warp = 66.7%。复杂 shader 很容易踩到。</li>
+<li><b>groupshared 决定组的并存数。</b> 每组用 32 KB，100 KB 只够放 3 个组。</li>
+<li><b>高占用率 ≠ 高性能。</b> 占用率只是"隐藏延迟的能力"。计算密集、访存少、ILP 高的 kernel，50% 占用率也能跑满执行单元；反而为了提高占用率去砍寄存器，可能造成溢出（register spilling）到显存，得不偿失。目标是"够用"，不是"最大"。</li>
+</ul>
+</section>
+
+<!-- ============================ 05 ============================ -->
+<section>
+<h2><span class="num">05</span> Memory Coalescing：warp 的形状决定带宽利用率</h2>
+<p class="lede">同一条 load 指令，warp 的 32 条 lane 同时给出 32 个地址。硬件必须把这些地址归并成若干次显存事务 —— 归并得好不好，就是合并访存。</p>
+
+<h3>两个硬件事实</h3>
+<div class="two">
+<div>
+<h4>Lane</h4>
+<p style="font-size:13.5px;color:var(--fg2);margin-top:0">SM 分区里的一条执行道。一个 warp 有 32 条 lane，<b>一条访存指令会同时产生 32 个独立地址</b>。这 32 个地址彼此可以毫无关系（gather），硬件都支持 —— 但代价差别巨大。</p>
+</div>
+<div>
+<h4>Sector</h4>
+<p style="font-size:13.5px;color:var(--fg2);margin-top:0"><b>显存 ↔ L2 ↔ L1 之间搬运数据的最小颗粒 = 32 字节</b>，且按 32 B 边界对齐。L1 的一条 cache line 是 128 B = 4 个 sector。你哪怕只要其中 1 个字节，整个 32 B 也必须被搬过来。</p>
+</div>
+</div>
+
+<h4>合并的过程</h4>
+<pre>32 条 lane 各给一个地址
+        ↓
+地址合并单元把它们映射到各自所属的 <span class="n">32 B</span> sector
+        ↓
+去重 → 得到 N 个<b>不同</b>的 sector
+        ↓
+发出 N 次访存事务，每次搬回 <span class="n">32 B</span>
+
+有效带宽利用率 = (32 × 元素大小) / (N × 32)</pre>
+
+<table class="tbl">
+<tr><th>场景（每 lane 读 1 个 float = 4 B）</th><th>sector 数</th><th>搬运 / 使用</th><th>效率</th></tr>
+<tr><td>32 lane 连续、128 B 对齐</td><td>4</td><td>128 B / 128 B</td><td class="good">100%</td></tr>
+<tr><td>32 lane 连续、但基址偏了 4 B</td><td>5</td><td>160 B / 128 B</td><td class="mid">80%</td></tr>
+<tr><td>32 lane 步长 2（隔一个取一个）</td><td>8</td><td>256 B / 128 B</td><td class="mid">50%</td></tr>
+<tr><td>32 lane 各读一行（步长 ≥ 32 B）</td><td>32</td><td>1024 B / 128 B</td><td class="bad">12.5%</td></tr>
+</table>
+
+<h3>形状怎么影响它</h3>
+<p>回忆第 02 节：warp 里的 32 个线程是 <code>GroupIndex</code> 连续的，而 <code>GroupIndex</code> 沿 X 维增长最快。所以 <b>numthreads 的 X 值直接决定了 warp 在二维上的宽度</b>：</p>
+
+<table class="tbl">
+<tr><th>numthreads</th><th>warp 0 覆盖</th><th>每行连续字节（float）</th><th>sector</th><th>效率</th></tr>
+<tr><td>(64, 1, 1)</td><td>1 行 × 32 列</td><td>128 B</td><td>4</td><td class="good">100%</td></tr>
+<tr><td>(32, 2, 1)</td><td>1 行 × 32 列</td><td>128 B</td><td>4</td><td class="good">100%</td></tr>
+<tr><td>(16, 4, 1)</td><td>2 行 × 16 列</td><td>64 B</td><td>4</td><td class="good">100%</td></tr>
+<tr><td>(8, 8, 1)</td><td>4 行 × 8 列</td><td>32 B ← 刚好一个 sector</td><td>4</td><td class="good">100%</td></tr>
+<tr><td>(4, 16, 1)</td><td>8 行 × 4 列</td><td>16 B ← 半个 sector</td><td>8</td><td class="mid">50%</td></tr>
+<tr><td>(2, 32, 1)</td><td>16 行 × 2 列</td><td>8 B</td><td>16</td><td class="bad">25%</td></tr>
+<tr><td>(1, 64, 1)</td><td>32 行 × 1 列</td><td>4 B</td><td>32</td><td class="bad">12.5%</td></tr>
+</table>
+
+<div class="note cy">
+<b>规律很干净：只要 warp 在每一行上覆盖的连续字节 ≥ 32 B 且对齐，字节效率就是 100%；一旦每行片段小于 32 B，就开始浪费。</b><br>
+换算成建议：<b>numthreads.X × 元素大小 ≥ 32 B</b>。读 float 就要 X ≥ 8，读 float4 就要 X ≥ 2。这就是为什么 <code>(8,8,1)</code>、<code>(16,16,1)</code>、<code>(32,1,1)</code>、<code>(64,1,1)</code> 是最常见的几个配置，而 <code>(1,64,1)</code> 这种基本是性能陷阱。
+</div>
+
+<div class="note am">
+<b>100% 字节效率之下还有一层差别。</b> <code>(8,8,1)</code> 和 <code>(32,2,1)</code> 都是 4 个 sector，但前者的 4 个 sector 分散在 <b>4 条不同的 128 B cache line</b> 上，后者集中在 <b>1 条</b>。纯流式扫描（只读一次、无复用）选 <code>(64,1,1)</code> 更省 cache 标签查找；而卷积/滤波这类要读邻域的，方形的 <code>(8,8,1)</code> footprint 更紧凑、L1 复用率高得多，反而更快。<br><br>
+另外，<code>RWTexture2D</code> 与线性 <code>Buffer</code> 的布局不同：纹理在显存里是<b>分块 swizzle</b> 存放的，硬件天然照顾二维局部性，所以对纹理用方形组几乎总是对的；上面这张表严格成立的是<b>按行主序手算下标的线性 Buffer</b>（<code>buf[y*W + x]</code>）。
+</div>
+
+<h3>交互 · 合并访存实验台</h3>
+<p style="font-size:13.5px;color:var(--fg2)">下面模拟 <code>buf[id.y * W + id.x]</code> 这种线性 Buffer 访问。<b>蓝色</b>格子是 lane 真正要的数据，<b>红底</b>是被顺带搬回来但没用上的字节，竖线是 32 B sector 的边界。</p>
+
+<div class="w">
+  <div class="whead"><span class="dot" style="background:var(--c4);box-shadow:0 0 10px var(--c4)"></span><span class="wt">Interactive · Memory Coalescing Lab</span><span class="wh">64 线程 / 组 · 观察 1 个 warp</span></div>
+  <div class="wbody">
+    <div class="grp">
+      <div class="gl">numthreads 形状（均为 64 线程 = 2 warp）</div>
+      <div class="segs" id="s4shape"></div>
+    </div>
+    <div class="grp">
+      <div class="gl">每 lane 读取的元素大小</div>
+      <div class="segs" id="s4elem">
+        <span class="seg on" data-v="4">4 B · float</span>
+        <span class="seg" data-v="8">8 B · float2</span>
+        <span class="seg" data-v="16">16 B · float4</span>
+      </div>
+    </div>
+    <div class="ctrls" style="margin-top:14px">
+      <div class="grp" style="margin:0">
+        <div class="gl">Buffer 行宽 W（元素）</div>
+        <div class="segs" id="s4w">
+          <span class="seg" data-v="32">32</span><span class="seg on" data-v="64">64</span>
+          <span class="seg" data-v="128">128</span><span class="seg" data-v="256">256</span>
+        </div>
+      </div>
+      <div class="grp" style="margin:0">
+        <div class="gl">观察哪个 warp</div>
+        <div class="segs" id="s4warp"><span class="seg on" data-v="0">warp 0</span><span class="seg" data-v="1">warp 1</span></div>
+      </div>
+      <div class="grp" style="margin:0">
+        <div class="gl">基址对齐</div>
+        <div class="segs" id="s4off"><span class="seg on" data-v="0">对齐</span><span class="seg" data-v="4">偏移 +4 B</span></div>
+      </div>
+    </div>
+    <div class="cvsbox"><canvas id="s4cvs"></canvas></div>
+    <div class="legend">
+      <span><i style="background:rgba(34,211,238,.75)"></i>lane 实际需要的字节</span>
+      <span><i style="background:rgba(251,113,133,.28)"></i>同 sector 被顺带搬回、但未使用</span>
+      <span><i style="background:#0c1018;border:1px solid var(--line2)"></i>未触及</span>
+      <span><i style="background:var(--c4);width:2px;border-radius:0"></i>32 B sector 边界</span>
+    </div>
+    <div class="grp" style="margin-top:18px">
+      <div class="gl">被触及的 32 B sector（填充比例 = 该 sector 中被真正用到的字节）</div>
+      <div class="sectors" id="s4sec"></div>
+    </div>
+    <div class="stats" id="s4stats"></div>
+    <div class="readout" id="s4read"></div>
+  </div>
+</div>
+</section>
+
+<!-- ============================ 06 ============================ -->
+<section>
+<h2><span class="num">06</span> 速查</h2>
+
+<h4>核心公式</h4>
+<pre>总线程        = Dispatch(gx,gy,gz) × numthreads(X,Y,Z)   <span class="c">// 逐维相乘</span>
+DispatchThreadID = GroupID × (X,Y,Z) + GroupThreadID
+GroupIndex       = gtid.z·X·Y + gtid.y·X + gtid.x       <span class="c">// X 最快</span>
+warp 号 / lane 号 = GroupIndex / 32  ,  GroupIndex % 32
+occupancy        = 驻留 warp 数 / 48                     <span class="c">// GB202</span>
+访存效率         = 32·元素大小 / (sector 数 · 32)</pre>
+
+<h4>选 numthreads 的四条经验</h4>
+<ol>
+<li><b>总数取 32 的倍数</b>，否则最后一个 warp 有 lane 空转；常用 64 / 128 / 256。</li>
+<li><b>X × 元素大小 ≥ 32 B</b>（读 float 时 X ≥ 8），保证每行片段填满一个 sector。</li>
+<li><b>别太小</b>：每组 &lt; 64 线程时，24 个 block 槽位会先于 48 个 warp 槽位耗尽，占用率上不去。</li>
+<li><b>按访问模式选形状</b>：一维流式 → <code>(64,1,1)</code>；二维有邻域复用（模糊、卷积、tile 化） → <code>(8,8,1)</code> / <code>(16,16,1)</code>。</li>
+</ol>
+
+<h4>关键上限（Blackwell GB202 / CC 12.0，D3D）</h4>
+<table class="tbl">
+<tr><th>项</th><th>值</th><th>项</th><th>值</th></tr>
+<tr><td>warp 大小</td><td>32 线程</td><td>warp 槽位 / SM</td><td>48</td></tr>
+<tr><td>线程 / SM</td><td>1536</td><td>block(组) 槽位 / SM</td><td>24</td></tr>
+<tr><td>寄存器 / SM</td><td>65536 × 32-bit</td><td>寄存器 / 线程</td><td>≤ 255</td></tr>
+<tr><td>L1 + 共享内存 / SM</td><td>128 KB（共享可占 100 KB）</td><td>groupshared / 组</td><td>≤ 32 KB</td></tr>
+<tr><td>线程 / 组</td><td>≤ 1024</td><td>Dispatch 每维</td><td>≤ 65535</td></tr>
+<tr><td>sector</td><td>32 B</td><td>L1 cache line</td><td>128 B（4 sector）</td></tr>
+</table>
+
+<div class="ref" style="margin-top:24px">
+  <span class="ri">参考</span>
+  <div>
+    <a href="https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf" target="_blank" rel="noopener">NVIDIA RTX Blackwell GPU Architecture（白皮书 PDF）</a><br>
+    <a href="https://wobok.tech/#/article/notes%2F0x0%20-%20Inbox%2FGB202%20GPU%20%E4%BA%A4%E4%BA%92%E5%BC%8F%E6%9E%B6%E6%9E%84%E5%9B%BE.html" target="_blank" rel="noopener">GB202 GPU 交互式架构图 · wobok.tech</a>
+  </div>
+</div>
+</section>
+
+<footer>Compute Shader Notes · 参数基于 NVIDIA Blackwell GB202 (CC 12.0)</footer>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const DPR = () => Math.min(window.devicePixelRatio || 1, 2);
+const WARPC = ['#22d3ee','#a78bfa','#4ade80','#fbbf24','#fb7185','#38bdf8','#f472b6','#facc15'];
+
+function fitCanvas(cvs, w, h){
+  const d = DPR();
+  cvs.width = Math.max(1, Math.round(w*d));
+  cvs.height = Math.max(1, Math.round(h*d));
+  cvs.style.width = w+'px'; cvs.style.height = h+'px';
+  const g = cvs.getContext('2d');
+  g.setTransform(d,0,0,d,0,0);
+  g.clearRect(0,0,w,h);
+  return g;
+}
+
+/* =================== Widget 1 : Dispatch Sandbox =================== */
+const S1 = {gx:3,gy:2,gz:1,tx:8,ty:8,tz:1,mode:'warp',z:0,geo:null,hover:null,pin:null};
+
+function s1Bind(id,key){
+  const el=$('#'+id), lb=$('#l_'+id);
+  el.addEventListener('input',()=>{
+    S1[key]=+el.value; lb.textContent=el.value;
+    const zt=S1.gz*S1.tz;
+    $('#zwrap').style.display = zt>1?'block':'none';
+    const zs=$('#zsl'); zs.max=zt-1; if(S1.z>zt-1){S1.z=zt-1; zs.value=S1.z;}
+    S1.hover=null; S1.pin=null; s1Render();
+  });
+}
+['gx','gy','gz','tx','ty','tz'].forEach(k=>s1Bind(k,k));
+$('#zsl').addEventListener('input',e=>{S1.z=+e.target.value; s1Render();});
+$('#s1modes').addEventListener('click',e=>{
+  const t=e.target.closest('.seg'); if(!t)return;
+  [...$('#s1modes').children].forEach(c=>c.classList.remove('on'));
+  t.classList.add('on'); S1.mode=t.dataset.m; s1Render();
+});
+
+function s1Color(gxi,gyi,gzi,txi,tyi,tzi){
+  const {gx,gy,tx,ty,tz,mode}=S1;
+  const M=tx*ty*tz;
+  const gi = tzi*tx*ty + tyi*tx + txi;
+  if(mode==='warp'){
+    const w=Math.floor(gi/32);
+    return WARPC[w%WARPC.length];
+  }
+  if(mode==='group'){
+    const gl = gxi + gyi*gx + gzi*gx*gy;
+    return `hsl(${(gl*53+188)%360} 68% 58%)`;
+  }
+  if(mode==='gindex'){
+    const t = M>1 ? gi/(M-1) : 0;
+    return `hsl(${190+t*30} 75% ${26+t*44}%)`;
+  }
+  // dtid
+  const dx=gxi*tx+txi, dy=gyi*ty+tyi;
+  const Wt=gx*tx, Ht=gy*ty;
+  const t=(dx+dy*Wt)/Math.max(1,Wt*Ht-1);
+  return `hsl(${188+t*112} 72% ${34+t*30}%)`;
+}
+
+function s1Render(){
+  const {gx,gy,gz,tx,ty,tz,z}=S1;
+  const zt=gz*tz;
+  const gzi=Math.min(gz-1,Math.floor(z/tz)), tzi=z%tz;
+  const Wt=gx*tx, Ht=gy*ty;
+  const cvs=$('#s1cvs');
+  const availW=Math.max(240, cvs.parentElement.clientWidth-24);
+  const gap=Math.max(3,Math.min(7,Math.round(availW/150)));
+  let cell=Math.floor((availW-(gx-1)*gap)/Wt);
+  cell=Math.max(4,Math.min(30,cell));
+  const totW=Wt*cell+(gx-1)*gap, totH=Ht*cell+(gy-1)*gap;
+  const g=fitCanvas(cvs,totW,totH);
+  S1.geo={cell,gap,totW,totH,gzi,tzi};
+
+  for(let gyi=0;gyi<gy;gyi++)for(let gxi=0;gxi<gx;gxi++){
+    const ox=gxi*(tx*cell+gap), oy=gyi*(ty*cell+gap);
+    for(let tyi=0;tyi<ty;tyi++)for(let txi=0;txi<tx;txi++){
+      const x=ox+txi*cell, y=oy+tyi*cell;
+      g.fillStyle=s1Color(gxi,gyi,gzi,txi,tyi,tzi);
+      g.globalAlpha=.88; g.fillRect(x,y,cell-.6,cell-.6); g.globalAlpha=1;
+      if(cell>=17){
+        const gi=tzi*tx*ty+tyi*tx+txi;
+        g.fillStyle='rgba(0,0,0,.62)'; g.font=`600 ${Math.min(11,cell*0.42)}px ui-monospace,monospace`;
+        g.textAlign='center'; g.textBaseline='middle';
+        g.fillText(gi, x+cell/2-0.3, y+cell/2-0.3);
+      }
+    }
+    g.strokeStyle='rgba(255,255,255,.30)'; g.lineWidth=1;
+    g.strokeRect(ox-.5,oy-.5,tx*cell+1,ty*cell+1);
+  }
+  // hover / pin outline
+  const sel=S1.pin||S1.hover;
+  if(sel){
+    const ox=sel.gxi*(tx*cell+gap)+sel.txi*cell, oy=sel.gyi*(ty*cell+gap)+sel.tyi*cell;
+    g.strokeStyle='#fff'; g.lineWidth=2; g.strokeRect(ox-1,oy-1,cell+1,cell+1);
+  }
+  s1Stats(); s1Read();
+}
+
+function s1Hit(mx,my){
+  const {gx,gy,tx,ty}=S1, {cell,gap}=S1.geo;
+  const ux=tx*cell+gap, uy=ty*cell+gap;
+  const gxi=Math.floor(mx/ux), gyi=Math.floor(my/uy);
+  if(gxi<0||gyi<0||gxi>=gx||gyi>=gy)return null;
+  const rx=mx-gxi*ux, ry=my-gyi*uy;
+  if(rx>=tx*cell||ry>=ty*cell)return null;
+  return {gxi,gyi,txi:Math.floor(rx/cell),tyi:Math.floor(ry/cell)};
+}
+$('#s1cvs').addEventListener('mousemove',e=>{
+  const r=e.target.getBoundingClientRect();
+  const h=s1Hit(e.clientX-r.left,e.clientY-r.top);
+  const changed = JSON.stringify(h)!==JSON.stringify(S1.hover);
+  S1.hover=h; if(changed) s1Render();
+});
+$('#s1cvs').addEventListener('mouseleave',()=>{S1.hover=null; s1Render();});
+$('#s1cvs').addEventListener('click',e=>{
+  const r=e.target.getBoundingClientRect();
+  const h=s1Hit(e.clientX-r.left,e.clientY-r.top);
+  S1.pin = (S1.pin&&h&&JSON.stringify(h)===JSON.stringify(S1.pin))?null:h;
+  s1Render();
+});
+
+function s1Stats(){
+  const {gx,gy,gz,tx,ty,tz}=S1;
+  const G=gx*gy*gz, M=tx*ty*tz, T=G*M, W=Math.ceil(M/32);
+  const ok = M<=1024;
+  $('#s1stats').innerHTML=`
+    <div class="stat"><div class="sl">线程组数</div><div class="sv">${G}</div></div>
+    <div class="stat v"><div class="sl">线程 / 组</div><div class="sv">${M}${ok?'':' ✗'}</div></div>
+    <div class="stat g"><div class="sl">总线程</div><div class="sv">${T.toLocaleString()}</div></div>
+    <div class="stat a"><div class="sl">warp / 组</div><div class="sv">${W}</div></div>
+    <div class="stat"><div class="sl">总 warp</div><div class="sv">${G*W}</div></div>`;
+}
+
+function s1Read(){
+  const {gx,gy,gz,tx,ty,tz}=S1;
+  const sel=S1.pin||S1.hover;
+  if(!sel){
+    $('#s1read').innerHTML=`<span class="dim">← 把鼠标移到上面的线程格子上，这里会显示该线程的四个 SV 值与推导过程</span>
+    <br><span class="dim">当前配置：</span><span class="rv">Dispatch(${gx}, ${gy}, ${gz})</span><span class="dim">  ×  </span><span class="rv">[numthreads(${tx}, ${ty}, ${tz})]</span>`;
+    return;
+  }
+  const {gzi,tzi}=S1.geo;
+  const {gxi,gyi,txi,tyi}=sel;
+  const gi = tzi*tx*ty + tyi*tx + txi;
+  const dx=gxi*tx+txi, dy=gyi*ty+tyi, dz=gzi*tz+tzi;
+  const w=Math.floor(gi/32), lane=gi%32;
+  $('#s1read').innerHTML=`
+<span class="rk">SV_GroupID</span><span class="rv">uint3(${gxi}, ${gyi}, ${gzi})</span>   <span class="dim">← 硬件直接给</span>
+<span class="rk">SV_GroupThreadID</span><span class="rv">uint3(${txi}, ${tyi}, ${tzi})</span>   <span class="dim">← 硬件直接给</span>
+<span class="rk">SV_GroupIndex</span><span class="rf">${tzi}·${tx}·${ty} + ${tyi}·${tx} + ${txi}</span> = <span class="hl">${gi}</span>
+<span class="rk">SV_DispatchThreadID</span><span class="rf">(${gxi}·${tx}+${txi}, ${gyi}·${ty}+${tyi}, ${gzi}·${tz}+${tzi})</span> = <span class="hl">uint3(${dx}, ${dy}, ${dz})</span>
+<span class="rk">warp / lane</span><span class="rf">${gi} / 32 =</span> <span class="rv">warp ${w}</span><span class="rf">   ${gi} % 32 =</span> <span class="rv">lane ${lane}</span>`;
+}
+
+/* =================== Widget 2 : Warp Partition =================== */
+const SHAPES=[[32,1],[64,1],[16,4],[8,8],[16,16],[10,10],[4,16],[1,64]];
+const S2={i:3};
+$('#s2shapes').innerHTML=SHAPES.map((s,i)=>
+  `<span class="seg${i===S2.i?' on':''}" data-i="${i}">${s[0]}×${s[1]}×1 · ${s[0]*s[1]}</span>`).join('');
+$('#s2shapes').addEventListener('click',e=>{
+  const t=e.target.closest('.seg'); if(!t)return;
+  [...$('#s2shapes').children].forEach(c=>c.classList.remove('on'));
+  t.classList.add('on'); S2.i=+t.dataset.i; s2Render();
+});
+
+function s2Render(){
+  const [X,Y]=SHAPES[S2.i], N=X*Y, nW=Math.ceil(N/32);
+  const cvs=$('#s2cvs');
+  const availW=Math.max(240, cvs.parentElement.clientWidth-24);
+  let cell=Math.floor(availW/X); cell=Math.max(6,Math.min(34,cell));
+  const g=fitCanvas(cvs,X*cell,Y*cell);
+  for(let y=0;y<Y;y++)for(let x=0;x<X;x++){
+    const gi=y*X+x, w=Math.floor(gi/32);
+    g.fillStyle=WARPC[w%WARPC.length]; g.globalAlpha=.85;
+    g.fillRect(x*cell,y*cell,cell-.8,cell-.8); g.globalAlpha=1;
+    if(cell>=18){
+      g.fillStyle='rgba(0,0,0,.65)'; g.font=`600 ${Math.min(11,cell*.4)}px ui-monospace,monospace`;
+      g.textAlign='center'; g.textBaseline='middle';
+      g.fillText(gi,x*cell+cell/2,y*cell+cell/2);
+    }
+  }
+  // warp boundary strokes
+  g.strokeStyle='rgba(255,255,255,.55)'; g.lineWidth=1.6;
+  for(let w=0;w<nW;w++){
+    const s=w*32, e=Math.min(N,s+32)-1;
+    g.beginPath();
+    for(let gi=s;gi<=e;gi++){
+      const x=gi%X,y=Math.floor(gi/X);
+      if(gi===s||Math.floor((gi-1)/X)!==y){ /* row start */ }
+    }
+    // draw a rect per contiguous row-run
+    let i=s;
+    while(i<=e){
+      const y=Math.floor(i/X), x0=i%X;
+      const rowEnd=Math.min(e,y*X+X-1);
+      const x1=rowEnd%X;
+      g.strokeRect(x0*cell-.5,y*cell-.5,(x1-x0+1)*cell,cell);
+      i=rowEnd+1;
+    }
+  }
+  // ribbon
+  let html='<div style="display:flex;flex-direction:column;gap:7px">';
+  for(let w=0;w<nW;w++){
+    const active=Math.min(32,N-w*32);
+    html+=`<div style="display:flex;align-items:center;gap:9px">
+      <span style="font-family:var(--mono);font-size:11px;color:${WARPC[w%WARPC.length]};width:52px;flex:none">warp ${w}</span>
+      <div style="display:flex;gap:1.5px;flex:1;min-width:0">`;
+    for(let l=0;l<32;l++){
+      const on=l<active;
+      html+=`<div title="lane ${l}${on?' · GroupIndex '+(w*32+l):' · 空闲'}" style="flex:1;height:19px;border-radius:2px;background:${on?WARPC[w%WARPC.length]:'transparent'};opacity:${on?.8:1};${on?'':'border:1px dashed var(--line3)'}"></div>`;
+    }
+    html+=`</div><span style="font-family:var(--mono);font-size:10.5px;color:${active<32?'var(--c5)':'var(--fg3)'};width:74px;flex:none;text-align:right">${active}/32 lane</span></div>`;
+  }
+  html+='</div>';
+  $('#s2ribbon').innerHTML=html;
+
+  const tail=N-(nW-1)*32, util=N/(nW*32);
+  $('#s2stats').innerHTML=`
+    <div class="stat"><div class="sl">线程 / 组</div><div class="sv">${N}</div></div>
+    <div class="stat v"><div class="sl">warp 数</div><div class="sv">${nW}</div></div>
+    <div class="stat ${tail<32?'r':'g'}"><div class="sl">末 warp 活跃 lane</div><div class="sv">${tail}/32</div></div>
+    <div class="stat ${util<1?'a':'g'}"><div class="sl">lane 利用率</div><div class="sv">${(util*100).toFixed(1)}%</div></div>`;
+}
+
+/* =================== Widget 3 : Occupancy =================== */
+const HW={warpSlots:48, blockSlots:24, regsPerSM:65536, regsPerPart:16384, parts:4, smemPerSM:102400};
+function occBind(id,cb){
+  const el=$('#'+id), lb=$('#l_'+id);
+  el.addEventListener('input',()=>{lb.textContent=el.value; occRender();});
+}
+['ts','rg','sm'].forEach(occBind);
+
+function occRender(){
+  const T=+$('#ts').value, R=+$('#rg').value, SKB=+$('#sm').value;
+  const S=SKB*1024;
+  const wpg=Math.ceil(T/32);
+  const regsPerWarp=Math.ceil(R*32/256)*256;
+  const warpsByReg=HW.parts*Math.floor(HW.regsPerPart/regsPerWarp);
+
+  const byWarp=Math.floor(HW.warpSlots/wpg);
+  const byBlock=HW.blockSlots;
+  const byReg=Math.floor(warpsByReg/wpg);
+  const bySmem=S>0?Math.floor(HW.smemPerSM/S):999;
+
+  const items=[
+    {n:'Warp 槽位',v:byWarp,d:`48 / ${wpg}`},
+    {n:'Block 槽位',v:byBlock,d:`固定 24`},
+    {n:'寄存器堆',v:byReg,d:`${warpsByReg} warp / ${wpg}`},
+    {n:'共享内存',v:bySmem,d:S>0?`100KB / ${SKB}KB`:'未使用'}
+  ];
+  const mn=Math.min(...items.map(i=>i.v));
+  const groups=mn, warps=Math.min(HW.warpSlots,groups*wpg);
+  const occ=warps/HW.warpSlots;
+
+  $('#occbars').innerHTML=items.map(i=>{
+    const w=Math.min(HW.warpSlots,i.v*wpg);
+    const isMin=i.v===mn;
+    return `<div class="bar${isMin?' min':''}">
+      <span class="bl">${i.n}</span>
+      <div class="btrack"><div class="bfill" style="width:${(w/HW.warpSlots*100).toFixed(1)}%"></div></div>
+      <span class="bv">${i.v>=999?'∞':i.v} 组 → ${w} warp</span></div>`;
+  }).join('');
+
+  const col = occ>=.75?'var(--c3)':occ>=.5?'var(--c4)':'var(--c5)';
+  $('#occbig').innerHTML=`
+    <span class="on" style="color:${col}">${(occ*100).toFixed(1)}%</span>
+    <span class="od">占用率 = ${warps} 驻留 warp / 48 槽位<br>
+    = ${groups} 个线程组 × ${wpg} warp/组</span>`;
+
+  $('#occread').innerHTML=`
+<span class="rk">每组 warp 数</span><span class="rf">ceil(${T} / 32)</span> = <span class="hl">${wpg}</span>
+<span class="rk">每 warp 寄存器</span><span class="rf">ceil(${R}×32 / 256)×256</span> = <span class="hl">${regsPerWarp}</span> <span class="dim">(${R} regs/线程)</span>
+<span class="rk">寄存器可容 warp</span><span class="rf">4 × floor(16384 / ${regsPerWarp})</span> = <span class="hl">${warpsByReg}</span>
+<span class="rk">瓶颈</span><span class="rv">${items.filter(i=>i.v===mn).map(i=>i.n).join(' + ')}</span>
+<span class="rk">驻留</span><span class="rv">${groups} 组 · ${warps} warp · ${groups*T} 线程</span> <span class="dim">(上限 1536 线程)</span>`;
+}
+
+/* =================== Widget 4 : Coalescing =================== */
+const C_SHAPES=[[64,1],[32,2],[16,4],[8,8],[4,16],[2,32],[1,64]];
+const S4={si:0,elem:4,W:64,warp:0,off:0};
+$('#s4shape').innerHTML=C_SHAPES.map((s,i)=>
+  `<span class="seg${i===S4.si?' on':''}" data-i="${i}">${s[0]}×${s[1]}×1</span>`).join('');
+function segGroup(sel,key,parse){
+  $(sel).addEventListener('click',e=>{
+    const t=e.target.closest('.seg'); if(!t)return;
+    [...$(sel).children].forEach(c=>c.classList.remove('on'));
+    t.classList.add('on'); S4[key]=parse(t); s4Render();
+  });
+}
+segGroup('#s4shape','si',t=>+t.dataset.i);
+segGroup('#s4elem','elem',t=>+t.dataset.v);
+segGroup('#s4w','W',t=>+t.dataset.v);
+segGroup('#s4warp','warp',t=>+t.dataset.v);
+segGroup('#s4off','off',t=>+t.dataset.v);
+
+function s4Render(){
+  const [X,Y]=C_SHAPES[S4.si], {elem,W,warp,off}=S4;
+  const lanes=[];
+  for(let l=0;l<32;l++){
+    const gi=warp*32+l;
+    const x=gi%X, y=Math.floor(gi/X)%Y;
+    const addr=(y*W+x)*elem+off;
+    lanes.push({l,gi,x,y,addr});
+  }
+  // sectors
+  const sect=new Map();
+  for(const ln of lanes){
+    const s0=Math.floor(ln.addr/32), s1=Math.floor((ln.addr+elem-1)/32);
+    for(let s=s0;s<=s1;s++){
+      const lo=Math.max(ln.addr,s*32), hi=Math.min(ln.addr+elem,s*32+32);
+      let e=sect.get(s); if(!e){e={s,bytes:0,lanes:new Set()}; sect.set(s,e);}
+      e.bytes+=hi-lo; e.lanes.add(ln.l);
+    }
+  }
+  const secs=[...sect.values()].sort((a,b)=>a.s-b.s);
+  const lines=new Set(lanes.flatMap(ln=>{
+    const a=Math.floor(ln.addr/128), b=Math.floor((ln.addr+elem-1)/128);
+    return a===b?[a]:[a,b];
+  }));
+  const used=32*elem, fetched=secs.length*32, eff=used/fetched;
+
+  /* ---- 2D canvas ---- */
+  const rows=[...new Set(lanes.map(l=>l.y))].sort((a,b)=>a-b);
+  const cols=Math.min(W,Math.max(X,32));
+  const cvs=$('#s4cvs');
+  const availW=Math.max(240,cvs.parentElement.clientWidth-24);
+  const padL=54;
+  let cell=Math.floor((availW-padL-8)/cols);
+  cell=Math.max(5,Math.min(26,cell));
+  const g=fitCanvas(cvs,padL+cols*cell+6,rows.length*(cell+3)+22);
+
+  const touched=new Set(secs.map(s=>s.s));
+  const laneAt=new Map(lanes.map(l=>[l.y+'_'+l.x,l]));
+  const epsMap=32/elem; // elements per sector (may be fractional if elem>32, not here)
+
+  g.font='10px ui-monospace,monospace'; g.textBaseline='middle';
+  rows.forEach((y,ri)=>{
+    const oy=ri*(cell+3)+2;
+    g.fillStyle='#5b6478'; g.textAlign='right';
+    g.fillText('y='+y, padL-8, oy+cell/2);
+    for(let x=0;x<cols;x++){
+      const a=(y*W+x)*elem+off;
+      const sIdx=Math.floor(a/32);
+      const inSec=touched.has(sIdx)||touched.has(Math.floor((a+elem-1)/32));
+      const ln=laneAt.get(y+'_'+x);
+      const px=padL+x*cell;
+      if(ln){ g.fillStyle='rgba(34,211,238,.78)'; }
+      else if(inSec){ g.fillStyle='rgba(251,113,133,.26)'; }
+      else { g.fillStyle='#0c1018'; }
+      g.fillRect(px,oy,cell-1,cell-1);
+      if(!ln&&!inSec){ g.strokeStyle='#171d29'; g.lineWidth=1; g.strokeRect(px+.5,oy+.5,cell-2,cell-2); }
+      if(ln&&cell>=16){
+        g.fillStyle='rgba(0,10,16,.75)'; g.textAlign='center';
+        g.fillText(ln.l, px+cell/2-.5, oy+cell/2);
+      }
+    }
+    // sector boundaries
+    g.strokeStyle='rgba(251,191,36,.5)'; g.lineWidth=1.4;
+    for(let x=0;x<=cols;x++){
+      const a=(y*W+x)*elem+off;
+      if(a%32===0){ g.beginPath(); g.moveTo(padL+x*cell-.7,oy-1); g.lineTo(padL+x*cell-.7,oy+cell-1); g.stroke(); }
+    }
+  });
+  if(W>cols){
+    g.fillStyle='#4a536a'; g.textAlign='left';
+    g.fillText(`每行共 W=${W} 个元素（右侧 ${W-cols} 个未画出）`, padL, rows.length*(cell+3)+11);
+  } else {
+    g.fillStyle='#4a536a'; g.textAlign='left';
+    g.fillText(`行宽 W=${W} 个元素 = ${W*elem} B / 行`, padL, rows.length*(cell+3)+11);
+  }
+
+  /* ---- sector strip ---- */
+  $('#s4sec').innerHTML=secs.map(s=>{
+    const p=s.bytes/32;
+    return `<div class="sec" title="sector #${s.s} · 字节 ${s.s*32}–${s.s*32+31} · ${s.lanes.size} 条 lane 用到 ${s.bytes} B">
+      <div class="sbar"><div class="sfill" style="height:${(p*100).toFixed(0)}%"></div>
+      <div class="sp">${(p*100).toFixed(0)}%</div></div>
+      <div class="slab">#${s.s}</div></div>`;
+  }).join('');
+
+  /* ---- stats ---- */
+  const cls = eff>=.99?'g':eff>=.5?'a':'r';
+  $('#s4stats').innerHTML=`
+    <div class="stat"><div class="sl">lane 请求字节</div><div class="sv">${used} B</div></div>
+    <div class="stat v"><div class="sl">sector 数</div><div class="sv">${secs.length}</div></div>
+    <div class="stat r"><div class="sl">实际搬运</div><div class="sv">${fetched} B</div></div>
+    <div class="stat ${cls}"><div class="sl">带宽效率</div><div class="sv">${(eff*100).toFixed(1)}%</div></div>
+    <div class="stat a"><div class="sl">128B cache line</div><div class="sv">${lines.size}</div></div>`;
+
+  const rowBytes=Math.min(X,32)*elem;
+  $('#s4read').innerHTML=`
+<span class="rk">warp ${warp} 覆盖</span><span class="rv">${rows.length} 行 × ${Math.min(X,32)} 列</span> <span class="dim">(GroupIndex ${warp*32} … ${warp*32+31})</span>
+<span class="rk">每行连续字节</span><span class="rf">${Math.min(X,32)} × ${elem} B</span> = <span class="hl">${rowBytes} B</span> <span class="dim">${rowBytes>=32?'≥ 32 B → 填满 sector':'&lt; 32 B → sector 用不满'}</span>
+<span class="rk">地址计算</span><span class="rf">addr = (y × ${W} + x) × ${elem}${off?' + '+off:''}</span>
+<span class="rk">效率</span><span class="rf">(32 × ${elem}) / (${secs.length} × 32)</span> = <span class="hl">${(eff*100).toFixed(1)}%</span>`;
+}
+
+/* =================== init =================== */
+function renderAll(){ s1Render(); s2Render(); occRender(); s4Render(); }
+window.addEventListener('resize',()=>{ s1Render(); s2Render(); s4Render(); });
+renderAll();
+</script>
+</body>
+</html>

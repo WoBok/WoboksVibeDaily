@@ -3,7 +3,10 @@
 > 参考资料：
 > - [NVIDIA RTX Blackwell GPU Architecture Whitepaper v1.1](https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf)（本文所有 Blackwell 硬件数字来源）
 > - [NVIDIA Blackwell Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)（Compute Capability 12.0 的占用率上限）
-> - [CUDA C++ Programming Guide](https://docs.nvidia.com/cuda/cuda-programming-guide/)
+> - [CUDA Programming Guide §5.1 Compute Capabilities](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/compute-capabilities.html)（各 CC 的完整规格表）
+> - [Microsoft Learn — HLSL Variable Syntax](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-variable-syntax)（D3D 的 `groupshared` 上限）
+>
+> **每一个数字的确切出处与原文引用见文末[附录 G](#附录-g每个硬件数字的确切出处)。**
 >
 > 说明：白皮书是**图形向**文档，不写 warp 槽位这类数字；占用率上限来自 CUDA Tuning Guide（GB20x 消费级 Blackwell = Compute Capability 12.0）。两者我在文中分别标注了出处。
 
@@ -381,14 +384,15 @@ cycle 600:  warp0 的数据回来了，重新变成 ready
 
 ### Compute Capability 12.0（GB20x Blackwell）的硬上限
 
-| 限制项 | 每 SM 上限 | 出处 |
+| 限制项 | 每 SM 上限 | 出处（点击直达，原文引用见[附录 G](#附录-g每个硬件数字的确切出处)） |
 |--------|-----------|------|
-| 最大驻留 **warp** 数 | **48**（= 1536 线程） | Blackwell Tuning Guide |
-| 最大驻留 **Thread Block** 数 | **32** | Blackwell Tuning Guide |
-| **寄存器堆** | **65,536** 个 32-bit（256 KB） | 白皮书 + Tuning Guide |
-| 每线程最大寄存器数 | 255 | Tuning Guide |
-| **Shared Memory** 容量 | **128 KB**（与 L1 统一，可配置划分） | 白皮书 + Tuning Guide |
-| 每 Thread Block 最大 shared memory | 99 KB（**但 D3D 限死 32 KB**） | Tuning Guide |
+| 最大驻留 **warp** 数 | **48**（= 1536 线程，此值为推算） | [Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) |
+| 最大驻留 **Thread Block** 数 | **32** | [Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) |
+| **寄存器堆** | **65,536** 个 32-bit（256 KB） | [白皮书 p.10](https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf) + [Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)（互相印证） |
+| 每线程最大寄存器数 | 255 | [Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) |
+| **Shared Memory** 容量 | **128 KB**（与 L1 统一，可配置划分） | [白皮书 p.10](https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf) + [Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html)（互相印证） |
+| 每 Thread Block 最大 shared memory | 99 KB | [Tuning Guide](https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html) |
+| ↳ **但 D3D 限死 32 KB** | 32 KB | [Microsoft Learn](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-variable-syntax) |
 
 > 对照：CC 10.0（数据中心 GB100）是 64 warps/SM。消费级 GB20x 是 48。别拿数据中心 Blackwell 的数字套 RTX 50 系。
 
@@ -1545,3 +1549,118 @@ void VerticalBlur(uint3 id : SV_DispatchThreadID)
 1. **warp = 一条指令 32 个地址**，硬件按 32 字节 sector 搬运，只搬被覆盖到的那些。
 2. **二维数据在内存里是一维的**，所以 warp 横向铺开地址连片、纵向铺开地址被行距撕开。
 3. **判据：`Tx × 元素字节 ≥ 32`**。达标就满效率，不达标按比例线性掉，最差 12.5%。
+
+---
+---
+
+# 附录 G：每个硬件数字的确切出处
+
+## G.1 三份主要来源
+
+| # | 文档 | 链接 |
+|---|---|---|
+| ① | **NVIDIA Blackwell Tuning Guide** | https://docs.nvidia.com/cuda/blackwell-tuning-guide/index.html |
+| ② | **NVIDIA RTX Blackwell GPU Architecture Whitepaper v1.1** | https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf |
+| ③ | **Microsoft Learn — HLSL Variable Syntax** | https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-variable-syntax |
+
+## G.2 §6 占用率表：逐行原文
+
+### 最大驻留 warp 数 = 48
+
+来源 **①**（Occupancy 小节）：
+
+> "The maximum number of concurrent warps per SM is 64 for compute capability 10.0 and **48 for compute capability 12.0**."
+
+⚠️ 表里括号中的"= 1536 线程"是**推算值**（48 × 32），文档没有直接写。
+
+### 最大驻留 Thread Block 数 = 32
+
+来源 **①**：
+
+> "The maximum number of thread blocks per SM is **32** for devices of compute capability 10.0 and 12.0."
+
+### 寄存器堆 = 65,536 个 32-bit / 256 KB
+
+**①②两处互相印证。**
+
+① Tuning Guide：
+> "The register file size is **64K 32-bit registers per SM**"
+
+② 白皮书 p.10「SM Architecture」：
+> "each SM includes 128 CUDA Cores, one Blackwell Fourth-Generation RT Core, four Blackwell Fifth-Generation Tensor Cores, 4 Texture Units, a **256 KB Register File**, and 128 KB of L1/Shared Memory"
+
+64K × 4 字节 = 256 KB，两边一致。
+
+### 每线程最大寄存器数 = 255
+
+来源 **①**：
+
+> "The maximum number of registers per thread is **255**"
+
+### Shared Memory 容量 = 128 KB
+
+**①②两处互相印证。**
+
+① Tuning Guide：
+> "For devices of compute capability 12.0, **shared memory capacity per SM is 128KB**."
+
+② 白皮书 p.10（同上那句的后半）：
+> "…and **128 KB of L1/Shared Memory**, which can be configured for different memory sizes depending on the needs of the graphics and compute workloads."
+
+表中"与 L1 统一、可配置划分"即出自白皮书这后半句。
+
+### 每 Thread Block 最大 shared memory = 99 KB
+
+来源 **①**：
+
+> "For devices of compute capability 12.0 the maximum shared memory per thread block is **99 KB**."
+
+### D3D 限死 32 KB
+
+来源 **③**（`groupshared` 存储类那一行）：
+
+> "In D3D10 the maximum total size of all variables with the groupshared storage class is 16kb, **in D3D11 the maximum size is 32kb**."
+
+## G.3 §2 硬件规格：白皮书对应位置
+
+| 数字 | 白皮书位置 |
+|---|---|
+| 每 SM 128 CUDA Cores / 4 Tensor Cores / 1 RT Core / 4 Texture Units / 256 KB 寄存器 / 128 KB L1+Shared | p.10「SM Architecture」 |
+| 满配 GB202：12 GPC / 96 TPC / 192 SM / 512-bit | p.8「Blackwell GB202 GPU」 |
+| 每 GPC：1 Raster Engine / 2 ROP 分区（各 8 ROP）/ 8 TPC；每 TPC 2 SM | p.9 Figure 4 下方正文 |
+| 24,576 CUDA Cores / 192 RT / 768 Tensor / 768 Texture | p.9 |
+| 128 MB L2（满配），RTX 5090 为 96 MB | p.9 |
+| 每 SM 2 个 FP64 核，吞吐为 FP32 的 1/64 | p.8 Figure 3 下方注释 |
+| INT32 与 FP32 核完全统一、整数吞吐翻倍 | p.12（v1.1 新增段落） |
+| GDDR7 / PAM3 / 5090 28 Gbps → 1.792 TB/s | p.13「GDDR7 Memory Subsystem」 |
+| AMP 是 RISC-V 上下文调度器、配合 Windows HAGS | p.25「AI Management Processor (AMP)」 |
+
+## G.4 交叉验证途径
+
+**CUDA Programming Guide §5.1 Compute Capabilities** —— 完整的 "Technical Specifications per Compute Capability" 表，可横向对比 CC 8.9（Ada）/ 10.x（GB100）/ 12.0（GB20x）：
+https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/compute-capabilities.html
+
+**在自己机器上实测（最硬的证据）**：装 CUDA Toolkit 后跑 `deviceQuery` 示例，或调 `cudaGetDeviceProperties()` 打印这几个字段：
+
+```
+maxThreadsPerMultiProcessor      → 1536
+regsPerMultiprocessor            → 65536
+sharedMemPerMultiprocessor       → 131072
+maxThreadsPerBlock               → 1024
+warpSize                         → 32
+```
+
+## G.5 三个必须注意的坑
+
+**1. 为什么要拆两份 NVIDIA 文档**
+白皮书是**图形向**文档，通篇不提 warp 槽位、block 槽位这类占用率数字；Tuning Guide 是**计算向**文档，不提 GPC/TPC 拓扑和 CUDA Core 数。表里标"白皮书 + Tuning Guide"的行，是两份都写了、能互相印证的。
+
+**2. 别拿数据中心 Blackwell 的数字套 RTX 50 系**
+Tuning Guide 同一段里 CC 10.0（GB100 / B200）是 **64** warps/SM，CC 12.0（GB20x 消费级）才是 **48**。整篇文档讲的都是 CC 12.0。
+
+**3. 一条被我刻意排除的数据**
+Tuning Guide 里那句 shared memory carveout 档位——
+
+> "…support shared memory capacities of 0, 8, 16, 32, 64, 100, 132, 164, 196 and 228 KB per SM."
+
+——说的是 **H100 和 B200**（CC 9.0 / 10.0），**不是 GB20x**。套到 RTX 50 系会错，所以没有写进 §6 的表。
