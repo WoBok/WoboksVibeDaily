@@ -1,6 +1,18 @@
-# UnrealBuildTool (UBT) 核心讲解
+---
+title: "UnrealBuildTool (UBT) 核心要点"
+date: "2026-08-05"
+summary: "梳理 UBT 的模块、目标与编译配置，详解 Build.cs、Target.cs、UHT 构建流程、链接方式、编译加速机制及常用命令。"
+category: "Inbox"
+tags:
+  - "Unreal Engine"
+  - "UnrealBuildTool"
+  - "Build.cs"
+  - "Target.cs"
+  - "UHT"
+  - "构建系统"
+---
 
-## 一、它是什么
+## 一、UBT是什么
 
 **UBT 是虚幻引擎自己写的 C# 构建系统**，负责把海量 C++ 代码编译成引擎/游戏的可执行文件。
 
@@ -50,16 +62,16 @@ Source/
 
 ### 3. Build Configuration（编译配置）—— 优化与调试信息的档位
 
-同一个 Target 可以用不同"档位"编译：调试信息越多、优化越少，越好调试但越慢。
+同一个 Target 可以用不同"档位"编译：优化开得越少、调试信息留得越多，断点和堆栈就越准、越好排查问题，但编译的程序跑得越慢。
 
 **它不对应任何文件**，是编译时传给 UBT 的命令行参数 —— 也就是 Rider / VS 顶部那个下拉框里选的东西：
 
 ```
 Rider / VS 配置下拉：
-  DebugGame Editor | Win64
+  DebugGame Editor   | Win64
   Development Editor | Win64   ← 日常开发常用
-  Shipping | Win64
-  └ Configuration ┘ └Platform┘
+  Shipping           | Win64
+  └ Configuration ┘  └Platform┘
 ```
 
 | 配置 | 引擎代码 | 游戏代码 | 用途 |
@@ -76,13 +88,6 @@ Rider / VS 配置下拉：
 UnrealBuildTool.exe  MyGameEditor  Win64  Development  -Project="...\MyGame.uproject"
                      └─ Target ──┘ └平台┘ └Config────┘
 ```
-
-| 要素 | 由什么决定 |
-|---|---|
-| **Target** | `.Target.cs` 文件（磁盘上真实存在） |
-| **Platform** | 命令行参数 / IDE 下拉框 |
-| **Configuration** | 命令行参数 / IDE 下拉框 |
-
 
 ## 三、Build.cs 详解
 
@@ -148,23 +153,13 @@ public class MyGameTarget : TargetRules   // 类名 = 文件名去掉 .Target.cs
 
         // 下面两行都是兼容性开关：声明"这份代码按哪个引擎版本的规矩写"，
         // 避免升引擎后默认行为突变。新建工程填当前引擎版本即可
-        DefaultBuildSettings = BuildSettingsVersion.V5;              // 编译开关的默认值基线
-        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_5;   // 引擎公共头的 include 顺序规则
+        DefaultBuildSettings = BuildSettingsVersion.V7;              // 编译开关的默认值基线
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;   // 引擎公共头的 include 顺序规则
 
         ExtraModuleNames.Add("MyGame");      // 本 Target 包含哪些模块（入口模块）
     }
 }
 ```
-
-### 模块是怎么进入一个 Target 的
-
-| 代码来源 | 入队方式 |
-|---|---|
-| 工程自己的模块 | `Target.cs` 里 `ExtraModuleNames.Add("MyGame")` |
-| 插件的模块 | `.uproject` 的 `Plugins` 里启用（工程内置插件默认自动启用） |
-| 间接依赖的模块 | 别人在 `Build.cs` 的 `DependencyModuleNames` 里写了它 |
-
-所以 `ExtraModuleNames` 里看不到插件是正常的 —— 插件走的是另一条路径。
 
 ### LinkType：模块最终怎么"拼装"成产物
 
