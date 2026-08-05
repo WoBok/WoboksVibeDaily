@@ -1404,12 +1404,40 @@
     }, '');
   }
 
+  function renderInlineLines(lines, context = {}) {
+    const hardBreakToken = '\uE000';
+    const source = lines.reduce((joined, rawLine, index) => {
+      const line = String(rawLine || '').trimStart();
+      if (index === 0) return line;
+
+      if (/ {2,}$/.test(joined)) {
+        return `${joined.replace(/ {2,}$/, '')}${hardBreakToken}${line}`;
+      }
+      if (/\\$/.test(joined)) {
+        return `${joined.slice(0, -1)}${hardBreakToken}${line}`;
+      }
+
+      const noSpace = CJK_CHAR.test(joined[joined.length - 1]) && CJK_CHAR.test(line[0]);
+      return noSpace ? joined + line : `${joined} ${line}`;
+    }, '');
+
+    return renderInlineMarkdown(source, context).replaceAll(hardBreakToken, '<br>');
+  }
+
+  function indentationWidth(value) {
+    let width = 0;
+    for (const char of String(value || '')) {
+      width += char === '\t' ? 4 - (width % 4) : 1;
+    }
+    return width;
+  }
+
   function matchListItem(line) {
-    const match = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+    const match = line.match(/^(\s*)([-*+]|\d+\.)([ \t]+)(.+)$/);
     if (!match) return null;
 
     const type = /^\d+\.$/.test(match[2]) ? 'ol' : 'ul';
-    let content = match[3];
+    let content = match[4];
     let task = '';
 
     if (type === 'ul') {
@@ -1421,7 +1449,16 @@
     }
 
     const start = type === 'ol' ? Number.parseInt(match[2], 10) : 1;
-    return { indent: match[1].replace(/\t/g, '  ').length, type, content, task, start };
+    const indent = indentationWidth(match[1]);
+    const contentIndent = indent + match[2].length + indentationWidth(match[3]);
+    return { indent, contentIndent, type, content, contentLines: [content], task, start };
+  }
+
+  function appendListContinuation(item, line) {
+    const match = String(line || '').match(/^([ \t]+)(\S.*)$/);
+    if (!match || indentationWidth(match[1]) < item.contentIndent) return false;
+    item.contentLines.push(match[2]);
+    return true;
   }
 
   function renderListLevel(items, start, indent, context) {
@@ -1431,7 +1468,7 @@
 
     while (index < items.length && items[index].indent === indent && items[index].type === type) {
       const item = items[index];
-      let inner = renderInlineMarkdown(item.content, context);
+      let inner = renderInlineLines(item.contentLines, context);
       if (item.task) {
         inner = `<input type="checkbox" disabled${item.task === 'checked' ? ' checked' : ''}> ${inner}`;
       }
@@ -1564,9 +1601,16 @@
         const items = [listItem];
         while (i + 1 < lines.length) {
           const next = matchListItem(lines[i + 1]);
-          if (!next) break;
-          items.push(next);
-          i += 1;
+          if (next) {
+            items.push(next);
+            i += 1;
+            continue;
+          }
+          if (appendListContinuation(items[items.length - 1], lines[i + 1])) {
+            i += 1;
+            continue;
+          }
+          break;
         }
         html.push(renderListBlock(items, context));
         continue;
