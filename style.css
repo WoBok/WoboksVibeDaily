@@ -568,6 +568,10 @@ body.is-article-mode .sidebar {
   padding: 48px 56px 96px;
 }
 
+.content:focus {
+  outline: none;
+}
+
 body.is-article-mode .content {
   padding: 0;
 }
