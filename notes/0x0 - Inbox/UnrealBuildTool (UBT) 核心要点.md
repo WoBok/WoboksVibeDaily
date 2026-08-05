@@ -165,9 +165,9 @@ public class MyGameTarget : TargetRules   // 类名 = 文件名去掉 .Target.cs
 
 **LinkType 决定的是：编译出的这些模块，是各自保持独立 DLL，还是全部合并进一个 exe。**
 
-- **Modular（模块化）**：模块各自是独立 DLL，运行时动态加载。
+- **Modular（模块化）**：模块各自是独立 DLL，运行时动态加载。  
   **Editor 必须用** —— 只有模块独立，才能单独重编一个 DLL 再换回去，这就是热重载 / Live Coding 的原理。代价是启动慢、文件散乱。
-- **Monolithic（单体）**：所有模块静态链接进一个 exe。
+- **Monolithic（单体）**：所有模块静态链接进一个 exe。  
   **打包发布默认用** —— 启动快、跨模块调用可被内联、只需分发一个文件。代价是改一行就要整体重链，无法热重载。
 
 一般不用手动设，UBT 按 `Type` 自动选：`Editor` → Modular，其余 → Monolithic。
