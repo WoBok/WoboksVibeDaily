@@ -16,6 +16,9 @@ const { encodeContentUrl } = require('./utils/pathTools');
 
 const manifestService = new ManifestService();
 const shouldWatch = process.env.WATCH !== '0';
+const TEMPLATE_URL_PREFIX = '/templates';
+const TEMPLATE_DIR = path.join(ROOT_DIR, 'notes', 'Templates');
+const CODE_BROWSER_MAX_FILES = 3000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -185,6 +188,12 @@ async function handleApi(req, res, requestUrl) {
     return;
   }
 
+  if (pathname === '/api/code-browser') {
+    const articlePath = requestUrl.searchParams.get('article') || '';
+    sendJson(res, 200, await scanCodeBrowserProject(articlePath));
+    return;
+  }
+
   if (pathname === '/api/rebuild' && req.method === 'POST') {
     req.resume();
     const result = await manifestService.rebuild();
@@ -201,6 +210,110 @@ async function handleApi(req, res, requestUrl) {
 async function handleContent(req, res, requestUrl) {
   const bodyPath = safeDecodeURIComponent(requestUrl.pathname.slice(`${CONTENT_URL_PREFIX}/`.length));
   const { absPath } = resolveContentPath(`notes/${bodyPath}`, { mustExist: true });
+
+  await serveFile(res, absPath, {
+    ifNoneMatch: req.headers['if-none-match'],
+    cacheControl: cacheControlFor(requestUrl)
+  });
+}
+
+async function scanCodeBrowserProject(rawArticlePath) {
+  const { relativePath: articlePath } = resolveContentPath(rawArticlePath, {
+    articleOnly: true,
+    mustExist: true
+  });
+  const article = manifestService.findArticle(articlePath);
+  if (!article || article.format !== 'html') {
+    throw new PathGuardError('CODE_BROWSER_ARTICLE_NOT_FOUND');
+  }
+
+  const articleName = path.posix.basename(articlePath, path.posix.extname(articlePath));
+  const directoryName = `code - ${articleName}`;
+  const directoryPath = path.posix.join(path.posix.dirname(articlePath), directoryName);
+  const { absPath: directoryAbsPath } = resolveContentPath(directoryPath);
+  const files = [];
+  let exists = true;
+  let truncated = false;
+
+  try {
+    const stat = await fsp.stat(directoryAbsPath);
+    if (!stat.isDirectory()) exists = false;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    exists = false;
+  }
+
+  async function walk(absDir, relativeDir = '') {
+    const entries = (await fsp.readdir(absDir, { withFileTypes: true }))
+      .filter(entry => !entry.name.startsWith('.') && !entry.isSymbolicLink())
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN', { numeric: true, sensitivity: 'base' }));
+
+    for (const entry of entries) {
+      if (files.length >= CODE_BROWSER_MAX_FILES) {
+        truncated = true;
+        return;
+      }
+
+      const relativeFilePath = path.posix.join(relativeDir, entry.name);
+      const absEntryPath = path.join(absDir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absEntryPath, relativeFilePath);
+        if (truncated) return;
+      } else if (entry.isFile()) {
+        const stat = await fsp.stat(absEntryPath);
+        files.push({
+          path: relativeFilePath,
+          name: entry.name,
+          size: stat.size,
+          mtimeMs: Math.round(stat.mtimeMs),
+          url: encodeContentUrl(path.posix.join(directoryPath, relativeFilePath), stat.mtimeMs)
+        });
+      }
+    }
+  }
+
+  if (exists) await walk(directoryAbsPath);
+  return { articlePath, directoryName, directoryPath, exists, truncated, files };
+}
+
+async function resolveTemplateFile(rawPath) {
+  const normalized = path.posix
+    .normalize(String(rawPath || '').replace(/\\/g, '/'))
+    .replace(/^\/+/, '');
+  const parts = normalized.split('/').filter(Boolean);
+
+  if (
+    !normalized
+    || normalized === '.'
+    || normalized === '..'
+    || normalized.startsWith('../')
+    || normalized.includes('\0')
+    || parts.some(part => part.startsWith('.'))
+  ) {
+    throw new PathGuardError('INVALID_TEMPLATE_PATH');
+  }
+
+  const candidate = path.resolve(TEMPLATE_DIR, normalized.split('/').join(path.sep));
+  const relative = path.relative(TEMPLATE_DIR, candidate);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new PathGuardError('INVALID_TEMPLATE_PATH');
+  }
+
+  const [realRoot, realFile] = await Promise.all([
+    fsp.realpath(TEMPLATE_DIR),
+    fsp.realpath(candidate)
+  ]);
+  const realRelative = path.relative(realRoot, realFile);
+  if (!realRelative || realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
+    throw new PathGuardError('INVALID_TEMPLATE_PATH');
+  }
+
+  return realFile;
+}
+
+async function handleTemplate(req, res, requestUrl) {
+  const bodyPath = safeDecodeURIComponent(requestUrl.pathname.slice(`${TEMPLATE_URL_PREFIX}/`.length));
+  const absPath = await resolveTemplateFile(bodyPath);
 
   await serveFile(res, absPath, {
     ifNoneMatch: req.headers['if-none-match'],
@@ -234,6 +347,11 @@ async function requestHandler(req, res) {
 
     if (requestUrl.pathname.startsWith(`${CONTENT_URL_PREFIX}/`)) {
       await handleContent(req, res, requestUrl);
+      return;
+    }
+
+    if (requestUrl.pathname.startsWith(`${TEMPLATE_URL_PREFIX}/`)) {
+      await handleTemplate(req, res, requestUrl);
       return;
     }
 
