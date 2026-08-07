@@ -793,7 +793,6 @@
       else if (target.dataset.bookmark) toggleBookmark(Number(target.dataset.bookmark));
       else if (target.dataset.bookmarkFile) {
         openFile(target.dataset.bookmarkFile, Number(target.dataset.bookmarkLine));
-        setPanel('bookmarks');
       } else if (target.dataset.panel) setPanel(target.dataset.panel);
       else if (target.dataset.action === 'search-prev') jumpSearch(-1);
       else if (target.dataset.action === 'search-next') jumpSearch(1);
