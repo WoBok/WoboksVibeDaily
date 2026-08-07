@@ -123,7 +123,8 @@
     const state = {
       articlePath, files: [], current: '', open: [], cache: new Map(), lines: [], highlighted: [],
       language: 'Text', functions: [], activeLine: 1, caseSensitive: false, matches: [], matchIndex: -1,
-      panel: 'files', markdownPreview: false, paintFrame: 0, toastTimer: 0
+      panel: 'files', markdownPreview: false, paintFrame: 0, toastTimer: 0, sessionSaveTimer: 0,
+      renderedFile: '', positions: Object.create(null)
     };
     const storageKey = `wvd-code-browser-bookmarks:${articlePath}`;
     const sessionStateKey = `wvd-code-browser-session:${articlePath}`;
@@ -368,10 +369,20 @@
       renderBookmarks();
     };
     const saveSession = () => {
+      clearTimeout(state.sessionSaveTimer);
+      state.sessionSaveTimer = 0;
       try {
-        localStorage.setItem(sessionStateKey, JSON.stringify({ open: state.open, current: state.current }));
+        localStorage.setItem(sessionStateKey, JSON.stringify({
+          open: state.open,
+          current: state.current,
+          positions: state.positions
+        }));
         localStorage.removeItem(legacyFileStateKey);
       } catch {}
+    };
+    const scheduleSessionSave = () => {
+      clearTimeout(state.sessionSaveTimer);
+      state.sessionSaveTimer = setTimeout(saveSession, 160);
     };
     const isBookmarked = (file, line) => bookmarks.some(item => item.file === file && item.line === line);
     const toggleBookmark = line => {
@@ -543,6 +554,15 @@
     };
 
     const lineHeight = () => ui.lines.querySelector('.code-line')?.getBoundingClientRect().height || 21;
+    const rememberCurrentPosition = () => {
+      if (!state.renderedFile || state.markdownPreview || !ui.lines.querySelector('.code-line')) return;
+      const visibleLine = Math.max(1, Math.min(
+        state.lines.length || 1,
+        Math.floor(ui.scroller.scrollTop / lineHeight()) + 1
+      ));
+      state.positions[state.renderedFile] = visibleLine;
+      scheduleSessionSave();
+    };
     const scrollToLine = (line, center = true) => {
       const safeLine = Math.max(1, Math.min(state.lines.length || 1, Number(line) || 1));
       state.activeLine = safeLine;
@@ -657,8 +677,9 @@
       ui.language.textContent = state.language;
     };
 
-    const openFile = async (filePath, line = 1) => {
+    const openFile = async (filePath, line) => {
       if (!state.files.some(file => file.path === filePath)) return;
+      rememberCurrentPosition();
       state.current = filePath;
       state.markdownPreview = false;
       if (!state.open.includes(filePath)) state.open.push(filePath);
@@ -686,17 +707,21 @@
         state.language = languageFor(filePath);
         state.highlighted = highlightSource(state.lines, state.language);
         state.functions = findFunctions(state.lines, state.language);
-        saveSession();
-        state.activeLine = Math.max(1, Number(line) || 1);
+        const savedLine = line == null ? state.positions[filePath] : line;
+        state.activeLine = Math.max(1, Math.min(state.lines.length || 1, Number(savedLine) || 1));
         state.matches = [];
         state.matchIndex = -1;
+        state.renderedFile = filePath;
         renderCode();
         renderBookmarks();
         updatePath();
         performSearch(false);
         ui.scroller.scrollTop = Math.max(0, (state.activeLine - 1) * lineHeight());
         scrollToLine(state.activeLine, false);
+        state.positions[filePath] = state.activeLine;
+        saveSession();
       } catch (error) {
+        state.renderedFile = '';
         ui.lines.innerHTML = '';
         ui.empty.hidden = false;
         ui.empty.innerHTML = `<strong>无法预览此文件</strong><span>${escapeHtml(error.message)}</span>`;
@@ -713,6 +738,7 @@
         if (next) openFile(next);
         else {
           state.current = '';
+          state.renderedFile = '';
           state.lines = [];
           ui.lines.innerHTML = '';
           ui.minimap.hidden = true;
@@ -769,6 +795,12 @@
         const available = new Set(state.files.map(file => file.path));
         const savedOpen = Array.isArray(savedSession?.open) ? savedSession.open.filter(file => available.has(file)) : [];
         const savedCurrent = available.has(savedSession?.current) ? savedSession.current : '';
+        const savedPositions = savedSession?.positions && typeof savedSession.positions === 'object'
+          ? Object.entries(savedSession.positions)
+            .filter(([file, line]) => available.has(file) && Number.isFinite(Number(line)) && Number(line) >= 1)
+            .map(([file, line]) => [file, Math.floor(Number(line))])
+          : [];
+        state.positions = Object.assign(Object.create(null), Object.fromEntries(savedPositions));
         state.open = [...new Set(savedOpen)];
         const initialFile = savedCurrent || (available.has(legacyFile) ? legacyFile : state.open[0]) || state.files[0].path;
         if (!state.open.includes(initialFile)) state.open.push(initialFile);
@@ -801,9 +833,12 @@
         target.classList.toggle('is-active', state.caseSensitive);
         performSearch(true);
       } else if (target.dataset.action === 'markdown-preview') {
+        if (!state.markdownPreview) rememberCurrentPosition();
         state.markdownPreview = !state.markdownPreview;
-        ui.scroller.scrollTop = 0;
         renderCode();
+        const line = state.positions[state.current] || 1;
+        ui.scroller.scrollTop = state.markdownPreview ? 0 : Math.max(0, (line - 1) * lineHeight());
+        if (!state.markdownPreview) scrollToLine(line, false);
       } else if (target.dataset.action === 'theme') {
         root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('wvd-code-browser-theme', root.dataset.theme);
@@ -819,7 +854,11 @@
     ui.goto.addEventListener('keydown', event => {
       if (event.key === 'Enter') { scrollToLine(ui.goto.value); ui.goto.select(); }
     });
-    ui.scroller.addEventListener('scroll', () => { updateContext(); scheduleMinimap(); }, { passive: true });
+    ui.scroller.addEventListener('scroll', () => {
+      updateContext();
+      scheduleMinimap();
+      rememberCurrentPosition();
+    }, { passive: true });
     ui.scroller.addEventListener('wheel', event => event.stopPropagation(), { passive: true });
 
     let minimapDragging = false;
@@ -864,6 +903,10 @@
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'g') {
         event.preventDefault(); ui.goto.focus(); ui.goto.select();
       }
+    });
+    window.addEventListener('pagehide', () => {
+      rememberCurrentPosition();
+      saveSession();
     });
     new ResizeObserver(scheduleMinimap).observe(ui.scroller);
     renderBookmarks();
