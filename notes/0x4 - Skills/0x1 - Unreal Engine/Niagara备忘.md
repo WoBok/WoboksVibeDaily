@@ -46,6 +46,10 @@ Random Range Float
 
   - 例如，4×4 图集共有 16 张图，范围设置为 `0～15`。
 
+**Mesh Renderer 要求材质主动支持 SubUV：**
+   - 使用 ParticleSubUV / TextureSampleParameterSubUV
+   - 勾选 Used with Niagara Mesh Particles
+
 ## 用自定义参数实现 Sprite Size 宽高联动
 
 ### 方法 1

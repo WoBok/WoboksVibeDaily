@@ -209,7 +209,10 @@
   }
 
   function htmlFrameViewportHeight() {
-    const topbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) || 0;
+    const configuredHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) || 0;
+    const measuredHeight = document.querySelector('.topbar')?.getBoundingClientRect().height || 0;
+    const topbarHeight = measuredHeight || configuredHeight;
+    if (measuredHeight) document.documentElement.style.setProperty('--topbar-height', `${measuredHeight}px`);
     return Math.max(0, window.innerHeight - topbarHeight);
   }
 
