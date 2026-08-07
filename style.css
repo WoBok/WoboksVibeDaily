@@ -568,6 +568,10 @@ body.is-article-mode .sidebar {
   padding: 48px 56px 96px;
 }
 
+.content:focus {
+  outline: none;
+}
+
 body.is-article-mode .content {
   padding: 0;
 }
@@ -982,7 +986,7 @@ body.is-article-mode .content {
   padding: 6px 0 6px 20px;
   border-left: 3px solid var(--sage);
   color: var(--ink-soft);
-  font-style: italic;
+  font-style: normal;
 }
 
 .markdown-body blockquote > :last-child {

@@ -209,7 +209,10 @@
   }
 
   function htmlFrameViewportHeight() {
-    const topbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) || 0;
+    const configuredHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-height')) || 0;
+    const measuredHeight = document.querySelector('.topbar')?.getBoundingClientRect().height || 0;
+    const topbarHeight = measuredHeight || configuredHeight;
+    if (measuredHeight) document.documentElement.style.setProperty('--topbar-height', `${measuredHeight}px`);
     return Math.max(0, window.innerHeight - topbarHeight);
   }
 
@@ -1404,12 +1407,40 @@
     }, '');
   }
 
+  function renderInlineLines(lines, context = {}) {
+    const hardBreakToken = '\uE000';
+    const source = lines.reduce((joined, rawLine, index) => {
+      const line = String(rawLine || '').trimStart();
+      if (index === 0) return line;
+
+      if (/ {2,}$/.test(joined)) {
+        return `${joined.replace(/ {2,}$/, '')}${hardBreakToken}${line}`;
+      }
+      if (/\\$/.test(joined)) {
+        return `${joined.slice(0, -1)}${hardBreakToken}${line}`;
+      }
+
+      const noSpace = CJK_CHAR.test(joined[joined.length - 1]) && CJK_CHAR.test(line[0]);
+      return noSpace ? joined + line : `${joined} ${line}`;
+    }, '');
+
+    return renderInlineMarkdown(source, context).replaceAll(hardBreakToken, '<br>');
+  }
+
+  function indentationWidth(value) {
+    let width = 0;
+    for (const char of String(value || '')) {
+      width += char === '\t' ? 4 - (width % 4) : 1;
+    }
+    return width;
+  }
+
   function matchListItem(line) {
-    const match = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+    const match = line.match(/^(\s*)([-*+]|\d+\.)([ \t]+)(.+)$/);
     if (!match) return null;
 
     const type = /^\d+\.$/.test(match[2]) ? 'ol' : 'ul';
-    let content = match[3];
+    let content = match[4];
     let task = '';
 
     if (type === 'ul') {
@@ -1421,7 +1452,16 @@
     }
 
     const start = type === 'ol' ? Number.parseInt(match[2], 10) : 1;
-    return { indent: match[1].replace(/\t/g, '  ').length, type, content, task, start };
+    const indent = indentationWidth(match[1]);
+    const contentIndent = indent + match[2].length + indentationWidth(match[3]);
+    return { indent, contentIndent, type, content, contentLines: [content], task, start };
+  }
+
+  function appendListContinuation(item, line) {
+    const match = String(line || '').match(/^([ \t]+)(\S.*)$/);
+    if (!match || indentationWidth(match[1]) < item.contentIndent) return false;
+    item.contentLines.push(match[2]);
+    return true;
   }
 
   function renderListLevel(items, start, indent, context) {
@@ -1431,7 +1471,7 @@
 
     while (index < items.length && items[index].indent === indent && items[index].type === type) {
       const item = items[index];
-      let inner = renderInlineMarkdown(item.content, context);
+      let inner = renderInlineLines(item.contentLines, context);
       if (item.task) {
         inner = `<input type="checkbox" disabled${item.task === 'checked' ? ' checked' : ''}> ${inner}`;
       }
@@ -1564,9 +1604,16 @@
         const items = [listItem];
         while (i + 1 < lines.length) {
           const next = matchListItem(lines[i + 1]);
-          if (!next) break;
-          items.push(next);
-          i += 1;
+          if (next) {
+            items.push(next);
+            i += 1;
+            continue;
+          }
+          if (appendListContinuation(items[items.length - 1], lines[i + 1])) {
+            i += 1;
+            continue;
+          }
+          break;
         }
         html.push(renderListBlock(items, context));
         continue;
@@ -2025,22 +2072,92 @@
     return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
   }
 
-  function htmlArticleSurfaceTone(doc) {
-    const layers = [doc.documentElement, doc.body]
-      .filter(Boolean)
-      .map(element => parseRenderedRgb(doc.defaultView?.getComputedStyle(element).backgroundColor));
-    let surface = { red: 249, green: 248, blue: 244 };
+  function compositeRenderedColor(surface, layer) {
+    if (!layer || layer.alpha <= 0) return surface;
+    const alpha = Math.min(1, Math.max(0, layer.alpha));
+    return {
+      red: layer.red * alpha + surface.red * (1 - alpha),
+      green: layer.green * alpha + surface.green * (1 - alpha),
+      blue: layer.blue * alpha + surface.blue * (1 - alpha)
+    };
+  }
 
-    layers.forEach(layer => {
-      if (!layer || layer.alpha <= 0) return;
-      const alpha = Math.min(1, Math.max(0, layer.alpha));
-      surface = {
-        red: layer.red * alpha + surface.red * (1 - alpha),
-        green: layer.green * alpha + surface.green * (1 - alpha),
-        blue: layer.blue * alpha + surface.blue * (1 - alpha)
-      };
+  function splitCssBackgroundLayers(value) {
+    const source = String(value || '');
+    const layers = [];
+    let depth = 0;
+    let start = 0;
+
+    for (let index = 0; index < source.length; index += 1) {
+      const character = source[index];
+      if (character === '(') depth += 1;
+      else if (character === ')') depth = Math.max(0, depth - 1);
+      else if (character === ',' && depth === 0) {
+        layers.push(source.slice(start, index).trim());
+        start = index + 1;
+      }
+    }
+
+    const tail = source.slice(start).trim();
+    if (tail) layers.push(tail);
+    return layers;
+  }
+
+  function averageRenderedColors(value) {
+    const colors = (String(value || '').match(/rgba?\([^)]*\)/gi) || [])
+      .map(parseRenderedRgb)
+      .filter(Boolean);
+    if (!colors.length) return null;
+
+    const alpha = colors.reduce((total, color) => total + color.alpha, 0) / colors.length;
+    const visibleWeight = colors.reduce((total, color) => total + color.alpha, 0);
+    if (visibleWeight <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+
+    return {
+      red: colors.reduce((total, color) => total + color.red * color.alpha, 0) / visibleWeight,
+      green: colors.reduce((total, color) => total + color.green * color.alpha, 0) / visibleWeight,
+      blue: colors.reduce((total, color) => total + color.blue * color.alpha, 0) / visibleWeight,
+      alpha
+    };
+  }
+
+  function declaredHtmlSurfaceTone(doc) {
+    const values = [
+      doc.querySelector('meta[name="color-scheme"]')?.getAttribute('content'),
+      doc.defaultView?.getComputedStyle(doc.documentElement).colorScheme
+    ];
+
+    for (const value of values) {
+      const match = String(value || '').toLowerCase().match(/\b(dark|light)\b/);
+      if (match) return match[1];
+    }
+    return '';
+  }
+
+  function htmlArticleSurfaceTone(doc) {
+    let surface = { red: 249, green: 248, blue: 244 };
+    let hasRenderedSurface = false;
+
+    [doc.documentElement, doc.body].filter(Boolean).forEach(element => {
+      const style = doc.defaultView?.getComputedStyle(element);
+      if (!style) return;
+
+      const backgroundColor = parseRenderedRgb(style.backgroundColor);
+      if (backgroundColor?.alpha > 0) {
+        hasRenderedSurface = true;
+        surface = compositeRenderedColor(surface, backgroundColor);
+      }
+
+      const backgroundLayers = splitCssBackgroundLayers(style.backgroundImage)
+        .map(averageRenderedColors)
+        .filter(Boolean);
+      if (backgroundLayers.some(layer => layer.alpha > 0)) hasRenderedSurface = true;
+      backgroundLayers.reverse().forEach(layer => {
+        surface = compositeRenderedColor(surface, layer);
+      });
     });
 
+    if (!hasRenderedSurface) return declaredHtmlSurfaceTone(doc) || 'light';
     return relativeLuminance(surface) < 0.42 ? 'dark' : 'light';
   }
 
@@ -2391,6 +2508,7 @@
 
         doc.addEventListener('wheel', event => {
           if (event.ctrlKey || event.metaKey) return;
+          if (event.defaultPrevented) return;
 
           const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
           const deltaX = event.deltaX * unit;

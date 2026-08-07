@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compute Shader 核心概念：numthreads 与 GPU 硬件</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2b303b;
+  --fg:#e6e9ef; --dim:#98a1b3; --accent:#5ac8fa; --accent2:#ffb454;
+  --ok:#7ee787; --bad:#ff7b72; --code:#0b0d11; --nv:#76b900;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f7f8fa; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
+         --fg:#1a1d23; --dim:#5c6472; --accent:#0a84c1; --accent2:#b06a00;
+         --ok:#1a7f37; --bad:#cf222e; --code:#f0f2f6; --nv:#5c9000; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:16px/1.75 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+.wrap{max-width:980px;margin:0 auto;padding:48px 24px 96px}
+h1{font-size:2em;margin:0 0 8px;letter-spacing:-.5px}
+h2{font-size:1.35em;margin:56px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+h3{font-size:1.06em;margin:28px 0 8px;color:var(--accent)}
+p{margin:12px 0}
+.lede{color:var(--dim);font-size:1.05em;margin-bottom:8px}
+code{background:var(--code);padding:2px 6px;border-radius:4px;
+  font-family:"Cascadia Code",Consolas,monospace;font-size:.9em}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;
+  padding:16px;overflow-x:auto;line-height:1.6}
+pre code{background:none;padding:0;font-size:.87em}
+.kw{color:#ff7b72}.fn{color:#d2a8ff}.num{color:#79c0ff}.cm{color:#8b949e}.str{color:#a5d6ff}
+@media (prefers-color-scheme: light){
+ .kw{color:#cf222e}.fn{color:#8250df}.num{color:#0550ae}.cm{color:#6e7781}.str{color:#0a3069}
+}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin:20px 0}
+.key{border-left:3px solid var(--accent);background:var(--panel2);padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+.warn{border-left:3px solid var(--accent2);background:var(--panel2);padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+.hw{border-left:3px solid var(--nv);background:var(--panel2);padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+.hw b:first-child{color:var(--nv)}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;white-space:nowrap}
+th{background:var(--panel2);font-weight:600}
+td:first-child,th:first-child{white-space:normal}
+.controls{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;align-items:flex-end}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl label{font-size:.78em;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+select,input[type=range]{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+  border-radius:6px;padding:6px 8px;font:inherit;font-size:.9em}
+input[type=range]{padding:0;width:150px}
+.viz{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+canvas{border:1px solid var(--line);border-radius:8px;background:var(--panel2);
+  max-width:100%;touch-action:none}
+#cv{cursor:crosshair}
+.stats{flex:1;min-width:280px;font-size:.9em}
+.stat{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.stat span{color:var(--dim)}
+.stat b{font-family:"Cascadia Code",Consolas,monospace;color:var(--accent);text-align:right}
+.stat b.bad{color:var(--bad)} .stat b.ok{color:var(--ok)} .stat b.warnc{color:var(--accent2)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em;color:var(--dim);margin-top:10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.idbox{margin-top:14px;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px;
+  font-family:"Cascadia Code",Consolas,monospace;font-size:.84em;line-height:1.9}
+.idbox .k{color:var(--accent2)}
+.hint{font-size:.85em;color:var(--dim);margin-top:10px}
+.zstrip{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.zslice{width:26px;height:26px;border:1px solid var(--line);border-radius:5px;cursor:pointer;
+  font-size:.72em;display:flex;align-items:center;justify-content:center;
+  font-family:"Cascadia Code",Consolas,monospace;color:var(--dim)}
+.zslice.cur{outline:2px solid var(--accent);outline-offset:1px;color:var(--fg);font-weight:700}
+.zlabel{font-size:.78em;color:var(--dim);margin-right:6px;text-transform:uppercase;letter-spacing:.6px}
+.occbar{height:22px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;
+  overflow:hidden;margin:6px 0 2px;position:relative}
+.occfill{height:100%;background:linear-gradient(90deg,var(--nv),var(--accent));transition:width .2s}
+.occtxt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:.78em;font-family:"Cascadia Code",Consolas,monospace;text-shadow:0 0 4px rgba(0,0,0,.6)}
+ul,ol{padding-left:22px}
+li{margin:6px 0}
+.formula{text-align:center;background:var(--panel2);border-radius:8px;padding:16px;margin:16px 0;
+  font-family:"Cascadia Code",Consolas,monospace;font-size:.93em;overflow-x:auto;white-space:nowrap}
+.toc{background:var(--panel2);border-radius:10px;padding:16px 22px;margin:24px 0;font-size:.9em}
+.toc ol{margin:6px 0;padding-left:20px;columns:2;column-gap:30px}
+.toc a{color:var(--accent);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+@media (max-width:640px){ .toc ol{columns:1} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>numthreads —— 从概念到 GPU 硬件</h1>
+<p class="lede">讲清楚 numthreads 是什么、它在 NVIDIA GPU 上究竟对应什么、以及怎么选值。配可交互图示。</p>
+
+<div class="toc">
+<b>目录</b>
+<ol>
+<li><a href="#s1">本质：两层结构</a></li>
+<li><a href="#s2">交互一：Dispatch 网格（含 Z）</a></li>
+<li><a href="#s3">四种线程 ID</a></li>
+<li><a href="#s4">映射到 NVIDIA 硬件</a></li>
+<li><a href="#s5">Warp：真正的执行单位</a></li>
+<li><a href="#s6">交互二：Warp 划分与 Occupancy</a></li>
+<li><a href="#s7">groupshared 与片上内存</a></li>
+<li><a href="#s8">怎么选 numthreads</a></li>
+<li><a href="#s9">UE 中的写法（含本项目实例）</a></li>
+<li><a href="#s10">边界检查</a></li>
+<li><a href="#s11">一分钟速查</a></li>
+</ol>
+</div>
+
+<h2 id="s1">1. 本质：两层结构</h2>
+
+<div class="key">
+<b>一句话：</b><code>[numthreads(X, Y, Z)]</code> 声明<b>一个线程组（Thread Group）里有多少个线程</b>，共 X×Y×Z 个。
+它不决定你总共跑多少线程，只决定"一组"有多大。总量由 CPU 端的 Dispatch 决定。
+</div>
+
+<p>GPU 执行 Compute Shader 是<b>两层嵌套</b>的。理解这一点，numthreads 就通了：</p>
+
+<ul>
+<li><b>外层（CPU 端）</b>：<code>Dispatch(gx, gy, gz)</code> —— 我要发多少个<b>组</b>。</li>
+<li><b>内层（Shader 端）</b>：<code>[numthreads(X, Y, Z)]</code> —— 每个组里有多少<b>线程</b>。</li>
+</ul>
+
+<div class="formula">
+总线程数 = (gx × gy × gz) × (X × Y × Z)
+</div>
+
+<p>这两个值是<b>配对</b>使用的。要处理一张 512×512 的图、每个像素一个线程，如果 numthreads 是 8×8×1，
+那 Dispatch 就得发 <code>512/8 = 64</code> × <code>64</code> × <code>1</code> 个组。这个除法在 UE 里由
+<code>FComputeShaderUtils::GetGroupCount()</code> 完成（向上取整）。</p>
+
+<p>顺带把术语对齐一下，读 NVIDIA 文档时这两套词是混着用的：</p>
+
+<table>
+<thead><tr><th>层级</th><th>HLSL / D3D / UE 叫法</th><th>CUDA / NVIDIA 叫法</th></tr></thead>
+<tbody>
+<tr><td>整次派发</td><td>Dispatch</td><td>Grid（网格）</td></tr>
+<tr><td>一组线程</td><td>Thread Group（线程组）</td><td>Block / CTA</td></tr>
+<tr><td>硬件调度单位</td><td>Wave（32 或 64）</td><td><b>Warp</b>（固定 32）</td></tr>
+<tr><td>单个线程</td><td>Thread</td><td>Thread / Lane</td></tr>
+<tr><td>组内共享内存</td><td><code>groupshared</code> / TGSM</td><td><code>__shared__</code> / Shared Memory</td></tr>
+</tbody>
+</table>
+
+<div class="warn">
+<b>最常见的错误</b>就是 Dispatch 和 numthreads 对不上：shader 里写 <code>numthreads(32,32,1)</code>，
+C++ 里却按 8 去算组数 —— 要么少算（图像只处理了一部分），要么多发 4 倍的组（白白浪费）。
+第 9 节有本项目里的真实例子。
+</div>
+
+<h2 id="s2">2. 交互一：Dispatch 网格（含 Z 维度）</h2>
+
+<p>下图是一个待处理的工作域，每个小格子 = 一个线程。粗线是<b>组的边界</b>，相邻组用深浅交替色区分。
+由于 Z 维度无法在平面上直接画出，下方的<b>切片条</b>用来选择当前查看的 Z 层；切片条本身的颜色深浅
+表示这些 Z 层是如何被 <code>numthreads Z</code> 切成组的。<b>点击画布上任意格子</b>可展开它的四种线程 ID。</p>
+
+<div class="card">
+  <div class="controls">
+    <div class="ctl"><label>工作域 W×H</label>
+      <select id="texSize">
+        <option value="16">16 × 16</option>
+        <option value="24">24 × 24</option>
+        <option value="32" selected>32 × 32</option>
+        <option value="48">48 × 48</option>
+        <option value="50">50 × 50 (不整除)</option>
+      </select></div>
+    <div class="ctl"><label>工作域 深度 D</label>
+      <select id="texDepth">
+        <option value="1" selected>1 (纯 2D)</option>
+        <option value="4">4</option>
+        <option value="8">8</option>
+        <option value="12">12 (不整除)</option>
+        <option value="16">16</option>
+      </select></div>
+    <div class="ctl"><label>numthreads X</label>
+      <select id="ntx"><option>1</option><option>2</option><option>4</option>
+        <option selected>8</option><option>16</option><option>32</option></select></div>
+    <div class="ctl"><label>numthreads Y</label>
+      <select id="nty"><option>1</option><option>2</option><option>4</option>
+        <option selected>8</option><option>16</option><option>32</option></select></div>
+    <div class="ctl"><label>numthreads Z</label>
+      <select id="ntz"><option selected>1</option><option>2</option><option>4</option>
+        <option>8</option></select></div>
+  </div>
+
+  <div class="viz">
+    <div>
+      <canvas id="cv" width="420" height="420"></canvas>
+      <div class="zstrip" id="zstrip"></div>
+      <div class="legend">
+        <span><i style="background:#3a4a63"></i>组 A</span>
+        <span><i style="background:#2a3446"></i>组 B（交替色）</span>
+        <span><i style="background:#7a3b3b"></i>越界线程（被浪费）</span>
+        <span><i style="background:#5ac8fa"></i>选中的线程</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>每组线程数 X×Y×Z</span><b id="sPerGroup">—</b></div>
+      <div class="stat"><span>组数 (Dispatch)</span><b id="sGroups">—</b></div>
+      <div class="stat"><span>启动的总线程数</span><b id="sTotal">—</b></div>
+      <div class="stat"><span>实际需要的元素数</span><b id="sPixels">—</b></div>
+      <div class="stat"><span>浪费的线程</span><b id="sWaste">—</b></div>
+      <div class="stat"><span>硬件上限 (≤1024, Z≤64)</span><b id="sLimit">—</b></div>
+      <div class="stat"><span>每组 Warp 数 (÷32)</span><b id="sWave">—</b></div>
+      <div class="idbox" id="idbox">点击左侧任意格子，查看它的线程 ID →</div>
+    </div>
+  </div>
+  <p class="hint">试试：① numthreads 设成 1×1×1 —— 组数爆炸，且每个 warp 只有 1 个线程干活；
+  ② 设成 32×32×1 = 1024 —— 正好顶到硬件上限；
+  ③ 工作域选 50×50 配 8×8 —— 不整除，右侧/下方出现红色越界线程；
+  ④ 深度选 12、numthreads Z 选 8 —— Z 方向也会出现越界切片（看切片条最后几格变红）。</p>
+</div>
+
+<h2 id="s3">3. 四种线程 ID</h2>
+
+<p>Shader 入口函数通过<b>语义（Semantic）</b>拿到"我是谁"。四个都常用，含义完全不同：</p>
+
+<table>
+<thead><tr><th>语义</th><th>类型</th><th>含义</th><th>典型用途</th></tr></thead>
+<tbody>
+<tr><td><code>SV_DispatchThreadID</code></td><td>uint3</td><td><b>全局</b>唯一坐标（跨所有组）</td><td>当像素 / 数组下标用，最常用</td></tr>
+<tr><td><code>SV_GroupID</code></td><td>uint3</td><td>我属于第几个<b>组</b></td><td>分块（Tile）处理</td></tr>
+<tr><td><code>SV_GroupThreadID</code></td><td>uint3</td><td>我在<b>组内</b>的三维坐标</td><td>索引 groupshared 数组</td></tr>
+<tr><td><code>SV_GroupIndex</code></td><td>uint</td><td>组内坐标<b>压平成一维</b>（0 … X·Y·Z−1）</td><td>一维遍历共享内存、归约；<b>它决定线程属于哪个 warp</b></td></tr>
+</tbody>
+</table>
+
+<p>它们之间是纯粹的算术关系，<code>numthreads</code> 就是那个换算比例：</p>
+
+<div class="formula">
+DispatchThreadID = GroupID × numthreads + GroupThreadID
+</div>
+<div class="formula">
+GroupIndex = GroupThreadID.z×(X×Y) + GroupThreadID.y×X + GroupThreadID.x
+</div>
+
+<p>注意第二个公式的形状：<b>X 是变化最快的维度，Z 最慢</b>。这不只是个约定 —— 下一节会看到，
+它直接决定了哪 32 个线程被打包进同一个 warp，进而决定内存访问是否合并。上面的交互点一下格子，
+这两个公式会用真实数字展开给你看。</p>
+
+<h2 id="s4">4. 映射到 NVIDIA 硬件</h2>
+
+<p>到这里为止都是抽象模型。现在把它压到真实的芯片上 —— 以 NVIDIA 的 Ampere（RTX 30）/ Ada（RTX 40）为例。</p>
+
+<h3>硬件层级对照</h3>
+<table>
+<thead><tr><th>软件概念</th><th>对应的硬件</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>Dispatch / Grid</td><td><b>整块 GPU</b></td><td>GigaThread Engine 负责把组分发到各个 SM</td></tr>
+<tr><td><b>Thread Group</b>（numthreads 定义的那个）</td><td><b>一个 SM</b><br>(Streaming Multiprocessor)</td><td>一个组<b>整体</b>被分配给某一个 SM，<b>期间绝不迁移</b>。RTX 4090 有 128 个 SM</td></tr>
+<tr><td>Warp（32 线程）</td><td><b>一个 Warp Scheduler</b> 的一次发射</td><td>SM 内有 4 个分区，每分区 1 个 warp 调度器</td></tr>
+<tr><td>Thread</td><td><b>一条 Lane</b>（CUDA Core 上的一个通道）</td><td>每个分区 32 条 FP32 lane</td></tr>
+<tr><td><code>groupshared</code></td><td><b>SM 内的 Shared Memory</b></td><td>与 L1 共用一块 128 KB 的片上 SRAM</td></tr>
+<tr><td>shader 里的局部变量</td><td><b>SM 内的寄存器堆</b></td><td>每 SM 65536 个 32-bit 寄存器</td></tr>
+</tbody>
+</table>
+
+<h3>一个 SM 的内部（Ada / Ampere）</h3>
+<pre><code><span class="cm">┌─ SM (Streaming Multiprocessor) ────────────────────────┐</span>
+<span class="cm">│  L1 Instruction Cache                                  │</span>
+<span class="cm">│  ┌──────────┐┌──────────┐┌──────────┐┌──────────┐      │</span>
+<span class="cm">│  │ 分区 0   ││ 分区 1   ││ 分区 2   ││ 分区 3   │      │</span>
+<span class="cm">│  │ Warp调度器││ Warp调度器││ Warp调度器││ Warp调度器│  │  ← 每个每周期发射 1 个 warp</span>
+<span class="cm">│  │ 16K 寄存器││ 16K 寄存器││ 16K 寄存器││ 16K 寄存器│  │  ← 合计 64K 个 32-bit</span>
+<span class="cm">│  │ 32 FP32  ││ 32 FP32  ││ 32 FP32  ││ 32 FP32  │      │  ← 合计 128 CUDA Core</span>
+<span class="cm">│  │ Tensor   ││ Tensor   ││ Tensor   ││ Tensor   │      │</span>
+<span class="cm">│  └──────────┘└──────────┘└──────────┘└──────────┘      │</span>
+<span class="cm">│  128 KB 统一 L1 / Shared Memory  ← groupshared 住这里   │</span>
+<span class="cm">│  4 个纹理单元 / RT Core                                 │</span>
+<span class="cm">└────────────────────────────────────────────────────────┘</span></code></pre>
+
+<div class="hw">
+<b>三条铁律</b>（这是 numthreads 所有选值建议的根源）：
+<ol style="margin-bottom:0">
+<li><b>一个线程组只会跑在一个 SM 上，且从开始到结束不迁移。</b>
+这就是为什么组内能有共享内存和同步（大家在同一块片上 SRAM 旁边），
+而<b>跨组永远无法通信</b>（可能在芯片两端的不同 SM 上，甚至根本没同时运行）。</li>
+<li><b>一个组的线程数一旦超过硬件对单个 SM 的容量，就无法启动。</b>
+这就是 X×Y×Z ≤ 1024 这条限制的物理来源。</li>
+<li><b>SM 上可以同时驻留多个组</b>（各自占一份寄存器和共享内存）。
+驻留得越多，越能靠切换 warp 来掩盖内存延迟 —— 这就是 Occupancy，见第 6 节。</li>
+</ol>
+</div>
+
+<h2 id="s5">5. Warp：真正的执行单位</h2>
+
+<div class="key">
+你写的是"一个线程做什么"，但硬件<b>从不单独调度一个线程</b>。
+GPU 把组内线程按 <code>SV_GroupIndex</code> 顺序<b>每 32 个打包成一个 Warp</b>，
+一个 warp 的 32 个线程<b>共用一个指令指针，永远锁步执行同一条指令</b>（SIMT）。
+</div>
+
+<p>由此推出三个非常实际的结论：</p>
+
+<h3>① 组内线程数应该是 32 的倍数</h3>
+<p>不足 32 的部分会补齐成一整个 warp，多出来的 lane 被<b>屏蔽掉空转</b>，但依然占着调度槽位和寄存器。
+<code>numthreads(8,1,1)</code> = 8 个线程 = 仍然占用 1 个完整 warp，<b>算力利用率只有 8/32 = 25%</b>。</p>
+<p>AMD 的 wave 是 64（RDNA 可切 32）。<b>取 64 的倍数</b>能同时让两家都对齐，是最稳妥的选择。</p>
+
+<h3>② X 维度决定了 warp 的形状</h3>
+<p>因为 <code>GroupIndex</code> 里 X 变化最快，<code>numthreads(32,2,1)</code> 的 warp 0 是"第 0 行的 32 个线程"（一条横线），
+而 <code>numthreads(8,8,1)</code> 的 warp 0 是"前 4 行 × 8 列"（一个 8×4 的方块）。</p>
+<p>这直接影响<b>内存合并（Coalescing）</b>：warp 内 32 个线程如果访问的是连续地址，硬件可以合并成极少的几次事务；
+如果散乱，就退化成多次访问。读写线性 Buffer 时长条形更好；采样 2D 纹理时方块形更好（贴合纹理的 swizzle 缓存布局）。
+UE 默认 8×8 就是为后者优化的。</p>
+
+<h3>③ 分支发散（Divergence）在 warp 内才有代价</h3>
+<pre><code><span class="cm">// 坏：同一个 warp 内的 32 个线程会分裂成两条路，硬件只能串行跑完两边 → 耗时翻倍</span>
+<span class="kw">if</span> (DTid.x % <span class="num">2</span> == <span class="num">0</span>) { <span class="fn">HeavyA</span>(); } <span class="kw">else</span> { <span class="fn">HeavyB</span>(); }
+
+<span class="cm">// 好：以 warp 为粒度分叉，整个 warp 走同一条路 → 无代价</span>
+<span class="kw">if</span> (GroupIndex &lt; <span class="num">32</span>) { <span class="fn">HeavyA</span>(); } <span class="kw">else</span> { <span class="fn">HeavyB</span>(); }</code></pre>
+<p><b>跨 warp 的分支不算发散。</b>所以"能不能把条件对齐到 32 的边界"是优化 Compute Shader 的常用手段。</p>
+
+<h2 id="s6">6. 交互二：Warp 划分与 Occupancy</h2>
+
+<p>上半部分把一个组按 <code>SV_GroupIndex</code> 拉平，按 32 个一段染色，直观看出 warp 是怎么切的、尾巴浪费了多少；
+下半部分按真实硬件参数算出这个 numthreads 能达到的<b>理论 Occupancy</b>（SM 上活跃 warp 数 ÷ 上限）。</p>
+
+<div class="card">
+  <div class="controls">
+    <div class="ctl"><label>numthreads X</label>
+      <select id="wx"><option>1</option><option>2</option><option>4</option>
+        <option selected>8</option><option>16</option><option>32</option><option>64</option>
+        <option>128</option><option>256</option></select></div>
+    <div class="ctl"><label>numthreads Y</label>
+      <select id="wy"><option>1</option><option>2</option><option>4</option>
+        <option selected>8</option><option>16</option><option>32</option></select></div>
+    <div class="ctl"><label>numthreads Z</label>
+      <select id="wz"><option selected>1</option><option>2</option><option>4</option>
+        <option>8</option></select></div>
+    <div class="ctl"><label>目标架构</label>
+      <select id="arch">
+        <option value="turing">Turing / RTX 20 (CC 7.5)</option>
+        <option value="ampere">Ampere / RTX 30 (CC 8.6)</option>
+        <option value="ada" selected>Ada / RTX 40 (CC 8.9)</option>
+      </select></div>
+    <div class="ctl"><label>每组 groupshared: <span id="smemVal">0 KB</span></label>
+      <input type="range" id="smem" min="0" max="32" step="1" value="0"></div>
+  </div>
+
+  <div class="viz">
+    <div>
+      <canvas id="wv" width="420" height="230"></canvas>
+      <div class="legend">
+        <span><i style="background:#4c7fb8"></i>Warp 0,2,4…</span>
+        <span><i style="background:#76b900"></i>Warp 1,3,5…</span>
+        <span><i style="background:#7a3b3b"></i>补齐的空转 lane</span>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>每组线程数</span><b id="wPerGroup">—</b></div>
+      <div class="stat"><span>每组 Warp 数</span><b id="wWarps">—</b></div>
+      <div class="stat"><span>尾部空转 lane</span><b id="wIdle">—</b></div>
+      <div class="stat"><span>AMD wave64 对齐</span><b id="wAmd">—</b></div>
+      <div style="margin:14px 0 4px;font-size:.82em;color:var(--dim);text-transform:uppercase;letter-spacing:.6px">
+        单 SM 理论 Occupancy</div>
+      <div class="occbar"><div class="occfill" id="occFill" style="width:0%"></div>
+        <div class="occtxt" id="occTxt">—</div></div>
+      <div class="stat"><span>可驻留的组数 / SM</span><b id="wBlocks">—</b></div>
+      <div class="stat"><span>活跃 Warp / 上限</span><b id="wActive">—</b></div>
+      <div class="stat"><span>瓶颈来自</span><b id="wBottle">—</b></div>
+      <div class="idbox" id="wNote"></div>
+    </div>
+  </div>
+  <p class="hint">试试：① <b>8×8×1 = 64</b> —— 在 Ampere 上会被"每 SM 最多 16 个组"卡住，占用率只有 66.7%；
+  换到 Ada（上限 24 组）就能满；② <b>16×16×1 = 256</b> —— 三家架构上都能跑满，是最稳的通用值；
+  ③ <b>32×32×1 = 1024</b> —— 一个 SM 只塞得下 1 个组，占用率天花板 66.7%；
+  ④ 把 groupshared 拖到 24 KB —— 瓶颈立刻变成共享内存。</p>
+</div>
+
+<h2 id="s7">7. groupshared 与片上内存</h2>
+
+<p>如果只是"每个像素一个线程"，为什么还要分组？<b>因为同一组内的线程能协作，跨组的不能。</b>
+回到第 4 节的铁律一：一个组固定在一个 SM 上，所以它们能共用那块 128 KB 的片上 SRAM。</p>
+
+<ul>
+<li><b>共享内存</b>：<code>groupshared</code> 变量存在 SM 内部，延迟约 20~30 周期，
+而访问显存（VRAM）要 <b>400~800 周期</b>。差了一个数量级还多 —— 这就是分块（Tiling）算法的全部意义。</li>
+<li><b>同步</b>：<code>GroupMemoryBarrierWithGroupSync()</code> 让组内所有 warp 在此对齐。<b>跨组没有任何同步手段</b>。</li>
+</ul>
+
+<pre><code><span class="cm">// 经典模式：先协作加载到共享内存，同步，再计算（模糊、卷积、归约都这样写）</span>
+<span class="kw">groupshared</span> float4 Tile[<span class="num">8</span>][<span class="num">8</span>];
+
+[numthreads(<span class="num">8</span>, <span class="num">8</span>, <span class="num">1</span>)]
+<span class="kw">void</span> <span class="fn">MainCS</span>(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID)
+{
+    Tile[GTid.y][GTid.x] = InputTexture[DTid.xy];   <span class="cm">// 1. 每人从显存搬一块（慢，但只做一次）</span>
+    <span class="fn">GroupMemoryBarrierWithGroupSync</span>();               <span class="cm">// 2. 等组内所有 warp 都搬完</span>
+    <span class="cm">// 3. 现在可以高速读邻居搬来的数据了</span>
+    float4 Sum = Tile[GTid.y][GTid.x] + Tile[GTid.y][(GTid.x + <span class="num">1</span>) % <span class="num">8</span>];
+    OutputTexture[DTid.xy] = Sum * <span class="num">0.5</span>;
+}</code></pre>
+
+<div class="warn">
+<b>两个注意点</b><br>
+① <code>groupshared</code> 数组尺寸必须和 numthreads 手动保持一致，编译器不检查逻辑关系。
+HLSL 下每组上限通常是 <b>32 KB</b>（D3D11 TGSM 限制），远小于硬件的 128 KB —— 硬件那 128 KB 是给
+<b>多个同时驻留的组</b>分的。<br>
+② <b>Bank Conflict</b>：NVIDIA 的共享内存分成 32 个 bank（正好对应 warp 的 32 条 lane）。
+如果同一 warp 内多个线程访问了<b>同一个 bank 的不同地址</b>，访问会被串行化。
+典型症状是 <code>Tile[GTid.x][GTid.y]</code> 这种列优先访问 —— 常见解法是把数组宽度 <b>+1 做 padding</b>
+（<code>Tile[8][9]</code>）把访问错开。
+</div>
+
+<h2 id="s8">8. 怎么选 numthreads</h2>
+
+<h3>硬性规则（违反直接编译失败）</h3>
+<ul>
+<li>X × Y × Z <b>≤ 1024</b>。</li>
+<li>Z <b>≤ 64</b>。</li>
+<li>必须是<b>编译期常量</b> —— 不能是运行时变量，所以 UE 用宏注入（见第 9 节）。</li>
+</ul>
+
+<h3>性能规则（能跑，但会慢）</h3>
+<ul>
+<li><b>取 64 的倍数</b>：对齐 NVIDIA 的 warp32 和 AMD 的 wave64，尾部不空转。</li>
+<li><b>别太小</b>：<code>(8,1,1)</code> 这种，一个 warp 里 24 条 lane 白白空转，同时组数量暴增撞上"每 SM 最多 N 个组"的上限。</li>
+<li><b>别太大</b>：1024 线程的组占用大量寄存器和共享内存，一个 SM 塞不下第二个组，
+延迟掩藏能力骤降（见交互二）。而且组越大，末尾的边界浪费越多。</li>
+<li><b>形状要贴合访问模式</b>：读线性 Buffer 用长条（X 大），采样 2D 纹理用方块，处理体数据用立方。</li>
+</ul>
+
+<h3>实用推荐</h3>
+<table>
+<thead><tr><th>场景</th><th>推荐值</th><th>硬件层面的理由</th></tr></thead>
+<tbody>
+<tr><td>2D 图像 / 后处理</td><td><code>(8, 8, 1)</code> = 64</td><td>UE 默认；2 个 warp，方块形贴合纹理缓存</td></tr>
+<tr><td>2D 大分辨率、追求占用率</td><td><code>(16, 16, 1)</code> = 256</td><td>8 个 warp；各架构都能跑满 Occupancy</td></tr>
+<tr><td>1D 数组 / 粒子 / 归约</td><td><code>(64,1,1)</code> 或 <code>(256,1,1)</code></td><td>长条形，warp 内地址连续，完美合并访存</td></tr>
+<tr><td>3D 体数据 / 体积雾</td><td><code>(4, 4, 4)</code> = 64</td><td>立方块贴合 3D 空间局部性</td></tr>
+<tr><td>需要大块 groupshared</td><td>降到 <code>(8,8,1)</code> 或更小</td><td>共享内存是稀缺资源，组越大越挤不下</td></tr>
+</tbody>
+</table>
+<p><b>不确定就用 <code>(8,8,1)</code></b>。UE 把 8 定义成了 <code>FComputeShaderUtils::kGolden2DGroupSize</code>
+（"黄金" 2D 组大小），就是这个意思。真要调优，用 Nsight Graphics 看实测 Occupancy 和访存效率，别猜。</p>
+
+<h2 id="s9">9. UE 中的写法（含本项目实例）</h2>
+
+<p>numthreads 必须是编译期常量，而组数在 C++ 里算 —— 为了不让两处数字失配，
+UE 的标准做法是：<b>在 C++ 里定义宏，通过 <code>ModifyCompilationEnvironment</code> 注入给 shader</b>。</p>
+
+<h3>C++ 端</h3>
+<pre><code><span class="cm">// Plugins/TestShader_V2/Source/TestShader_V2/Private/TestShader_V2_Core.cpp</span>
+<span class="kw">#define</span> NUM_THREADS_PER_GROUP_DIMENSION_X <span class="num">32</span>
+<span class="kw">#define</span> NUM_THREADS_PER_GROUP_DIMENSION_Y <span class="num">32</span>
+<span class="kw">#define</span> NUM_THREADS_PER_GROUP_DIMENSION_Z <span class="num">1</span>
+
+<span class="kw">static</span> <span class="kw">void</span> <span class="fn">ModifyCompilationEnvironment</span>(<span class="kw">const</span> FGlobalShaderPermutationParameters& Parameters,
+                                        FShaderCompilerEnvironment& OutEnvironment)
+{
+    FGlobalShader::<span class="fn">ModifyCompilationEnvironment</span>(Parameters, OutEnvironment);
+    OutEnvironment.<span class="fn">SetDefine</span>(<span class="str">TEXT("THREADGROUPSIZE_X")</span>, NUM_THREADS_PER_GROUP_DIMENSION_X);
+    OutEnvironment.<span class="fn">SetDefine</span>(<span class="str">TEXT("THREADGROUPSIZE_Y")</span>, NUM_THREADS_PER_GROUP_DIMENSION_Y);
+    OutEnvironment.<span class="fn">SetDefine</span>(<span class="str">TEXT("THREADGROUPSIZE_Z")</span>, NUM_THREADS_PER_GROUP_DIMENSION_Z);
+}</code></pre>
+
+<h3>USF 端</h3>
+<pre><code><span class="cm">// Plugins/TestShader_V2/Shaders/Private/TestShader.usf</span>
+[numthreads(THREADGROUPSIZE_X, THREADGROUPSIZE_Y, THREADGROUPSIZE_Z)]
+<span class="kw">void</span> <span class="fn">MainComputeShader</span>(uint3 DispatchThreadId : SV_DispatchThreadID,
+                       uint GroupIndex : SV_GroupIndex)
+{
+    float2 p = DispatchThreadId.xy / <span class="num">512.0</span>;
+    <span class="cm">// ...</span>
+    RenderTarget[DispatchThreadId.xy] = float3(x, y, z);
+}</code></pre>
+
+<h3>Dispatch 端</h3>
+<pre><code><span class="cm">// 把"要处理多少元素"换算成"要发多少组"，内部是向上取整的除法</span>
+<span class="kw">auto</span> GroupCount = FComputeShaderUtils::<span class="fn">GetGroupCount</span>(
+        FIntVector(Params.X, Params.Y, Params.Z),   <span class="cm">// 总工作量，如 512×512×1</span>
+        FComputeShaderUtils::kGolden2DGroupSize);   <span class="cm">// 每组的边长 = 8</span>
+
+FComputeShaderUtils::<span class="fn">Dispatch</span>(RHICmdList, ComputeShader, *PassParameters, GroupCount);</code></pre>
+
+<div class="warn">
+<b>本项目当前就存在第 1 节说的那个失配。</b>USF 的 numthreads 是 <b>32×32×1</b>（=1024，正好顶到硬件上限），
+而 <code>GetGroupCount</code> 传的却是 <code>kGolden2DGroupSize</code>（<b>= 8</b>）。
+512×512 会发 64×64 = 4096 个组，但每组覆盖 32×32 像素 —— 实际启动了 <b>4 倍</b>于需要的线程。
+多出来的线程写到纹理范围外（被硬件丢弃，画面看着正常），但算力白烧了约 75%。<br><br>
+更糟的是：<b>1024 线程的组本身就是个次优选择</b>。按第 6 节的交互算，
+一个 SM 只能驻留 1 个这样的组，Occupancy 天花板只有 66.7%。<br><br>
+<b>推荐改法</b>：把三个宏改成 <code>8 / 8 / 1</code>，与 <code>kGolden2DGroupSize</code> 自动一致，
+两个问题一起解决。（另一种改法是把 <code>GetGroupCount</code> 第二个参数改成 <code>FIntVector(32,32,1)</code>，
+但这只修好了失配，没修好组过大。）
+</div>
+
+<h2 id="s10">10. 边界检查</h2>
+
+<p>组数是<b>向上取整</b>算出来的，所以当工作域尺寸不是 numthreads 的整数倍时（比如 50×50 配 8×8 → 7×7 组 = 56×56 线程），
+边缘会多出线程。在交互一里选 "50 × 50" 就能看到红色的越界区域。</p>
+
+<ul>
+<li>写 <b>UAV / RWTexture</b>：硬件自动丢弃越界写入，通常<b>不会崩</b>，但算力浪费。</li>
+<li>写 <b>StructuredBuffer</b> 或用 <code>groupshared</code> 做归约：越界数据会<b>污染结果</b>，必须手动挡住。</li>
+</ul>
+
+<pre><code>[numthreads(<span class="num">8</span>, <span class="num">8</span>, <span class="num">1</span>)]
+<span class="kw">void</span> <span class="fn">MainCS</span>(uint3 DTid : SV_DispatchThreadID)
+{
+    <span class="cm">// 养成习惯：入口先做边界检查</span>
+    <span class="kw">if</span> (<span class="fn">any</span>(DTid.xy &gt;= TextureSize)) <span class="kw">return</span>;
+    <span class="cm">// ... 安全了</span>
+}</code></pre>
+
+<div class="warn">
+<b>陷阱</b>：如果函数里有 <code>GroupMemoryBarrierWithGroupSync()</code>，就<b>不能</b>用 <code>return</code> 提前退出。
+同步的硬件语义是"组内所有 warp 都到达此处"，提前退出的线程不参与同步 → 行为未定义甚至挂起。
+这种情况要改成把越界线程的数据填成中性值（0 或单位元），让它们照常走完同步流程。
+</div>
+
+<h2 id="s11">11. 一分钟速查</h2>
+<div class="card">
+<ul>
+<li><code>[numthreads(X,Y,Z)]</code> = <b>一个组内的线程数</b>，不是总数。总线程 = Dispatch 组数 × numthreads，两者必须配套。</li>
+<li>硬件映射：<b>组 → 一个 SM（永不迁移）</b>；<b>32 线程 → 一个 Warp（真正的调度单位）</b>；<b>线程 → 一条 Lane</b>。</li>
+<li>组能有共享内存和同步，<b>正是因为</b>它固定在一个 SM 上；跨组无法通信，同理。</li>
+<li>线程按 <code>SV_GroupIndex</code>（X 最快变化）每 32 个打包成 warp —— 这决定了访存合并与分支发散的代价。</li>
+<li>X×Y×Z ≤ 1024、Z ≤ 64；实际取 <b>64 的倍数</b>；<b>过大反而降低 Occupancy</b>。</li>
+<li>2D 图像用 <b><code>(8,8,1)</code></b>，追占用率用 <code>(16,16,1)</code>；1D 用 <code>(64,1,1)</code>；3D 用 <code>(4,4,4)</code>。</li>
+<li>入口习惯性写<b>边界检查</b>，但有同步时不能提前 <code>return</code>。</li>
+</ul>
+</div>
+
+</div>
+
+<script>
+/* ============ 通用：主题色 ============ */
+function isDark(){ return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+function palette(){
+  return isDark()
+    ? { a:'#3a4a63', b:'#2a3446', oob:'#7a3b3b', oobA:'#5a2b2b',
+        grid:'rgba(255,255,255,.06)', border:'#8892a4', sel:'#5ac8fa',
+        w0:'#4c7fb8', w1:'#76b900', txt:'#e6e9ef', dim:'#98a1b3' }
+    : { a:'#c9d8ee', b:'#e3eaf4', oob:'#f0b4b0', oobA:'#e8c8c6',
+        grid:'rgba(0,0,0,.06)', border:'#5c6472', sel:'#0a84c1',
+        w0:'#7aa8d8', w1:'#9dcf4a', txt:'#1a1d23', dim:'#5c6472' };
+}
+const themeHooks = [];
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',
+  () => themeHooks.forEach(f => f()));
+
+/* ============ 交互一：Dispatch 网格（含 Z） ============ */
+(function(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const elTex = document.getElementById('texSize');
+  const elDep = document.getElementById('texDepth');
+  const elX = document.getElementById('ntx');
+  const elY = document.getElementById('nty');
+  const elZ = document.getElementById('ntz');
+  const idbox = document.getElementById('idbox');
+  const zstrip = document.getElementById('zstrip');
+
+  const SIZE = 420;
+  let sel = null;   // {x,y,z}
+  let curZ = 0;     // 当前查看的切片
+
+  function cfg(){
+    const tex = +elTex.value, dep = +elDep.value;
+    const ntx = +elX.value, nty = +elY.value, ntz = +elZ.value;
+    const gx = Math.ceil(tex/ntx), gy = Math.ceil(tex/nty), gz = Math.ceil(dep/ntz);
+    return { tex, dep, ntx, nty, ntz, gx, gy, gz,
+             tw: gx*ntx, th: gy*nty, td: gz*ntz };
+  }
+
+  function draw(){
+    const c = cfg(), col = palette();
+    if (curZ >= c.td) curZ = 0;
+    const cell = SIZE / Math.max(c.tw, c.th);
+    cv.width = cv.height = SIZE;
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    const zOob = curZ >= c.dep;   // 整个切片越界
+
+    for (let y = 0; y < c.th; y++){
+      for (let x = 0; x < c.tw; x++){
+        const gxi = Math.floor(x/c.ntx), gyi = Math.floor(y/c.nty), gzi = Math.floor(curZ/c.ntz);
+        const alt = (gxi + gyi + gzi) % 2 === 0;
+        const oob = zOob || x >= c.tex || y >= c.tex;
+        ctx.fillStyle = oob ? (alt ? col.oob : col.oobA) : (alt ? col.a : col.b);
+        ctx.fillRect(x*cell, y*cell, cell, cell);
+      }
+    }
+
+    if (cell > 4){
+      ctx.strokeStyle = col.grid; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i=0;i<=c.tw;i++){ ctx.moveTo(i*cell,0); ctx.lineTo(i*cell,c.th*cell); }
+      for (let i=0;i<=c.th;i++){ ctx.moveTo(0,i*cell); ctx.lineTo(c.tw*cell,i*cell); }
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = col.border; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i=0;i<=c.gx;i++){ const p=i*c.ntx*cell; ctx.moveTo(p,0); ctx.lineTo(p,c.th*cell); }
+    for (let i=0;i<=c.gy;i++){ const p=i*c.nty*cell; ctx.moveTo(0,p); ctx.lineTo(c.tw*cell,p); }
+    ctx.stroke();
+
+    if (sel && sel.z === curZ && sel.x < c.tw && sel.y < c.th){
+      ctx.fillStyle = col.sel;
+      ctx.fillRect(sel.x*cell, sel.y*cell, cell, cell);
+      ctx.strokeStyle = col.sel; ctx.lineWidth = 2;
+      ctx.strokeRect(Math.floor(sel.x/c.ntx)*c.ntx*cell, Math.floor(sel.y/c.nty)*c.nty*cell,
+                     c.ntx*cell, c.nty*cell);
+    }
+
+    buildZStrip(c, col);
+    stats(c);
+    if (sel) showIds(c);
+  }
+
+  function buildZStrip(c, col){
+    zstrip.innerHTML = '<span class="zlabel">Z 切片</span>';
+    if (c.td === 1){
+      const s = document.createElement('span');
+      s.className = 'hint'; s.style.margin = '0';
+      s.textContent = '（深度为 1，无 Z 维度）';
+      zstrip.appendChild(s); return;
+    }
+    for (let z = 0; z < c.td; z++){
+      const d = document.createElement('div');
+      d.className = 'zslice' + (z === curZ ? ' cur' : '');
+      const gzi = Math.floor(z/c.ntz);
+      const oob = z >= c.dep;
+      d.style.background = oob ? (gzi%2===0 ? col.oob : col.oobA)
+                               : (gzi%2===0 ? col.a : col.b);
+      d.textContent = z;
+      d.title = 'z=' + z + '  →  SV_GroupID.z=' + gzi + (oob ? '（越界切片）' : '');
+      d.onclick = () => { curZ = z; draw(); };
+      zstrip.appendChild(d);
+    }
+  }
+
+  function stats(c){
+    const perGroup = c.ntx*c.nty*c.ntz;
+    const groups = c.gx*c.gy*c.gz;
+    const total = groups*perGroup;
+    const need = c.tex*c.tex*c.dep;
+    const waste = total - need;
+    const set = (id,txt,cls)=>{const e=document.getElementById(id);e.textContent=txt;e.className=cls||'';};
+    set('sPerGroup', perGroup + '  (' + c.ntx + '×' + c.nty + '×' + c.ntz + ')');
+    set('sGroups', c.gx+' × '+c.gy+' × '+c.gz+' = '+groups.toLocaleString());
+    set('sTotal', total.toLocaleString());
+    set('sPixels', need.toLocaleString());
+    set('sWaste', waste===0 ? '0' : waste.toLocaleString()+'  ('+(waste/total*100).toFixed(1)+'%)',
+        waste===0?'ok':'bad');
+    const okLimit = perGroup<=1024 && c.ntz<=64;
+    set('sLimit', okLimit ? perGroup+' ≤ 1024  OK' : perGroup+' > 1024  编译失败!', okLimit?'ok':'bad');
+    const warps = Math.ceil(perGroup/32), idle = warps*32-perGroup;
+    set('sWave', idle===0 ? warps+' 个 warp，无空转'
+                          : warps+' 个 warp，末尾空转 '+idle+' lane', idle===0?'ok':'warnc');
+  }
+
+  function showIds(c){
+    if (sel.x >= c.tw || sel.y >= c.th || sel.z >= c.td){
+      idbox.textContent = '点击左侧任意格子，查看它的线程 ID →'; return; }
+    const gX=Math.floor(sel.x/c.ntx), gY=Math.floor(sel.y/c.nty), gZ=Math.floor(sel.z/c.ntz);
+    const tX=sel.x%c.ntx, tY=sel.y%c.nty, tZ=sel.z%c.ntz;
+    const gi = tZ*(c.ntx*c.nty) + tY*c.ntx + tX;
+    const oob = sel.x>=c.tex || sel.y>=c.tex || sel.z>=c.dep;
+    idbox.innerHTML =
+      '<span class="k">SV_GroupID</span>        = (' + gX + ', ' + gY + ', ' + gZ + ')<br>' +
+      '<span class="k">SV_GroupThreadID</span>  = (' + tX + ', ' + tY + ', ' + tZ + ')<br>' +
+      '<span class="k">SV_GroupIndex</span>     = ' + tZ + '×' + (c.ntx*c.nty) + ' + ' + tY + '×' + c.ntx +
+        ' + ' + tX + ' = <b>' + gi + '</b><br>' +
+      '&nbsp;&nbsp;→ 属于组内第 <b>' + Math.floor(gi/32) + '</b> 个 warp 的第 ' + (gi%32) + ' 条 lane<br>' +
+      '<span class="k">SV_DispatchThreadID</span> = <b>(' + sel.x + ', ' + sel.y + ', ' + sel.z + ')</b><br>' +
+      '&nbsp;&nbsp;= (' + gX+'×'+c.ntx+'+'+tX + ', ' + gY+'×'+c.nty+'+'+tY + ', ' + gZ+'×'+c.ntz+'+'+tZ + ')' +
+      (oob ? '<br><span style="color:var(--bad)">⚠ 越界线程：需要边界检查</span>' : '');
+  }
+
+  cv.addEventListener('click', e => {
+    const c = cfg(), r = cv.getBoundingClientRect();
+    const cell = SIZE/Math.max(c.tw,c.th), scale = SIZE/r.width;
+    sel = { x: Math.floor((e.clientX-r.left)*scale/cell),
+            y: Math.floor((e.clientY-r.top)*scale/cell), z: curZ };
+    draw();
+  });
+
+  [elTex,elDep,elX,elY,elZ].forEach(el => el.addEventListener('change', () => {
+    sel = null; curZ = 0;
+    idbox.textContent = '点击左侧任意格子，查看它的线程 ID →'; draw();
+  }));
+  themeHooks.push(draw);
+  draw();
+})();
+
+/* ============ 交互二：Warp 划分与 Occupancy ============ */
+(function(){
+  const wv = document.getElementById('wv');
+  const ctx = wv.getContext('2d');
+  const eX=document.getElementById('wx'), eY=document.getElementById('wy'), eZ=document.getElementById('wz');
+  const eArch=document.getElementById('arch'), eSmem=document.getElementById('smem');
+
+  // 各架构单 SM 上限（NVIDIA CUDA Compute Capability 官方表）
+  const ARCH = {
+    turing:{n:'Turing (CC 7.5)', warps:32, threads:1024, blocks:16, smem:64},
+    ampere:{n:'Ampere (CC 8.6)', warps:48, threads:1536, blocks:16, smem:100},
+    ada:   {n:'Ada (CC 8.9)',    warps:48, threads:1536, blocks:24, smem:100}
+  };
+
+  const W = 420;
+  function draw(){
+    const x=+eX.value, y=+eY.value, z=+eZ.value;
+    const n = x*y*z;
+    const arch = ARCH[eArch.value];
+    const smemKB = +eSmem.value;
+    document.getElementById('smemVal').textContent = smemKB + ' KB';
+    const col = palette();
+
+    /* ---- 上：warp 划分条 ---- */
+    const warps = Math.ceil(n/32), lanes = warps*32, idle = lanes-n;
+    const perRow = 32;                       // 每行画一个 warp
+    const rows = Math.min(warps, 12);        // 最多画 12 个 warp
+    const cw = W/perRow, ch = Math.min(16, 200/Math.max(rows,1));
+    wv.width = W; wv.height = rows*ch + 34;
+    ctx.clearRect(0,0,wv.width,wv.height);
+
+    for (let w = 0; w < rows; w++){
+      for (let i = 0; i < 32; i++){
+        const gi = w*32 + i;
+        ctx.fillStyle = gi >= n ? col.oob : (w%2===0 ? col.w0 : col.w1);
+        ctx.fillRect(i*cw+.5, w*ch+.5, cw-1, ch-1);
+      }
+      ctx.fillStyle = col.dim; ctx.font = '10px Consolas,monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('warp '+w, 3, w*ch+ch-4);
+    }
+    ctx.fillStyle = col.dim; ctx.font = '11px Consolas,monospace'; ctx.textAlign='left';
+    ctx.fillText('← 32 lane（按 SV_GroupIndex 顺序打包）→', 2, rows*ch+15);
+    if (warps > rows) ctx.fillText('… 其余 '+(warps-rows)+' 个 warp 省略', 2, rows*ch+29);
+
+    /* ---- 下：数值 ---- */
+    const set=(id,txt,cls)=>{const e=document.getElementById(id);e.textContent=txt;e.className=cls||'';};
+    set('wPerGroup', n + (n>1024 ? '  > 1024 非法!' : ''), n>1024?'bad':'');
+    set('wWarps', warps + '');
+    set('wIdle', idle===0 ? '0  完美对齐' : idle+' / '+lanes+'  ('+(idle/lanes*100).toFixed(0)+'%)',
+        idle===0?'ok':'bad');
+    set('wAmd', n%64===0 ? 'OK（也是 64 的倍数）' : '不足 64 的倍数，A 卡上有浪费',
+        n%64===0?'ok':'warnc');
+
+    if (n > 1024){
+      document.getElementById('occFill').style.width = '0%';
+      document.getElementById('occTxt').textContent = '非法配置';
+      ['wBlocks','wActive','wBottle'].forEach(id=>set(id,'—'));
+      document.getElementById('wNote').innerHTML =
+        '<span style="color:var(--bad)">每组线程数超过 1024，着色器无法编译。</span>';
+      return;
+    }
+
+    // 三个约束分别能容纳多少个组
+    const byWarps  = Math.floor(arch.warps / warps);
+    const byBlocks = arch.blocks;
+    const bySmem   = smemKB > 0 ? Math.floor(arch.smem / smemKB) : Infinity;
+    const blocks   = Math.max(0, Math.min(byWarps, byBlocks, bySmem));
+    const active   = blocks * warps;
+    const occ      = active / arch.warps * 100;
+
+    let bottle;
+    if (blocks === 0) bottle = '共享内存放不下一个组!';
+    else if (blocks === bySmem && bySmem <= byWarps && bySmem <= byBlocks) bottle = '共享内存 ('+arch.smem+' KB/SM)';
+    else if (blocks === byBlocks && byBlocks <= byWarps) bottle = '每 SM 组数上限 ('+arch.blocks+')';
+    else bottle = '每 SM warp 上限 ('+arch.warps+')';
+
+    document.getElementById('occFill').style.width = occ.toFixed(1)+'%';
+    document.getElementById('occTxt').textContent = occ.toFixed(1)+'%';
+    set('wBlocks', blocks + '  个组', blocks===0?'bad':'');
+    set('wActive', active + ' / ' + arch.warps + ' warp');
+    set('wBottle', bottle, occ>=99?'ok':(occ>=66?'warnc':'bad'));
+
+    let note;
+    if (occ >= 99) note = '<span style="color:var(--ok)">✔ 理论占用率拉满</span>：'
+      + arch.n + ' 上能同时驻留 ' + blocks + ' 个组、' + active + ' 个 warp，'
+      + '内存延迟可以被充分掩盖。';
+    else note = '<span style="color:var(--accent2)">占用率 ' + occ.toFixed(1) + '%</span>：'
+      + '受限于「' + bottle + '」，一个 SM 只跑得动 ' + active + ' 个 warp（上限 ' + arch.warps + '）。'
+      + '当某个 warp 等显存时，可切换的候补更少 → 计算单元容易闲置。';
+    note += '<br><span style="color:var(--dim)">注：这是仅考虑线程数/组数/共享内存的<b>理论</b>占用率，'
+      + '实际还会被寄存器用量拉低（每 SM 65536 个），以 Nsight 实测为准。</span>';
+    document.getElementById('wNote').innerHTML = note;
+  }
+
+  [eX,eY,eZ,eArch].forEach(e=>e.addEventListener('change',draw));
+  eSmem.addEventListener('input',draw);
+  themeHooks.push(draw);
+  draw();
+})();
+</script>
+</body>
+</html>
