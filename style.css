@@ -36,6 +36,9 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  /* Anchor jumps and scrollIntoView() — including calls made inside an embedded
+     HTML note, which propagate to this scrollport — must clear the fixed topbar. */
+  scroll-padding-top: var(--topbar-height);
 }
 
 body {

@@ -2396,9 +2396,18 @@
         const currentHeight = parseFloat(frame.style.height) || frame.getBoundingClientRect().height || 0;
         if (!currentHeight || currentHeight < minHeight) frame.style.height = `${minHeight}px`;
 
+        // documentElement.scrollHeight never reports less than the frame's own
+        // viewport, so reading it unconditionally would pin the frame to the height
+        // it already has and leave dead space once content shrinks again. It still
+        // is the only measure that catches content overflowing a viewport-locked
+        // root, so keep it for exactly that case and let the boxes below — which
+        // track content in both directions — drive everything else.
         const bodyRect = doc.body?.getBoundingClientRect();
+        const rootScrollHeight = doc.documentElement.scrollHeight;
+        const overflowHeight = rootScrollHeight > doc.documentElement.clientHeight ? rootScrollHeight : 0;
         const contentHeight = Math.max(
-          doc.documentElement.scrollHeight,
+          overflowHeight,
+          Math.ceil(doc.documentElement.getBoundingClientRect().height),
           doc.body?.scrollHeight || 0,
           doc.body?.offsetHeight || 0,
           bodyRect ? Math.ceil(bodyRect.height) : 0,
@@ -2408,9 +2417,17 @@
         const nextHeight = `${Math.ceil(contentHeight)}px`;
         if (frame.style.height !== nextHeight) frame.style.height = nextHeight;
         if (shouldRestoreScroll) {
-          window.requestAnimationFrame(() => {
+          // Any programmatic scroll aborts a smooth scroll already in flight, so a
+          // note that scrolls itself on a button press would just be cancelled here.
+          // Deciding a frame later would race that animation — the position read back
+          // would be one the animation moved to, not one this remeasure caused. Reading
+          // it now flushes layout instead, so a difference can only come from the height
+          // change above, and only a position that survived it is worth restoring.
+          const clamped = window.scrollY !== scrollY || window.scrollX !== scrollX;
+          const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+          if (clamped && scrollY <= maxScrollY) {
             window.scrollTo({ left: scrollX, top: scrollY, behavior: 'auto' });
-          });
+          }
         }
       } catch {
         frame.style.minHeight = `${htmlFrameViewportHeight()}px`;
@@ -2524,6 +2541,19 @@
         scheduleResize(0, { respectScroll: false, preserveScroll: false });
         scheduleResize(360);
         scheduleResize(1200);
+
+        // Notes with interactive widgets grow the document long after the timed
+        // resizes above have run. Without this the frame keeps its stale height
+        // and the page cannot scroll down to the newly revealed content. The
+        // observer comes from the frame's own window so the observation belongs
+        // to the document whose elements it watches.
+        const FrameResizeObserver = doc.defaultView?.ResizeObserver;
+        if (typeof FrameResizeObserver === 'function') {
+          const contentObserver = new FrameResizeObserver(() => scheduleResize(0));
+          contentObserver.observe(doc.documentElement);
+          if (doc.body) contentObserver.observe(doc.body);
+          controller.signal.addEventListener('abort', () => contentObserver.disconnect(), { once: true });
+        }
 
         Array.from(doc.images || []).forEach(image => {
           if (image.complete) return;
