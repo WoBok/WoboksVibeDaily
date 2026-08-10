@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C++ 左值、右值与引用 · 一份从疑问出发的指南</title>
+<style>
+:root{
+  --bg:#faf7f1;--panel:#fffefb;--ink:#2c2a25;--muted:#7b7466;--faint:#a39c8c;
+  --accent:#b0542e;--accent-deep:#8f3f20;--accent-soft:#f7ebe2;
+  --olive:#5f7161;--olive-soft:#edf2ec;--amber:#9a7418;--amber-soft:#fbf3df;
+  --line:#e9e2d4;--code-bg:#f4efe6;--code-ink:#38332b;
+  --serif:"Noto Serif SC","Songti SC","STSong",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:"SF Mono","JetBrains Mono","Cascadia Code",Consolas,"Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.95;-webkit-font-smoothing:antialiased}
+#progress{position:fixed;top:0;left:0;height:3px;background:var(--accent);width:0;z-index:99;transition:width .1s linear}
+.wrap{max-width:780px;margin:0 auto;padding:0 28px}
+section{margin:92px 0 0}
+footer{margin-top:110px;padding:48px 0 64px;border-top:1px solid var(--line);color:var(--faint);font-size:14px;text-align:center}
+header.hero{padding:100px 0 64px;border-bottom:1px solid var(--line)}
+.kicker{font-size:13px;letter-spacing:.28em;color:var(--accent);font-weight:600;margin-bottom:22px}
+h1{font-family:var(--serif);font-size:clamp(32px,5.4vw,46px);font-weight:700;line-height:1.35;letter-spacing:.01em}
+.hero p.sub{margin-top:24px;color:var(--muted);font-size:18px;max-width:640px}
+.toc{margin-top:40px;display:flex;flex-wrap:wrap;gap:10px}
+.toc a{font-size:13.5px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 16px;background:var(--panel);transition:.2s}
+.toc a:hover{color:var(--accent);border-color:var(--accent)}
+h2{font-family:var(--serif);font-size:29px;font-weight:700;line-height:1.4;margin-bottom:8px}
+h2 .no{display:inline-block;font-size:14px;color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;padding:2px 9px;margin-right:12px;vertical-align:6px;font-family:var(--sans);font-weight:600;letter-spacing:.05em}
+h3{font-family:var(--serif);font-size:20.5px;font-weight:700;margin:42px 0 12px;color:#3a372f}
+h3::before{content:"";display:inline-block;width:9px;height:9px;background:var(--accent);border-radius:2px;margin-right:10px;vertical-align:2px;opacity:.85}
+.lede{color:var(--muted);margin-bottom:24px}
+p{margin:16px 0}
+strong{color:#211f1a}
+em{font-style:normal;color:var(--accent-deep);background:var(--accent-soft);padding:1px 6px;border-radius:5px}
+ul,ol{margin:14px 0 14px 6px;padding-left:22px}
+li{margin:8px 0}
+li::marker{color:var(--accent)}
+code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);padding:2.5px 7px;border-radius:6px;color:var(--accent-deep)}
+pre{background:var(--code-bg);border:1px solid var(--line);border-left:4px solid #d8cdb6;border-radius:12px;padding:20px 24px;margin:22px 0;overflow-x:auto;font-family:var(--mono);font-size:14px;line-height:1.75;color:var(--code-ink)}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+pre .k{color:#9a4a1f;font-weight:600}
+pre .t{color:#5f6f8c;font-weight:600}
+pre .c{color:#9a937f;font-style:italic}
+pre .n{color:#7a6c9e}
+pre .s{color:#5f7161}
+pre .f{color:#8f6b2d}
+pre .err{color:#b0322a;font-weight:600}
+pre .ok{color:#5f7161;font-weight:600}
+.box{border-radius:14px;padding:20px 24px;margin:26px 0;font-size:15.5px;line-height:1.85}
+.box .tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;padding:3px 12px;border-radius:6px;margin-bottom:10px}
+.box p{margin:8px 0}
+.box code{font-size:.84em}
+.box-q{background:var(--amber-soft);border:1px solid #ecd9a8}
+.box-q .tag{background:#e9d295;color:#6b5310}
+.box-key{background:var(--olive-soft);border:1px solid #c9d8c9}
+.box-key .tag{background:#c2d4c2;color:#3d5340}
+.box-idea{background:var(--accent-soft);border:1px solid #eac9b4}
+.box-idea .tag{background:#ecc7ad;color:#8f3f20}
+.tbl{margin:26px 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{background:#f3ede0;text-align:left;padding:12px 18px;font-weight:600;font-size:14px;color:#5d5646;border-bottom:1px solid var(--line)}
+td{padding:12px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td code,th code{font-size:.84em}
+.yes{color:var(--olive);font-weight:700}
+.no2{color:#b0322a;font-weight:700}
+figure{margin:30px 0;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px 24px 20px}
+figure svg{display:block;width:100%;height:auto}
+figcaption{text-align:center;font-size:13.5px;color:var(--faint);margin-top:14px}
+.flow{background:#f4efe6;border-radius:12px;padding:22px 26px;font-family:var(--mono);font-size:14px;line-height:1.9;margin:22px 0;white-space:pre;overflow-x:auto;color:#4a443a}
+.final{background:linear-gradient(160deg,#fffefb,#f9f1e6);border:1px solid var(--line);border-radius:20px;padding:38px 40px;margin:34px 0}
+.final .row{display:flex;gap:16px;align-items:baseline;padding:13px 0;border-bottom:1px dashed var(--line)}
+.final .row:last-child{border-bottom:none}
+.final .lhs{font-family:var(--mono);font-size:14.5px;color:var(--accent-deep);min-width:150px;flex-shrink:0;font-weight:600}
+.final .rhs{color:#4a443a;font-size:15.5px}
+@media (max-width:640px){
+  body{font-size:16px}.wrap{padding:0 20px}header.hero{padding:70px 0 50px}
+  .final{padding:26px 22px}.final .lhs{min-width:110px}figure{padding:18px 12px 14px}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">C++ VALUE CATEGORIES</div>
+  <h1>左值、右值与引用</h1>
+  <nav class="toc">
+    <a href="#s1">① 变量名是什么</a>
+    <a href="#s2">② 栈与堆</a>
+    <a href="#s3">③ 引用</a>
+    <a href="#s4">④ 位置与数据</a>
+    <a href="#s5">⑤ 左值与右值</a>
+    <a href="#s6">⑥ 移动语义</a>
+    <a href="#s7">⑦ std::move</a>
+    <a href="#s8">⑧ 心智模型</a>
+  </nav>
+</header>
+
+<!-- ================= 1 ================= -->
+<section id="s1">
+  <h2><span class="no">01</span>变量名是什么？</h2>
+  <p class="lede"><code>int a = 10;</code> 里的 <code>a</code> 代表一个地址吗？不——这是要打磨的第一个直觉。</p>
+
+  <p>这行代码涉及三个东西：<strong>对象</strong>（一块存着值 10 的内存）、<strong>名字</strong>（<code>a</code>，访问它的入口）、<strong>地址</strong>（这块内存的位置，要用 <code>&a</code> 才能拿到）。</p>
+
+  <div class="box box-q">
+    <span class="tag">一个比喻</span>
+    <p>"张三住在北京路 8 号"——张三不是"北京路 8 号"。<code>a</code> 是那个人，地址是门牌号。用 <code>a</code> 操作的是值；用 <code>&a</code> 才拿到地址。</p>
+  </div>
+
+  <h3>编译之后：名字被彻底擦除</h3>
+  <p>变量名是<strong>编译期</strong>的概念。编译器维护一张符号表（名字 → 类型、作用域、存储位置），每个使用 <code>a</code> 的地方经查表后被替换成机器层面的定位方式：</p>
+
+  <div class="tbl">
+    <table>
+      <tr><th>替换结果</th><th>什么时候发生</th></tr>
+      <tr><td><strong>栈偏移</strong>，如 <code>[rbp-4]</code></td><td>最常见，局部变量的读写</td></tr>
+      <tr><td><strong>寄存器</strong></td><td>被优化时——变量全程不进内存，此时它<em>根本没有地址</em></td></tr>
+      <tr><td><strong>立即数（常量）</strong></td><td>编译期能确定值时，直接常量折叠</td></tr>
+    </table>
+  </div>
+
+  <div class="box box-key">
+    <span class="tag">要点</span>
+    <p><strong>变量名 = 一个对象的名字；编译后，每个变量名都变成"那块存储的定位方式"（栈偏移 / 寄存器 / 常量）。</strong>可执行文件里没有 "a" 的任何痕迹。至于那块存储里装的是数值还是地址，由变量的类型决定——指针只是"内容恰好是地址"的普通变量。</p>
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section id="s2">
+  <h2><span class="no">02</span>栈与堆：对象被分配到哪？</h2>
+  <p class="lede">决定对象在栈还是堆的，不是类型，而是创建方式。</p>
+
+  <pre><code><span class="k">class</span> <span class="t">Student</span> {
+<span class="k">public</span>:
+    <span class="t">int</span>   id;     <span class="c">// 4 字节</span>
+    <span class="t">float</span> score;  <span class="c">// 4 字节</span>
+};
+
+<span class="k">void</span> <span class="f">func</span>() {
+    <span class="t">Student</span> s1;                  <span class="c">// 栈上：局部变量，不管什么类型都在栈上</span>
+    <span class="t">Student</span>* s2 = <span class="k">new</span> <span class="t">Student</span>(); <span class="c">// s2 在栈上；它指向的对象才在堆上</span>
+}</code></pre>
+
+  <p><strong>规则只有一句话：new 出来的才在堆上。</strong>其余局部变量（包括 class 对象）都在栈上；全局/静态变量在静态区。</p>
+
+  <h3><code>Student s1;</code> 已经按类的结构划分好内存了吗？</h3>
+  <p>是的，而且"怎么划分"在<strong>编译期</strong>就算好了。编译器看到类定义就画出了"户型图"：</p>
+
+  <div class="flow">Student 的内存布局（sizeof = 8 字节）
+┌──────────────┬──────────────┐
+│ id   (偏移+0)│ score(偏移+4)│
+└──────────────┴──────────────┘</div>
+
+  <p>进入函数时，一条 <code>sub rsp, N</code> 指令一次性为所有局部变量腾出栈空间，随后调用构造函数——<strong>分配和构造在声明那一行就完成了</strong>。之后 <code>s1.id = 10;</code> 编译成 <code>mov DWORD PTR [rbp-8], 10</code>：对象名变成栈基址，成员名变成固定偏移，名字全部消失。注意：类没写构造函数时成员是垃圾值，<strong>划分 ≠ 初始化</strong>。</p>
+
+  <div class="tbl">
+    <table>
+      <tr><th></th><th><code>Student s1;</code>（自动存储期）</th><th><code>new Student()</code>（动态存储期）</th></tr>
+      <tr><th>得到什么</th><td>一个对象（类型 <code>Student</code>）</td><td>一个指针（类型 <code>Student*</code>）</td></tr>
+      <tr><th>分配成本</th><td>一次栈指针减法，几乎为零</td><td>堆管理算法的真实开销</td></tr>
+      <tr><th>何时释放</th><td>离开作用域<strong>自动</strong>析构回收</td><td>必须 <code>delete</code>，否则泄漏</td></tr>
+    </table>
+  </div>
+
+  <p>所以 <code>Student s1 = new Student();</code> 编译不过——右边返回的是指针，类型对不上。用 new 就要用指针接，成员访问用 <code>s2-&gt;id</code>（<code>*s2.id</code> 是优先级陷阱：<code>.</code> 比 <code>*</code> 先算）。</p>
+
+  <h3>指针自己住在哪？它能指向哪？</h3>
+
+  <figure>
+    <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#b0542e"/>
+        </marker>
+      </defs>
+      <text x="30" y="30" font-size="14" fill="#7b7466" font-weight="600">栈（函数栈帧）</text>
+      <rect x="30" y="42" width="220" height="66" rx="10" fill="#f7ebe2" stroke="#e0b898" stroke-width="1.5"/>
+      <text x="48" y="69" font-size="15" fill="#8f3f20" font-family="monospace" font-weight="600">s1（Student 对象）</text>
+      <text x="48" y="92" font-size="13" fill="#a0765c" font-family="monospace">id: 10   score: 90.5</text>
+      <rect x="30" y="126" width="220" height="58" rx="10" fill="#edf2ec" stroke="#b8cbbd" stroke-width="1.5"/>
+      <text x="48" y="151" font-size="15" fill="#3d5340" font-family="monospace" font-weight="600">s2（指针变量）</text>
+      <text x="48" y="172" font-size="13" fill="#6e8574" font-family="monospace">值 = 0x7f3a…（一个地址）</text>
+      <text x="420" y="30" font-size="14" fill="#7b7466" font-weight="600">堆（动态存储区）</text>
+      <rect x="420" y="42" width="240" height="66" rx="10" fill="#fffefb" stroke="#d8cdb6" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="438" y="69" font-size="15" fill="#5d5646" font-family="monospace" font-weight="600">Student 对象（无名字）</text>
+      <text x="438" y="92" font-size="13" fill="#9a937f" font-family="monospace">只能通过 *s2 间接访问</text>
+      <line x1="250" y1="155" x2="418" y2="80" stroke="#b0542e" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="295" y="102" font-size="13" fill="#b0542e" font-family="monospace">s2 存的地址</text>
+      <text x="30" y="222" font-size="13.5" fill="#7b7466">指针变量自己住在哪，看它怎么声明（局部 → 栈）；它里面装的地址，可以指向任何区域。</text>
+    </svg>
+    <figcaption>指针变量 与 它指向的对象：两个不同的东西，各住各的</figcaption>
+  </figure>
+
+  <pre><code><span class="t">int</span> a = <span class="n">10</span>;              <span class="c">// 栈</span>
+<span class="t">int</span>* p1 = &amp;a;          <span class="ok">// ✅ 指针存【栈】地址，完全合法，极其常见</span>
+<span class="t">int</span>* p2 = <span class="k">new</span> <span class="t">int</span>(<span class="n">20</span>); <span class="ok">// ✅ 存【堆】地址</span></code></pre>
+
+  <p>但指向栈地址有个致命陷阱——栈对象活不过作用域：</p>
+
+  <pre><code><span class="t">int</span>* <span class="f">bad</span>() {
+    <span class="t">int</span> x = <span class="n">42</span>;
+    <span class="k">return</span> &amp;x;     <span class="err">// ❌ 函数结束 x 销毁，指针指向已回收的栈内存 → 悬空指针</span>
+}</code></pre>
+
+  <p>这正是堆存在的核心理由：<strong>栈对象"活不过作用域"，堆对象"活到你 delete 为止"。</strong>想让对象在函数返回后还活着，就必须放堆上。</p>
+</section>
+<!-- ================= 3 ================= -->
+<section id="s3">
+  <h2><span class="no">03</span>引用：给同一个对象起第二个名字</h2>
+  <p class="lede"><code>T&amp;</code> 不创建任何新对象——这是它和"赋值给新变量"最根本的区别。</p>
+
+  <pre><code><span class="t">Student</span> s1;        <span class="c">// 创建一个真实对象</span>
+<span class="t">Student</span>&amp; s2 = s1;  <span class="c">// 没有新对象！s2 只是 s1 的别名</span>
+<span class="t">Student</span> s3 = s2;   <span class="c">// 新对象！调用拷贝构造函数</span></code></pre>
+
+  <figure>
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#5f7161"/>
+        </marker>
+        <marker id="ar3" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#b0542e"/>
+        </marker>
+      </defs>
+      <text x="40" y="40" font-size="15" fill="#3d5340" font-family="monospace" font-weight="600">s1 ──┐</text>
+      <text x="40" y="75" font-size="15" fill="#3d5340" font-family="monospace" font-weight="600">s2 ──┘  两个名字</text>
+      <line x1="170" y1="52" x2="238" y2="52" stroke="#5f7161" stroke-width="2" marker-end="url(#ar2)"/>
+      <rect x="245" y="22" width="180" height="60" rx="10" fill="#edf2ec" stroke="#b8cbbd" stroke-width="1.5"/>
+      <text x="262" y="48" font-size="14" fill="#3d5340" font-family="monospace" font-weight="600">对象 1</text>
+      <text x="262" y="70" font-size="13" fill="#6e8574" font-family="monospace">id: 10   score: 90.5</text>
+      <text x="452" y="57" font-size="13.5" fill="#7b7466">s2.id = 100; 等价于 s1.id = 100;</text>
+      <text x="40" y="160" font-size="15" fill="#8f3f20" font-family="monospace" font-weight="600">s3 ───── 一个新对象</text>
+      <line x1="170" y1="152" x2="238" y2="152" stroke="#b0542e" stroke-width="2" marker-end="url(#ar3)"/>
+      <rect x="245" y="122" width="180" height="60" rx="10" fill="#f7ebe2" stroke="#e0b898" stroke-width="1.5"/>
+      <text x="262" y="148" font-size="14" fill="#8f3f20" font-family="monospace" font-weight="600">对象 2</text>
+      <text x="262" y="170" font-size="13" fill="#a0765c" font-family="monospace">id: 10   score: 90.5（拷贝）</text>
+      <line x1="335" y1="82" x2="335" y2="118" stroke="#9a937f" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar3)"/>
+      <text x="348" y="105" font-size="13" fill="#9a7418">拷贝构造</text>
+      <text x="452" y="157" font-size="13.5" fill="#7b7466">s3 与 s1 互不影响</text>
+    </svg>
+    <figcaption>别名 vs 新对象：引用那行不调用任何构造函数</figcaption>
+  </figure>
+
+  <p>两行长得很像的代码，其实是两个操作：</p>
+
+  <pre><code><span class="t">Student</span> s3 = s2;   <span class="c">// s3 还不存在 → 拷贝【构造】函数  Student(const Student&amp;)</span>
+
+<span class="t">Student</span> s3;
+s3 = s2;             <span class="c">// s3 已存在   → 拷贝【赋值】运算符 operator=(const Student&amp;)</span></code></pre>
+
+  <div class="box box-q">
+    <span class="tag">两个补充</span>
+    <p>① 默认拷贝是<em>浅拷贝</em>：类里有指针成员时，默认只复制指针的值，两个对象指向同一块内存；想各有一份（深拷贝）要自己写拷贝构造。<br>② 从 C# 来的读者注意：C# 的 <code>Student s2 = s1;</code>（class）复制的是引用，还是同一个对象；C++ 同样写法是<em>复制对象本身</em>。C# class 默认引用语义，C++ class 默认值语义——C# 的 class 变量更像 C++ 的指针/引用。</p>
+  </div>
+
+  <h3>三种引用：能绑定什么，想表达什么</h3>
+  <div class="tbl">
+    <table>
+      <tr><th>类型</th><th>能绑定左值</th><th>能绑定右值</th><th>意图</th></tr>
+      <tr><td><code>T&amp;</code>（左值引用）</td><td class="yes">✅</td><td class="no2">❌</td><td>借来用，可能修改它</td></tr>
+      <tr><td><code>const T&amp;</code></td><td class="yes">✅</td><td class="yes">✅</td><td>只读，不复制（const 是特例，可绑定右值）</td></tr>
+      <tr><td><code>T&amp;&amp;</code>（右值引用）</td><td class="no2">❌（除非 std::move）</td><td class="yes">✅</td><td>这个对象可被消耗、搬空——第 6 章详解</td></tr>
+    </table>
+  </div>
+
+  <pre><code><span class="t">int</span> a = <span class="n">10</span>;
+<span class="t">int</span>&amp;  r1 = a;             <span class="ok">// ✅</span>
+<span class="t">int</span>&amp;  r2 = <span class="n">42</span>;            <span class="err">// ❌ 左值引用不能绑定右值</span>
+<span class="k">const</span> <span class="t">int</span>&amp; r3 = <span class="n">42</span>;      <span class="ok">// ✅ const 特例</span>
+<span class="t">int</span>&amp;&amp; r4 = <span class="n">42</span>;           <span class="ok">// ✅ 右值引用绑定右值</span>
+<span class="t">int</span>&amp;&amp; r5 = a;            <span class="err">// ❌ a 可能还要继续用，不能当成可消耗对象</span>
+<span class="t">int</span>&amp;&amp; r6 = std::move(a); <span class="ok">// ✅ 你明确保证了</span></code></pre>
+
+  <p>（左右值的定义下一章才登场，这里先记住绑定规则的样子即可。）</p>
+</section>
+
+<!-- ================= 4 ================= -->
+<section id="s4">
+  <h2><span class="no">04</span>机器世界里，"位置"和"数据"是两回事</h2>
+  <p class="lede">左值右值不是拍脑袋的语法分类，而是被计算机的工作方式逼出来的。</p>
+
+  <p>任何程序跑起来，CPU 只面对两种东西：<strong>存储位置</strong>（内存单元、寄存器，每个位置有地址，内容可改写）和<strong>数据</strong>（计算的结果，躺在寄存器里，随时被覆盖）。看 <code>c = a + b</code> 编译后的样子：</p>
+
+  <pre><code><span class="f">load</span>  r1, [a的地址]    <span class="c">; 从"位置"取出"数据"</span>
+<span class="f">load</span>  r2, [b的地址]
+<span class="f">add</span>   r1, r1, r2       <span class="c">; 新数据诞生——但只在寄存器里，没有"家"</span>
+<span class="f">store</span> [c的地址], r1    <span class="c">; 写回某个"位置"</span></code></pre>
+
+  <p>第三行是关键：<code>a + b</code> 的结果存在，但没有对应的内存位置。<strong>硬件层面"位置"与"值"天然分离。</strong></p>
+
+  <p>于是赋值语句制造了矛盾：<code>c = a + b</code> 合法，<code>a + b = c</code> 荒谬——左边需要一个<em>位置</em>（生成 store 必须知道往哪写），右边只需要<em>数据</em>。编译器必须有概念来区分"能提供位置的表达式"和"只能提供数据的表达式"。</p>
+
+</section>
+
+<!-- ================= 5 ================= -->
+<section id="s5">
+  <h2><span class="no">05</span>左值与右值：核心判据</h2>
+  <p class="lede">左值/右值是<strong>表达式求值结果的属性</strong>，与表达式长什么样无关。</p>
+
+  <div class="box box-idea">
+    <span class="tag">本质判据</span>
+    <p><strong>求值结果是一个有身份、可回访的对象（表达式结束后它还在原地），还是一团转瞬即逝的纯数据（算完就消散）？</strong>前者是左值，后者是右值。操作判据：对它取地址 <code>&amp;expr</code>，合法 → 左值；报错 → 右值。</p>
+  </div>
+
+  <h3>误解一：左值 = 变量名，右值 = 复杂表达式？</h3>
+  <p>变量名确实几乎总是左值，纯计算确实总是右值——但这是巧合，不是定义：</p>
+
+  <pre><code>arr[<span class="n">1</span>] = <span class="n">99</span>;     <span class="c">// 带下标的运算式，但结果是数组里那个固定的格子 → 左值</span>
+*p = <span class="n">88</span>;         <span class="c">// 解引用运算式，结果指向真实对象 → 左值</span>
+
+<span class="t">int</span> b = std::move(a);   <span class="c">// 只用了变量名 a，但整个表达式是右值</span></code></pre>
+
+  <h3>误解二：按等号左右区分？</h3>
+  <p>等号左右不是两种表达式的分类，而是同一表达式可能处的两种<strong>使用语境</strong>：</p>
+
+  <pre><code>arr[<span class="n">0</span>] = arr[<span class="n">1</span>];   <span class="c">// 左边用它的"位置"（写入），右边用它的"值"（读出）——两个都是左值</span>
+<span class="t">int</span> b = a;        <span class="c">// a 是左值，照样待在右边（读出值来用）</span></code></pre>
+
+  <h3>误解三：和栈/堆混在一起</h3>
+  <p>栈/堆是"对象住在哪"，左值/右值是"表达式结果有没有身份"——<strong>两套正交的分类</strong>，四个象限都有东西：</p>
+
+  <div class="tbl">
+    <table>
+      <tr><th></th><th>左值（有身份的对象）</th><th>右值（临时的值）</th></tr>
+      <tr><th>栈</th><td><code>int a = 10;</code> 的 <code>a</code></td><td><code>a + b</code> 的临时结果；函数按值返回的临时对象</td></tr>
+      <tr><th>堆</th><td><code>*p</code>（new 出来的那个对象）</td><td>堆内存本身不会以右值的身份被访问到；但 <code>new</code> 返回的<strong>指针值</strong>是右值</td></tr>
+    </table>
+  </div>
+
+  <div class="box box-q">
+    <span class="tag">疑问：字符串相加，不会在堆上开辟内存存中间结果吗？</span>
+    <p>会！<code>a + b</code> 求值时，确实构造了一个临时 string 对象：<strong>壳</strong>在栈上（指针+长度），并在<strong>堆上</strong>新申请一块字符缓冲（肉）。这并不和"堆上没有右值对象"矛盾，因为这是两个层面的事：</p>
+    <p>· <em>"a+b 是右值"</em>——描述的是这个<strong>临时对象整体</strong>作为表达式结果的命运：用完即弃。壳在栈上、肉在堆上，都不妨碍它整体是右值；</p>
+    <p>· <em>"堆上没有右值对象"</em>——说的是<strong>访问堆内存的方式</strong>：堆内存只能通过 <code>*p</code>、<code>p[i]</code> 摸到，而解引用的结果永远是左值。仓库里的货没有"临时"属性，但货的主人可以是个临时对象。</p>
+    <p>正是"右值经常拥有堆资源"这个组合，构成了下一章移动语义要解决的场景。</p>
+  </div>
+
+  <div class="box box-key">
+    <span class="tag">要点：<code>*p</code> 是左值</span>
+    <p><code>new</code> 表达式的结果（指针值）是右值——不接住就丢失。但 <code>*p</code> 的结果是堆上那个确定的对象：有稳定位置、可反复回访、能放等号左边、能取地址——<strong>它是左值</strong>。表达式是访问对象的<em>通道</em>，对象是通道尽头的<em>东西</em>；通道用完就拆，东西一直在那。</p>
+  </div>
+</section>
+<!-- ================= 6 ================= -->
+<section id="s6">
+  <h2><span class="no">06</span>移动语义：不再复制，直接接管</h2>
+  <p class="lede">右值引用是被一场性能灾难逼出来的。这次我们造一个简化版字符串类，把每一步摆在台面上。</p>
+
+  <h3>先看痛在哪里</h3>
+  <p>资源类对象都是"壳肉分离"：壳在栈上（指针+长度），肉在堆上（字符缓冲）。在 C++11 之前：</p>
+
+  <div class="flow">std::string c = a + b;
+
+临时对象：malloc 一块堆内存 → 拷贝数据进去
+    ↓
+拷贝进 c：c 再 malloc 一块堆内存 → 再逐字符复制一遍
+    ↓
+临时对象析构：free 掉它的堆内存   ← 刚建好、原样抄完、立刻扔掉</div>
+
+  <p>临时对象反正用完即弃，为什么不能把它的堆内存直接过户给 c？<strong>能，但编译器不敢</strong>——它无法区分"用完即弃的临时对象"和"后面还要用的变量"。如果偷了 <code>a</code> 的内存，<code>a</code> 就废了。C++11 的解法：给"可消耗对象"一个类型系统层面的身份——<strong>右值引用 <code>T&amp;&amp;</code></strong>，再配一个专门接收它的构造函数。</p>
+
+  <h3>自己动手：一个支持移动的字符串类</h3>
+
+  <pre><code><span class="k">class</span> <span class="t">MyString</span> {
+<span class="k">public</span>:
+    <span class="t">char</span>* data = <span class="k">nullptr</span>;   <span class="c">// 指向堆上的字符缓冲（肉）</span>
+    <span class="t">int</span>   len  = <span class="n">0</span>;
+
+    <span class="c">// ① 普通构造：申请堆内存，填入内容</span>
+    <span class="t">MyString</span>(<span class="k">const</span> <span class="t">char</span>* s) {
+        len  = strlen(s);
+        data = <span class="k">new</span> <span class="t">char</span>[len + <span class="n">1</span>];
+        strcpy(data, s);
+    }
+
+    <span class="c">// ② 拷贝构造：源对象还要用 → 老实深拷贝</span>
+    <span class="t">MyString</span>(<span class="k">const</span> <span class="t">MyString</span>&amp; other) {
+        len  = other.len;
+        data = <span class="k">new</span> <span class="t">char</span>[len + <span class="n">1</span>];   <span class="c">// 再 malloc 一块</span>
+        strcpy(data, other.data);   <span class="c">// 逐字符复制，贵</span>
+    }
+
+    <span class="c">// ③ 移动构造：源对象可消耗 → 偷走指针</span>
+    <span class="t">MyString</span>(<span class="t">MyString</span>&amp;&amp; other) <span class="k">noexcept</span> {
+        data = other.data;          <span class="c">// 1. 接管堆内存（抄地址，O(1)）</span>
+        len  = other.len;
+        other.data = <span class="k">nullptr</span>;       <span class="c">// 2. 源置空：所有权易主</span>
+        other.len  = <span class="n">0</span>;
+    }
+
+    <span class="c">// ④ 析构：释放自己拥有的堆内存</span>
+    ~<span class="t">MyString</span>() { <span class="k">delete</span>[] data; }
+};</code></pre>
+
+  <p>移动构造的四行，行行关键：<strong>没有 <code>new</code>、没有 <code>strcpy</code></strong>，只把对方指针里的地址抄过来，两个指针暂时指向同一块堆内存；然后 <code>other.data = nullptr</code>——这一步是生命线。少了它，两个对象都以为自己拥有这块内存，析构时 <code>delete</code> 两次（double free，程序崩溃）。置空后，源对象析构执行的是 <code>delete nullptr</code>（安全的空操作）：<strong>所有权完成过户，每块堆内存恰好被释放一次。</strong></p>
+
+  <figure>
+    <svg viewBox="0 0 720 290" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar4" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#b0542e"/>
+        </marker>
+      </defs>
+      <text x="30" y="30" font-size="15" fill="#7b7466" font-weight="600">移动前</text>
+      <rect x="30" y="44" width="150" height="60" rx="10" fill="#f7ebe2" stroke="#e0b898" stroke-width="1.5"/>
+      <text x="46" y="69" font-size="14" fill="#8f3f20" font-family="monospace" font-weight="600">临时对象的壳</text>
+      <text x="46" y="90" font-size="12.5" fill="#a0765c" font-family="monospace">ptr ──┐</text>
+      <rect x="30" y="120" width="150" height="52" rx="10" fill="#fffefb" stroke="#d8cdb6" stroke-width="1.5"/>
+      <text x="46" y="141" font-size="14" fill="#5d5646" font-family="monospace" font-weight="600">c 的壳</text>
+      <text x="46" y="162" font-size="12.5" fill="#9a937f" font-family="monospace">ptr: （待建）</text>
+      <rect x="260" y="44" width="210" height="60" rx="10" fill="#f4efe6" stroke="#c9bd9f" stroke-width="1.5"/>
+      <text x="276" y="69" font-size="14" fill="#6b5f3d" font-family="monospace" font-weight="600">堆内存 "HelloWorld"</text>
+      <text x="276" y="90" font-size="12.5" fill="#9a937f" font-family="monospace">临时对象刚申请的肉</text>
+      <line x1="182" y1="74" x2="256" y2="74" stroke="#b0542e" stroke-width="2" marker-end="url(#ar4)"/>
+
+      <text x="30" y="220" font-size="15" fill="#7b7466" font-weight="600">移动后：堆内存只有一份，只是主人换了</text>
+      <rect x="30" y="234" width="170" height="36" rx="8" fill="#fffefb" stroke="#d8cdb6" stroke-width="1.2" stroke-dasharray="5 4"/>
+      <text x="44" y="257" font-size="12.5" fill="#9a937f" font-family="monospace">临时对象 ptr: nullptr（空壳）</text>
+      <rect x="250" y="234" width="130" height="36" rx="8" fill="#edf2ec" stroke="#b8cbbd" stroke-width="1.2"/>
+      <text x="266" y="257" font-size="12.5" fill="#3d5340" font-family="monospace">c 的壳 ptr ─┐</text>
+      <rect x="450" y="228" width="210" height="46" rx="10" fill="#f4efe6" stroke="#c9bd9f" stroke-width="1.5"/>
+      <text x="466" y="256" font-size="14" fill="#6b5f3d" font-family="monospace" font-weight="600">同一块堆内存</text>
+      <line x1="382" y1="252" x2="446" y2="252" stroke="#b0542e" stroke-width="2" marker-end="url(#ar4)"/>
+    </svg>
+    <figcaption>移动的不是数据，是"资源的所有权"——内存本身一个字节都没搬动</figcaption>
+  </figure>
+
+  <h3>编译器怎么决定用 ② 还是 ③？</h3>
+  <p>看初始化用的表达式是左值还是右值，<code>T&amp;</code> 与 <code>T&amp;&amp;</code> 的绑定规则就是调度开关：</p>
+
+  <pre><code><span class="t">MyString</span> a(<span class="s">"Hello"</span>);
+
+<span class="t">MyString</span> b = a;                  <span class="c">// a 是左值（有名字，还要用）</span>
+                                 <span class="c">// → T&amp;&amp; 拒绝绑定 → 选中② 拷贝构造，深拷贝，安全</span>
+
+<span class="t">MyString</span> c = <span class="t">MyString</span>(<span class="s">"World"</span>); <span class="c">// 临时对象是右值（用完即弃）</span>
+                                 <span class="c">// → T&amp;&amp; 精确匹配 → 选中③ 移动构造，接管，高效</span></code></pre>
+
+  <div class="box box-idea">
+    <span class="tag">理解 move 最重要的一句话</span>
+    <p><strong>move 不是把数据搬家，而是把"资源的控制权"转交出去：指针过户 + 源置空。</strong>只要源对象还有名字、还可能被使用，编译器就绝不敢偷；只有可消耗的临时对象才会被送上移动构造的手术台。</p>
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section id="s7">
+  <h2><span class="no">07</span>std::move：只是标记，不是搬运</h2>
+  <p class="lede">这个名字很有误导性——<code>std::move</code> 本身不移动任何东西。</p>
+
+  <h3>实现原理：一次 static_cast</h3>
+  <p>还剩一个问题：有名字的对象（左值），如果我确定后面不用它了，怎么让它也走移动构造？<code>std::move</code> 就是这张"许可证"。它的实现简单到令人失望：</p>
+
+  <pre><code><span class="c">// std::move 的本质（简化版实现）</span>
+<span class="k">template</span> &lt;<span class="k">typename</span> <span class="t">T</span>&gt;
+<span class="t">remove_reference_t</span>&lt;<span class="t">T</span>&gt;&amp;&amp; <span class="f">move</span>(<span class="t">T</span>&amp;&amp; arg) {
+    <span class="k">return</span> <span class="k">static_cast</span>&lt;<span class="t">remove_reference_t</span>&lt;<span class="t">T</span>&gt;&amp;&amp;&gt;(arg);   <span class="c">// 就这一行</span>
+}</code></pre>
+
+  <p>它做的唯一一件事：<strong>把表达式强制转换成 <code>T&amp;&amp;</code> 类型</strong>。而"一个表达式是 <code>T&amp;&amp;</code> 类型"在 C++ 里就意味着"这个表达式是右值"。完整链条：</p>
+
+  <div class="flow">std::move(a)
+   ↓ static_cast，表达式类型变成 MyString&amp;&amp;
+   ↓ 表达式变成右值
+   ↓ 重载决议：MyString&amp;&amp; 能绑定了 → 选中移动构造
+   ↓ 移动构造执行：抄指针、置空
+   ↓ 资源过户完成</div>
+
+  <p>std::move 只参与前两步——<strong>贴标签</strong>。真正动手的是移动构造函数。它真正说的话是：<em>"我保证 a 接下来可以被当成可消耗对象，我允许你搬空它。"</em></p>
+
+  <h3>最容易混淆的两行代码</h3>
+  <pre><code><span class="t">MyString</span>&amp;&amp; r = std::move(a);  <span class="c">// r 是【引用】：没有新对象，没有移动，r 和 a 是同一个对象</span>
+<span class="t">MyString</span>    b = std::move(a);  <span class="c">// b 是【新对象】：调用移动构造，这才真的"搬"</span></code></pre>
+
+  <p>验证：<code>&amp;a != &amp;b</code>（两个独立对象，析构各跑一次）；而第一行的 <code>r</code> 只是别名，<code>std::move</code> 在那里白写了。<strong>右值引用本身只是引用；"移动"是用这个右值去构造/赋值另一个对象时才发生。</strong></p>
+
+  <h3>完整运行一遍（带监控打印）</h3>
+  <pre><code><span class="t">int</span> <span class="f">main</span>() {
+    <span class="t">MyString</span> a(<span class="s">"Hello"</span>);
+    <span class="t">MyString</span> b = a;            <span class="c">// 左值 → 拷贝构造</span>
+    <span class="t">MyString</span> c = std::move(a); <span class="c">// 右值 → 移动构造</span>
+}
+
+<span class="c">// 输出（地址是示意）：</span>
+<span class="c">// 构造     a    数据@0x1000</span>
+<span class="c">// 拷贝构造 b    新@0x2000 ← 复制自 0x1000   （新 malloc + 逐字符复制）</span>
+<span class="c">// 移动构造 c    接管 0x1000               （没有新 malloc！）</span>
+<span class="c">// 析构     c    data=0x1000   ← c 释放接管来的内存</span>
+<span class="c">// 析构     b    data=0x2000   ← b 释放自己拷贝来的内存</span>
+<span class="c">// 析构     a    data=nullptr  ← 被搬空但合法存在，delete nullptr 无害</span></code></pre>
+
+  <p>对账三个关键点：① 同一个 <code>a</code>，加不加 move 决定了走拷贝还是移动；② <code>a</code> 析构时 <code>data=nullptr</code>——移动构造里那句置空的救命作用；③ 每块堆内存恰好释放一次，所有权全程有且只有一个主人。move 之后的 <code>a</code> 处于<em>有效但未指定</em>状态：可以析构、可以重新赋值，但别依赖它的旧内容。</p>
+
+  <h3>最反直觉的一点：T&amp;&amp; 类型的变量，本身是左值</h3>
+  <pre><code><span class="k">void</span> <span class="f">foo</span>(<span class="t">MyString</span>&amp;&amp; s) {
+    <span class="f">bar</span>(s);            <span class="c">// 传给 bar 的 s ……是左值！</span>
+    <span class="f">bar</span>(std::move(s)); <span class="c">// 想继续当"可消耗对象"传，必须再 move 一次</span>
+}</code></pre>
+
+  <p><code>s</code> 的类型写着 <code>MyString&amp;&amp;</code>，但表达式 <code>s</code> 是左值。原因很简单：<strong>s 有名字了</strong>——有名字 → 有身份 → 能取地址 → 符合左值的全部定义。</p>
+
+  <div class="box box-key">
+    <span class="tag">把两个概念分开</span>
+    <p><strong><code>T&amp;</code> / <code>T&amp;&amp;</code> 是引用类型（变量的类型）；左值 / 右值是表达式的属性。</strong>"右值引用"说的是它<em>能绑定什么</em>，不是它<em>自己是什么</em>。所以右值层层传递时，每一层都要重新 <code>std::move</code>（模板里配合 <code>std::forward</code> 即"完美转发"）。</p>
+  </div>
+
+  <h3>每种类型都有移动构造吗？</h3>
+  <div class="tbl">
+    <table>
+      <tr><th>情况</th><th>移动构造从哪来</th></tr>
+      <tr><td>内置类型（int、double、指针）</td><td>没有资源可偷，move 就是 copy</td></tr>
+      <tr><td>类里没写析构/拷贝/移动任何函数</td><td>✅ 编译器自动生成：逐个成员 move</td></tr>
+      <tr><td>你写了析构或拷贝</td><td>❌ 编译器不生成——<code>std::move</code> 会<em>静默退化成拷贝</em>（右值绑定到 const T&amp;）</td></tr>
+      <tr><td>成员全是 string/vector/unique_ptr</td><td>什么都不用写（零法则），默认移动就正确高效</td></tr>
+      <tr><td>自己用裸指针/new 管资源</td><td>必须按"五法则"自己写全，或改用智能指针</td></tr>
+    </table>
+  </div>
+
+  <div class="box box-q">
+    <span class="tag">两个使用禁忌</span>
+    <p>① 不要写 <code>return std::move(local);</code>——会阻止编译器的返回值优化（RVO），反而变慢。<br>② move 后不要再依赖原对象的旧内容。</p>
+  </div>
+</section>
+
+<!-- ================= 8 ================= -->
+<section id="s8">
+  <h2><span class="no">08</span>收尾：一页心智模型</h2>
+  <p class="lede">如果整篇只能记住一屏，就记这个。</p>
+
+  <div class="final">
+    <div class="row"><div class="lhs">变量名</div><div class="rhs">对象的名字（不是地址）。编译后消失，替换成栈偏移 / 寄存器 / 常量。</div></div>
+    <div class="row"><div class="lhs">栈 / 堆</div><div class="rhs">对象的住址，由创建方式决定（new 与否）。声明即分配并构造；栈自动回收，堆手动 delete。</div></div>
+    <div class="row"><div class="lhs">引用</div><div class="rhs">别名，不创建新对象。<code>Student s3 = s2;</code> 才会拷贝构造出一个新对象。</div></div>
+    <div class="row"><div class="lhs">左值</div><div class="rhs">求值结果是有身份、可回访的对象——表达式结束它还在，能取地址、能写入。</div></div>
+    <div class="row"><div class="lhs">右值</div><div class="rhs">求值结果是用完即弃的临时值——算完就消散，可被消耗。</div></div>
+    <div class="row"><div class="lhs">T&amp;</div><div class="rhs">绑定左值。"借来用，可能改。"</div></div>
+    <div class="row"><div class="lhs">const T&amp;</div><div class="rhs">左右值都能绑。"只看看，不复制，也不改。"</div></div>
+    <div class="row"><div class="lhs">T&amp;&amp;</div><div class="rhs">绑定可消耗对象。"可以把它搬空。"</div></div>
+    <div class="row"><div class="lhs">移动语义</div><div class="rhs">搬的不是数据，是资源的所有权：指针过户 + 源置空。内存本身一字节未动。</div></div>
+    <div class="row"><div class="lhs">std::move(x)</div><div class="rhs">一次 static_cast："我允许你把 x 当成可消耗对象。"它不移动任何东西。</div></div>
+    <div class="row"><div class="lhs">T&amp;&amp; 变量</div><div class="rhs">一旦有了名字，它自己就是左值——继续传递要再 move。</div></div>
+    <div class="row"><div class="lhs">三套正交</div><div class="rhs">栈/堆（住址）、左值/右值（结果有无身份）、等号左右（使用语境），两两互不等价。</div></div>
+  </div>
+
+  <div class="box box-idea">
+    <span class="tag">最后的因果链</span>
+    <p>因为机器世界里"位置"和"数据"是两回事，所以语言必须区分"指向位置的表达式"（左值）和"只产出数据的表达式"（右值）；后来又因为"临时结果背后可能藏着昂贵的资源，值得搬移而不是复制"，这个区分从"管能不能赋值"升级成了"管能不能偷资源"的性能优化基础设施。你看到的每一条规则——能取地址的是左值、右值引用用来接管资源、std::move 只是个标记——都不是规则本身，而是这条因果链长出来的枝叶。</p>
+  </div>
+</section>
+
+<footer>
+  C++ 左值、右值与引用<br>
+  <span style="font-size:12.5px">变量名 → 栈与堆 → 引用 → 位置与数据 → 左右值 → 移动语义 → std::move</span>
+</footer>
+
+</div>
+
+<script>
+const bar = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const p = h.scrollTop / (h.scrollHeight - h.clientHeight) * 100;
+  bar.style.width = p + '%';
+}, {passive:true});
+</script>
+</body>
+</html>
