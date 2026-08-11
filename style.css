@@ -1110,6 +1110,12 @@ body.is-article-mode .content {
   font-weight: 600;
 }
 
+/* 首列多为短标签，auto 布局会把它压到断行；不换行，超宽由 .table-wrap 横向滚动兜底。 */
+.markdown-body th:first-child,
+.markdown-body td:first-child {
+  white-space: nowrap;
+}
+
 .math-inline {
   color: var(--moss);
   font-size: 0.9em;
