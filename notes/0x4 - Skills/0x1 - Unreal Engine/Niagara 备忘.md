@@ -1,5 +1,5 @@
 ---
-title: "Niagara备忘"
+title: "Niagara 备忘"
 date: "2026-07-13"
 summary: "汇总 Niagara 粒子系统的常用配置、参数联动与自定义逻辑，作为特效制作中的操作备忘与问题排查参考。"
 category: "Unreal Engine"
