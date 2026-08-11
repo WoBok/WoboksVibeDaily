@@ -27,10 +27,13 @@ H：隐藏选中物体
 Alt + H：显示所有隐藏物体  
 Shift + H：隐藏未选中物体  
 
+Tab：编辑模式
 Ctrl + Tab：模式切换菜单  
 
 Shift + C：Cursor 回到世界原点 + 显示整个场景  
 Shift + S：吸附菜单
+
+Z：渲染模式
 
 ## 概念
 ### Cursor
@@ -55,3 +58,12 @@ Blender 中一个可自由移动的**空间定位点 / 临时锚点**。
 - `Shift + S → Cursor to World Origin` → Cursor 回到 `(0,0,0)`
 
 **3D Cursor = 三维空间中可自由移动的临时定位锚点。**
+
+## 操作
+
+### 将选中物体渲染为线框模式
+```text
+选中模型 → Object Properties → Viewport Display → Display As → Wire
+           ↑
+           橙色方形图标🟧
+```

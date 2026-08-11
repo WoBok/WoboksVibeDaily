@@ -1398,15 +1398,6 @@
 
   const CJK_CHAR = /[⺀-鿿豈-﫿︰-﹏＀-￯]/;
 
-  function joinParagraphLines(lines) {
-    return lines.reduce((joined, line) => {
-      if (!joined) return line;
-      // 中文（CJK）跨行书写时直接拼接，避免换行处插入英文空格。
-      const noSpace = CJK_CHAR.test(joined[joined.length - 1]) && CJK_CHAR.test(line[0]);
-      return noSpace ? joined + line : `${joined} ${line}`;
-    }, '');
-  }
-
   function renderInlineLines(lines, context = {}) {
     const hardBreakToken = '\uE000';
     const source = lines.reduce((joined, rawLine, index) => {
@@ -1549,7 +1540,7 @@
 
     const flushParagraph = () => {
       if (!paragraph.length) return;
-      html.push(`<p>${renderInlineMarkdown(joinParagraphLines(paragraph), context)}</p>`);
+      html.push(`<p>${renderInlineLines(paragraph, context)}</p>`);
       paragraph = [];
     };
 
@@ -1683,7 +1674,8 @@
         continue;
       }
 
-      paragraph.push(trimmed);
+      // 保留行尾空白，交给 renderInlineLines 识别双空格/反斜杠硬换行。
+      paragraph.push(line);
     }
 
     flushParagraph();
