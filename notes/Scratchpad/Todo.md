@@ -1,1 +1,4 @@
 - [ ] C++反射原理
+- [ ] Game线程和Render线程
+- [ ] RDG、RHI
+- [ ] Render Opaque After Translucency
