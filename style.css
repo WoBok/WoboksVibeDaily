@@ -976,6 +976,14 @@ body.is-article-mode .content {
   object-fit: contain;
 }
 
+/* 直通的内联 SVG 只作用于顶层，避免命中 MathJax 输出的 svg。 */
+.markdown-body > svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 22px auto;
+}
+
 .markdown-body img.is-error {
   min-height: 120px;
   padding: 18px;

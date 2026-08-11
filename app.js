@@ -1584,6 +1584,26 @@
         continue;
       }
 
+      // 内联 SVG 整块原样直通（笔记内容自产可信）；找不到闭合标签则退回普通段落转义。
+      if (/^<svg[\s>]/i.test(trimmed)) {
+        let closingIndex = -1;
+        for (let index = i; index < lines.length; index += 1) {
+          // 不越过代码围栏，避免未闭合的 <svg 吞掉后文的示例代码。
+          if (index > i && lines[index].trim().startsWith('```')) break;
+          if (/<\/svg>/i.test(lines[index])) {
+            closingIndex = index;
+            break;
+          }
+        }
+
+        if (closingIndex !== -1) {
+          flushParagraph();
+          html.push(lines.slice(i, closingIndex + 1).join('\n'));
+          i = closingIndex;
+          continue;
+        }
+      }
+
       const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
       if (heading) {
         flushParagraph();
@@ -1689,7 +1709,7 @@
           ...(window.MathJax?.tex || {})
         },
         options: {
-          skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+          skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'svg'],
           ...(window.MathJax?.options || {})
         },
         svg: {
