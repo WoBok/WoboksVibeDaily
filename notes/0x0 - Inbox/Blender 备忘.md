@@ -60,6 +60,40 @@ Blender 中一个可自由移动的**空间定位点 / 临时锚点**。
 
 **3D Cursor = 三维空间中可自由移动的临时定位锚点。**
 
+### Blender 顶点色
+
+3.2 起统一叫 **Color Attribute**，数量不限，靠名字区分。
+
+#### 数据模型
+
+- **域**:Face Corner(面角)可有硬边界 / Vertex(点)必然平滑
+- **类型**:Byte Color(8bit，sRGB)存颜色 / Color float32(线性)存遮罩
+- **两个激活标记**:选中项 = 画笔目标 + FBX 优先项；相机图标 = 材质默认值 + glTF 导出取的那个
+
+#### 用法
+
+- **添加**:Object Data Properties → Color Attributes → `+`，再进 Vertex Paint 模式刷
+- **程序化**:几何节点 Store Named Attribute 写、Named Attribute 读，名字必须完全一致(大小写敏感，读不到就是 0)
+- **查看**:视图着色 → Color: Attribute
+
+#### 导出(FBX)
+
+- **全部**导出，每个属性一层，层名 = 属性名
+- 勾 `Prioritize Active Color` 把选中项提到第 0 层 —— 引擎只认第 0 层
+- Vertex Colors 下拉:颜色选 sRGB，遮罩选 **Linear**(sRGB 会做编码，0.5 → 0.73)
+- Apply Modifiers 默认开启 → 导出的是修改器算完的网格，属性可能已被改名/改域/插值
+
+#### 跨软件
+
+| 软件 | 能存几套 | 存在哪 |
+|---|---|---|
+| Blender | 不限 | Color Attributes，按名字 |
+| Maya | 多套 | Color Sets，以 current set 为主 |
+| UE / Unity | **只有一层** | 单个 8bit RGBA，导入只取第一层 |
+
+- 多张遮罩打包进一个属性的 R/G/B/A，不要建多个属性
+- 要精度改用 UV 通道:顶点色 8bit 只有 256 级会 banding，UV 是 float32(UE 最多 8 组)
+
 ## 操作
 
 ### 将选中物体渲染为线框模式
