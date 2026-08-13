@@ -60,6 +60,29 @@ Blender 中一个可自由移动的**空间定位点 / 临时锚点**。
 
 **3D Cursor = 三维空间中可自由移动的临时定位锚点。**
 
+### Vertex 与 Face Corner 核心区别
+
+- **Vertex（点）**：一个位置存一份数据，相邻面必然连续、自动插值。
+- **Face Corner（面角）**：每个面在每个角单独存一份，同一位置可存多份不同值，因此能做**硬边界**（硬边法线、UV 接缝、颜色硬色块）。
+
+#### 术语对照
+
+| Blender | Houdini | UE |
+|---|---|---|
+| Vertex（几何节点中显示为 Point） | Point | `FVertexID` |
+| Face Corner（loop） | **Vertex** | `FVertexInstanceID` |
+| Face | Primitive | `FPolygonID` |
+
+#### 到引擎的转换
+
+Corner 层是「允许不同」的上限；导入引擎后按**唯一属性组合**（法线 / UV / 切线 / 颜色）去重，实际不同才拆成渲染顶点。立方体 8 点 → 24 个渲染顶点，UE 编辑器显示的 Verts 即此值。
+
+#### 选择建议
+
+遮罩、渐变、随机着色 → Vertex，更轻。需要按面区分的硬色块，或匹配外部数据 → Face Corner。`Byte Color` 对应 UE 的 `FColor`（8 位），浮点 `Color` 导出会被压位。
+
+Blender 内两域可随时互转：Object ▸ Convert Attribute。
+
 ### Blender 顶点色
 
 3.2 起统一叫 **Color Attribute**，数量不限，靠名字区分。
