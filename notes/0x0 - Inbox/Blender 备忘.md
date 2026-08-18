@@ -36,6 +36,9 @@ Shift + S：吸附菜单
 
 Z：渲染模式
 
+Shift + M：Link to Collection
+Ctrl + J：Join
+
 ## 概念
 ### Cursor
 
