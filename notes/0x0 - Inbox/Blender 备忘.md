@@ -128,3 +128,17 @@ Blender 内两域可随时互转：Object ▸ Convert Attribute。
            ↑
            橙色方形图标🟧
 ```
+
+### Proportional Editing（比例编辑）
+
+Blender 软选择 = Proportional Editing（比例编辑）。
+
+核心逻辑：
+
+`O`：开 / 关软选择  
+选中点 → `G / R / S`：移动 / 旋转 / 缩放  
+变换过程中：
+- 滚轮 / `Page Up` `Page Down`：调影响范围
+- `Shift + O`：切换衰减类型
+- 左键：确认
+- 右键 / `Esc`：取消
