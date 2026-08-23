@@ -2,7 +2,7 @@
 title: "UE5.8 MCP 使用指南"
 date: "2026-08-04"
 summary: "涵盖 UE5.8 Unreal MCP 的插件启用、服务器与客户端配置、控制台命令、设置项、内置工具集及 Python/C++ 自定义工具开发。"
-category: "Inbox"
+category: "Unreal Engine"
 tags:
   - "Unreal Engine"
   - "UE5.8"

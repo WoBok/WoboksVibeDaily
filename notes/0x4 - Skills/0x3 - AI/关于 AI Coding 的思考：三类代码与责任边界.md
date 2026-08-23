@@ -2,7 +2,7 @@
 title: "关于 AI Coding 的思考：三类代码与责任边界"
 date: "2026-08-11"
 summary: "以低风险、高认知和高风险三种可重叠属性划分代码，明确 AI 生成、团队理解、独立验证与最终审批的责任边界。"
-category: "Inbox"
+category: "AI"
 tags:
   - "AI Coding"
   - "低风险代码"

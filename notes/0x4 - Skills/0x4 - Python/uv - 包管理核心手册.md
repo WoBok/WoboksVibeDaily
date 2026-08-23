@@ -2,7 +2,7 @@
 title: "uv - 包管理核心手册"
 date: "2026-08-16"
 summary: "梳理 uv 的 Python 版本管理、依赖锁定、虚拟环境、项目运行、pip 兼容模式及缓存维护等核心机制与命令。"
-category: "Inbox"
+category: "Python"
 tags:
   - "uv"
   - "Python"

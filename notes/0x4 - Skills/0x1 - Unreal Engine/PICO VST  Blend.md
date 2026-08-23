@@ -2,7 +2,7 @@
 title: "PICO VST  Blend"
 date: "2026-07-22"
 summary: "梳理 PICO EyeBuffer 与 VST 的三种合成模式、UE 材质的颜色与 Alpha 写入规则，以及透明和 Additive 内容的适配方法。"
-category: "Inbox"
+category: "Unreal Engine"
 tags:
   - "PICOXR"
   - "Unreal Engine"

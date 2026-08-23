@@ -2,7 +2,7 @@
 title: "Blender 备忘"
 date: "2026-08-11"
 summary: "整理 Blender 基础视图、物体与模式操作快捷键，并说明 3D Cursor 与世界原点、物体原点的区别及定位用途。"
-category: "Inbox"
+category: "Blender"
 tags:
   - "Blender"
   - "快捷键"

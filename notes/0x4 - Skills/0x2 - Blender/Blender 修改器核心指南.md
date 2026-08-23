@@ -2,7 +2,7 @@
 title: "Blender 修改器核心指南"
 date: "2026-08-11"
 summary: "梳理 Blender 修改器的非破坏性建模原则、堆栈顺序与应用时机，并以阵列楼梯和布尔开洞说明常用操作与排错要点。"
-category: "Inbox"
+category: "Blender"
 tags:
   - "Blender"
   - "修改器"

@@ -2,7 +2,7 @@
 title: "C++ RAII 核心概念简明指南"
 date: "2026-08-09"
 summary: "阐明 RAII 如何将资源生命周期绑定到对象生命周期，并通过智能指针示例说明作用域退出时自动释放资源的机制。"
-category: "Inbox"
+category: "C++"
 tags:
   - "C++"
   - "RAII"

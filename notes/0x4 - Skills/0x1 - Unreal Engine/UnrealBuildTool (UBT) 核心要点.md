@@ -2,7 +2,7 @@
 title: "UnrealBuildTool (UBT) 核心要点"
 date: "2026-08-05"
 summary: "梳理 UBT 的模块、目标与编译配置，详解 Build.cs、Target.cs、UHT 构建流程、链接方式、编译加速机制及常用命令。"
-category: "Inbox"
+category: "Unreal Engine"
 tags:
   - "Unreal Engine"
   - "UnrealBuildTool"
