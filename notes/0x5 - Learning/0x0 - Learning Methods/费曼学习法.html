@@ -71,31 +71,55 @@
       background: #fff;
       color: #111;
       isolation: isolate;
+      box-shadow:
+        inset 0 0 0 1px rgba(20, 45, 70, .08),
+        0 8px 24px rgba(0, 0, 0, .16);
     }
 
-    .pyramid-card > img {
+    .pyramid-shape {
       position: absolute;
-      inset: 0;
-      z-index: -2;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center;
-      filter: saturate(.96) contrast(1.02);
-    }
-
-    .pyramid-card::after {
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      content: "";
+      top: 10%;
+      bottom: 12%;
+      left: 18%;
+      width: 64%;
+      overflow: hidden;
       background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, .95) 0 15%,
-        transparent 27% 74%,
-        rgba(255, 255, 255, .95) 86% 100%
+        to bottom,
+        #9bcbff 0 14%,
+        rgba(255, 255, 255, .96) 14% 14.8%,
+        #75b3fb 14.8% 28%,
+        rgba(255, 255, 255, .96) 28% 28.8%,
+        #559ef5 28.8% 42%,
+        rgba(255, 255, 255, .96) 42% 42.8%,
+        #348df0 42.8% 56%,
+        rgba(255, 255, 255, .96) 56% 56.8%,
+        #2080e9 56.8% 70%,
+        rgba(255, 255, 255, .96) 70% 70.8%,
+        #0d70df 70.8% 84%,
+        rgba(255, 255, 255, .96) 84% 84.8%,
+        #0060d6 84.8% 100%
       );
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+
+    .pyramid-shape::after {
+      position: absolute;
+      inset: 0;
+      content: "";
+      background: linear-gradient(135deg, rgba(255, 255, 255, .2), transparent 48%);
       pointer-events: none;
+    }
+
+    .learning-rows {
+      position: absolute;
+      top: 14%;
+      right: 0;
+      bottom: 14%;
+      left: 0;
+      display: grid;
+      grid-template-rows: repeat(7, 1fr);
+      grid-template-columns: 18% 64% 18%;
+      align-items: center;
     }
 
     .diagram-title,
@@ -134,8 +158,10 @@
     }
 
     .tier {
-      left: 50%;
-      transform: translate(-50%, -50%);
+      position: relative;
+      grid-column: 2;
+      align-self: center;
+      justify-self: center;
       color: #fff;
       font-size: 9px;
       font-weight: 600;
@@ -143,8 +169,11 @@
     }
 
     .rate {
-      right: 3.2%;
-      transform: translateY(-50%);
+      position: relative;
+      grid-column: 3;
+      align-self: center;
+      justify-self: end;
+      padding-right: 12px;
       font-size: 12px;
       font-weight: 700;
     }
@@ -160,16 +189,16 @@
       opacity: .75;
     }
 
-    .row-1 { top: 19.5%; }
-    .row-2 { top: 30.4%; }
-    .row-3 { top: 41.3%; }
-    .row-4 { top: 52.2%; }
-    .row-5 { top: 63.1%; }
-    .row-6 { top: 74%; }
-    .row-7 { top: 84.9%; }
+    .row-1 { grid-row: 1; }
+    .row-2 { grid-row: 2; }
+    .row-3 { grid-row: 3; }
+    .row-4 { grid-row: 4; }
+    .row-5 { grid-row: 5; }
+    .row-6 { grid-row: 6; }
+    .row-7 { grid-row: 7; }
 
     .diagram-footer {
-      bottom: 4%;
+      bottom: 2%;
       left: 50%;
       transform: translateX(-50%);
       font-size: 13px;
@@ -305,28 +334,29 @@
 
     <figure class="learning-figure">
       <div class="pyramid-card" role="img" aria-label="学习金字塔：教授给他人的学习内容平均留存率最高">
-        <img src="assets/images/费曼学习法 - 01 - learning-pyramid-base.png" alt="">
+        <div class="pyramid-shape" aria-hidden="true"></div>
         <span class="diagram-title">学习内容平均留存率</span>
         <span class="group-label passive">被动学习</span>
         <span class="group-label active">主动学习</span>
 
-        <span class="tier row-1">听讲</span>
-        <span class="rate row-1">5%</span>
-        <span class="tier row-2">阅读</span>
-        <span class="rate row-2">10%</span>
-        <span class="tier row-3">视听</span>
-        <span class="rate row-3">20%</span>
-        <span class="tier row-4">演示</span>
-        <span class="rate row-4">30%</span>
-        <span class="tier row-5">讨论</span>
-        <span class="rate row-5">50%</span>
-        <span class="tier row-6">实践</span>
-        <span class="rate row-6">75%</span>
-        <span class="tier row-7">教授给他人</span>
-        <span class="rate row-7">90%</span>
+        <div class="learning-rows">
+          <span class="tier row-1">听讲</span>
+          <span class="rate row-1">5%</span>
+          <span class="tier row-2">阅读</span>
+          <span class="rate row-2">10%</span>
+          <span class="tier row-3">视听</span>
+          <span class="rate row-3">20%</span>
+          <span class="tier row-4">演示</span>
+          <span class="rate row-4">30%</span>
+          <span class="tier row-5">讨论</span>
+          <span class="rate row-5">50%</span>
+          <span class="tier row-6">实践</span>
+          <span class="rate row-6">75%</span>
+          <span class="tier row-7">教授给他人</span>
+          <span class="rate row-7">90%</span>
+        </div>
         <span class="diagram-footer">学习金字塔</span>
       </div>
-      <figcaption>教授给他人是留存率最高的学习方式。来源：Shiny Zhu</figcaption>
     </figure>
 
     <section aria-labelledby="steps-title">
