@@ -11,7 +11,7 @@ tags:
   - "UE RDG"
 ---
 
-本文从数据布局、寻址方式、资源视图和读写权限四个角度，说明以下 HLSL 数据类型：
+HLSL Buffer 可以从数据布局、寻址方式、资源视图和读写权限四个角度进行分类：
 
 ```hlsl
 StructuredBuffer<T>
