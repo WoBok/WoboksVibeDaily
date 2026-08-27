@@ -1,5 +1,5 @@
 ---
-title: "C++ 值类别与移动语义"
+title: "C++ 左值、右值与移动语义"
 date: "2026-08-26"
 summary: "解析 C++ 左值、亡值与纯右值的分类和引用绑定规则，以及移动构造、std::move 与 std::forward 的作用。"
 category: "C++"
