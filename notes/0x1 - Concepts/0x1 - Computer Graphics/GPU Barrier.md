@@ -41,7 +41,7 @@ Barrier 就是在两个渲染操作之间立起的一道“安全闸门”。
     <path d="M420 340 V388" marker-end="url(#arrowhead)"/>
     <rect x="270" y="400" width="300" height="52" rx="12"/>
   </g>
-  <g fill="#000" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif" dominant-baseline="central" style="line-height:normal;">
+  <g fill="#000" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif" dominant-baseline="central" transform="translate(0 4)" style="line-height:normal;">
     <text x="420" y="36" font-size="19" font-weight="700" text-anchor="middle">Pass A：写入贴图</text>
     <text x="420" y="137" font-size="23" font-weight="700" letter-spacing="0.5" text-anchor="middle">BARRIER（安全闸门）</text>
     <text x="122" y="194" font-size="17" font-weight="700" text-anchor="middle">1</text>
@@ -49,7 +49,7 @@ Barrier 就是在两个渲染操作之间立起的一道“安全闸门”。
     <text x="122" y="311" font-size="17" font-weight="700" text-anchor="middle">3</text>
     <text x="420" y="426" font-size="19" font-weight="700" text-anchor="middle">Pass B：读取贴图（采样）</text>
   </g>
-  <g fill="#000" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif" dominant-baseline="central" text-anchor="start" style="line-height:normal;">
+  <g fill="#000" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif" dominant-baseline="central" text-anchor="start" transform="translate(0 4)" style="line-height:normal;">
     <text x="155" y="194" font-size="17" font-weight="700">执行同步</text>
     <text x="285" y="194" font-size="16">Execution Sync</text>
     <text x="500" y="194" font-size="16">等 Pass A 完全写完</text>
