@@ -20,7 +20,7 @@ Barrier 就是在两个渲染操作之间立起的一道“安全闸门”。
 
 一个完整的 Barrier 操作通常同时处理三件事：
 
-<svg xmlns="http://www.w3.org/2000/svg" width="640" viewBox="0 0 840 470" role="img" aria-labelledby="barrier-title barrier-desc" style="display:block;max-width:100%;height:auto;margin:20px auto;">
+<svg xmlns="http://www.w3.org/2000/svg" width="640" viewBox="0 0 840 470" role="img" aria-labelledby="barrier-title barrier-desc" style="display:block;max-width:100%;height:auto;margin:20px auto;font-weight:400;line-height:normal;">
   <title id="barrier-title">GPU Barrier 安全闸门示意图</title>
   <desc id="barrier-desc">Pass A 写入贴图后，Barrier 依次处理执行同步、缓存刷新和状态转换，随后 Pass B 才读取贴图。</desc>
   <defs>
