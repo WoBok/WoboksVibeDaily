@@ -39,7 +39,6 @@ Pass A 写中间纹理 → Pass B 读取中间纹理 → Pass C 写入最终目�
 
 RDG 不替代 Shader，也不替代 RHI。**RDG 管“工作怎样衔接”，Pass 的执行代码仍通过 RHI 记录 Draw、Dispatch 或 Copy 命令。**
 
-
 ## 2. Pass 与 Resource 构成数据流图
 
 RDG 图由两类要素组成：
@@ -89,8 +88,6 @@ RDG 汇总所有 Pass 的访问契约、执行类型与最终输出，据此完�
 - 计算临时资源的有效生命周期并复用内存；
 - 从最终输出反向裁剪无效的 Pass 与资源。
 
----
-
 ## 3. RDG 如何运作：Setup、Compile、Execute
 
 ### 3.1 Setup：描述本次图
@@ -137,8 +134,6 @@ Pass 可能延迟执行、并行录制，或因裁剪而不执行。因此：
 
 一次 `Execute()` 是当前 `FRDGBuilder` 的图边界，但不等于立即 Flush GPU。不同 Builder 是不同的图，不会跨图联合分析；资源跨图使用必须显式导出和重新注册。
 
----
-
 ## 4. 资源与访问契约
 
 ### 4.1 三层信息不能混为一谈
@@ -168,8 +163,6 @@ Pass Parameters：这个 Pass 实际怎样访问资源
 `FRDGTextureRef`、`FRDGBufferRef` 及其 View 只在当前 Builder 生命周期内有效，不应保存到 UObject、模块成员或下一帧。跨帧历史资源应由图外的池化资源持有。
 
 Register 会让资源从图开始时就处于外部生命周期，Extract 会把它延长到图结束；两者都会减少内存别名复用空间。因此，**能留在一张图内的中间结果就不要过早外部化。**
-
----
 
 ## 5. 一个最小但完整的 Compute Pass
 
@@ -362,8 +355,6 @@ RDG 可以由此确定性地推导：
 
 RDG 通常从具有外部可见结果的图根反向保留生产者。常见图根包括写入外部资源、请求资源提取，以及确实需要 `NeverCull` 的副作用 Pass。Pass 意外消失时，应先检查输出链是否断开，而不是直接添加 `NeverCull`。
 
----
-
 ## 7. Pass 类型、边界与 Async Compute
 
 `ERDGPassFlags` 表示 Pass 在哪类管线记录什么工作：
@@ -393,8 +384,6 @@ Graphics 生产者 ──Fence──► Async Compute ──Fence──► Graph
 
 只有当中间存在足够的、依赖独立的 Graphics 工作可与 Compute 重叠时，才可能获得收益。依赖太紧、资源竞争或带宽压力过大时，Fence 成本可能抵消收益；必须通过 RDG Insights 与 GPU Profiling 验证。
 
----
-
 ## 8. RDG 带来的核心优化，以及成立条件
 
 RDG 的优化都来自同一个前提：**它在执行前看到了完整且准确的数据流。**
@@ -420,8 +409,6 @@ RDG 负责的是 **Pass 之间** 的资源管理与同步，它不会修复：
 - 算法本身产生的无效工作。
 
 因此顺序应始终是：先正确表达数据流，再由工具验证实际收益。
-
----
 
 ## 9. 面对新需求时的设计顺序
 
