@@ -90,14 +90,18 @@ RDG 汇总所有 Pass 的访问契约、执行类型与最终输出，据此完�
 
 ## 3. RDG 如何运作：Setup、Compile、Execute
 
+一次典型的 RDG 使用只有四步：
+
+1. 创建 `FRDGBuilder`；
+2. 注册图外资源，或创建图内资源；
+3. `AddPass`：填写参数结构，并用 Lambda 记录 GPU 命令；
+4. `Execute()`：编译并执行整张图。
+
+**前三步只是描述这张图，依赖推导、Barrier、裁剪和真正的命令录制都发生在第四步。**
+
 ### 3.1 Setup：描述本次图
 
-从创建 `FRDGBuilder` 到调用 `Execute()` 之前，代码主要做四件事：
-
-1. 创建图内资源，或注册图外资源；
-2. 用 `GraphBuilder.AllocParameters` 分配并填写 Pass 参数；
-3. 添加 Pass；
-4. 声明上传、复制、提取等工作。
+第 1 步到第 3 步之间，代码还会用 `GraphBuilder.AllocParameters` 分配 Pass 参数，并声明上传、复制、提取等工作。
 
 `CreateTexture`、`CreateBuffer` 通常只创建资源描述与图内句柄；`AddPass` 只记录 Pass。此时底层资源未必已经分配，Pass Lambda 也尚未运行。
 
