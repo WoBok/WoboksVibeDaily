@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="title" content="Rider 调试参考手册">
+<meta name="date" content="2026-09-01">
+<meta name="summary" content="系统梳理 Rider C++ 调试器的运行原理、工具栏、断点、调用栈、变量与表达式求值、并行线程、内存视图、符号模块及快捷键。">
+<meta name="category" content="Inbox">
+<meta name="tags" content="Rider|C++|LLDB|断点调试|调用栈|内存调试">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rider 调试参考手册</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+
+:root{
+  --paper:#FCFCFD;
+  --paper-2:#F3F4F7;
+  --paper-3:#EAECF0;
+  --ink:#15171C;
+  --ink-2:#3B4150;
+  --muted:#6C7381;
+  --rule:#E1E4EA;
+  --rule-2:#CBD0D9;
+  --mark:#B3352E;
+  --mark-bg:#FAEDEC;
+
+  --sans:"IBM Plex Sans","PingFang SC","Microsoft YaHei","Source Han Sans SC",-apple-system,system-ui,sans-serif;
+  --mono:"IBM Plex Mono","SFMono-Regular","Cascadia Mono",Consolas,"Liberation Mono",monospace;
+
+  /* 复刻件：取自 Rider 实际界面 */
+  --ide:#2B2D30;
+  --ide-2:#1E1F22;
+  --ide-3:#393B40;
+  --ide-fg:#DFE1E5;
+  --ide-dim:#7A7E85;
+  --ide-sel:#2E436E;
+  --ide-selbd:#4A6DA7;
+  --ide-blue:#56A8F5;
+  --ide-green:#5FAD65;
+  --ide-red:#DB5C5C;
+  --ide-exc:#F75464;
+  --ide-orange:#CF8E6D;
+  --ide-str:#6AAB73;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171B;
+    --paper-2:#1C1F24;
+    --paper-3:#23272E;
+    --ink:#E6E8EC;
+    --ink-2:#B5BCC8;
+    --muted:#8C94A3;
+    --rule:#2B2F36;
+    --rule-2:#3A3F48;
+    --mark:#E2685E;
+    --mark-bg:#2A1D1C;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171B; --paper-2:#1C1F24; --paper-3:#23272E;
+  --ink:#E6E8EC; --ink-2:#B5BCC8; --muted:#8C94A3;
+  --rule:#2B2F36; --rule-2:#3A3F48;
+  --mark:#E2685E; --mark-bg:#2A1D1C;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15.5px;
+  line-height:1.72;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- 版面骨架 ---------- */
+.wrap{display:grid;grid-template-columns:232px minmax(0,1fr);gap:0;max-width:1180px;margin:0 auto}
+
+.nav{
+  position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+  padding:38px 22px 40px 20px;border-right:1px solid var(--rule);
+}
+.nav-brand{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:18px}
+.nav ol{list-style:none;margin:0;padding:0}
+.nav li{margin:0 0 1px}
+.nav a{
+  display:flex;gap:9px;align-items:baseline;
+  padding:5px 8px;border-radius:3px;
+  color:var(--ink-2);text-decoration:none;font-size:13.5px;line-height:1.45;
+}
+.nav a:hover{background:var(--paper-2);color:var(--ink)}
+.nav a:focus-visible{outline:2px solid var(--mark);outline-offset:1px}
+.nav .n{font-family:var(--mono);font-size:11px;color:var(--muted);flex:none;width:16px}
+.nav .sub a{padding-left:33px;font-size:12.5px;color:var(--muted)}
+
+.doc{padding:38px 44px 100px 44px;min-width:0}
+
+/* ---------- 页首 ---------- */
+.head{margin-bottom:34px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--mark);text-transform:uppercase;margin-bottom:12px}
+.head h1{font-size:33px;line-height:1.2;font-weight:600;letter-spacing:-.015em;margin:0 0 12px;text-wrap:balance}
+.head .lede{font-size:16px;color:var(--ink-2);max-width:60ch;margin:0}
+
+/* ---------- 章节 ---------- */
+.sec{margin:0 0 52px;scroll-margin-top:24px}
+.sec-head{display:flex;gap:12px;align-items:baseline;border-top:2px solid var(--ink);padding-top:11px;margin-bottom:18px}
+.sec-n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mark);flex:none}
+.sec-head h2{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0}
+.sec h3{font-size:16px;font-weight:600;margin:30px 0 9px;letter-spacing:-.005em}
+.sec h4{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 8px}
+.sec p{margin:0 0 13px;max-width:70ch}
+.sec ul{margin:0 0 14px;padding-left:19px;max-width:70ch}
+.sec li{margin-bottom:5px}
+.sec strong{font-weight:600}
+.sec a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:2px}
+.sec a:hover{color:var(--ink);text-decoration-color:var(--muted)}
+.sec a:focus-visible{outline:2px solid var(--mark);outline-offset:2px;border-radius:2px}
+code{font-family:var(--mono);font-size:.9em;background:var(--paper-2);border:1px solid var(--rule);border-radius:3px;padding:.5px 4px}
+.k{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);background:var(--paper-2);border:1px solid var(--rule-2);border-bottom-width:2px;border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ---------- 表格 ---------- */
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:4px;margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:13.8px}
+th{
+  font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:9px 13px;background:var(--paper-2);
+  border-bottom:1px solid var(--rule);white-space:nowrap;
+}
+td{padding:9px 13px;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.55}
+tr:last-child td{border-bottom:none}
+td.nm{font-weight:600;white-space:nowrap}
+td.mn{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+
+/* ---------- 提示块 ---------- */
+.note{border-left:2px solid var(--rule-2);padding:2px 0 2px 15px;margin:0 0 18px;max-width:70ch}
+.note p{margin:0 0 7px;font-size:14.2px;color:var(--ink-2)}
+.note p:last-child{margin:0}
+.note.hi{border-left-color:var(--mark);background:var(--mark-bg);padding:11px 14px;border-radius:0 3px 3px 0}
+.note.hi p{color:var(--ink)}
+
+/* ---------- 代码块 ---------- */
+pre{
+  font-family:var(--mono);font-size:12.8px;line-height:1.65;
+  background:var(--paper-2);border:1px solid var(--rule);border-radius:4px;
+  padding:13px 15px;overflow-x:auto;margin:0 0 18px;
+}
+pre code{background:none;border:none;padding:0;font-size:inherit}
+
+/* ============================================================
+   界面复刻件 —— 恒为深色，不随文档主题变化
+   ============================================================ */
+figure{margin:0 0 20px}
+figcaption{
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  margin-top:8px;letter-spacing:.03em;
+}
+.ide{
+  background:var(--ide);color:var(--ide-fg);
+  font-family:var(--mono);font-size:12px;line-height:1.5;
+  border:1px solid #000;border-radius:4px;overflow:hidden;
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+}
+.ide-scroll{overflow-x:auto}
+.ide-inner{min-width:600px}
+
+.ide-tabs{display:flex;align-items:center;gap:2px;padding:5px 8px;border-bottom:1px solid var(--ide-3);flex-wrap:nowrap}
+.ide-tab{padding:3px 9px;border-radius:4px;color:var(--ide-dim);white-space:nowrap}
+.ide-tab.on{background:var(--ide-sel);color:#fff}
+
+.ide-bar{display:flex;align-items:center;gap:9px;padding:6px 9px;border-bottom:1px solid var(--ide-3)}
+.ide-bar .sep{width:1px;height:15px;background:var(--ide-3);margin:0 2px}
+.ico{width:15px;height:15px;flex:none;display:block}
+
+.ide-body{display:grid;grid-template-columns:1fr 1fr}
+.ide-l{border-right:1px solid var(--ide-3)}
+.ide-hdr{padding:5px 10px;color:var(--ide-fg);border-bottom:1px solid var(--ide-3);display:flex;align-items:center;gap:6px}
+.tick{color:var(--ide-green)}
+
+.frm{padding:3px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frm .loc{color:var(--ide-dim);font-style:italic}
+.frm.sel{background:var(--ide-sel)}
+
+.evalbar{padding:5px 10px;color:var(--ide-dim);border-bottom:1px solid var(--ide-3)}
+.vrow{padding:3px 10px 3px 22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vn{color:var(--ide-blue)}
+.vt{color:var(--ide-dim)}
+.vs{color:var(--ide-str)}
+.vx{color:var(--ide-exc)}
+
+/* 右键菜单复刻 */
+.menu{background:var(--ide-2);border:1px solid var(--ide-3);border-radius:4px;padding:4px 0;font-family:var(--mono);font-size:12px;color:var(--ide-fg);max-width:330px}
+.mi{display:flex;justify-content:space-between;gap:20px;padding:3px 12px;white-space:nowrap}
+.mi.on{background:var(--ide-sel)}
+.mi.off{color:#575B61}
+.mi .sc{color:var(--ide-dim)}
+.mi.off .sc{color:#4A4E54}
+.msep{height:1px;background:var(--ide-3);margin:4px 0}
+
+/* 断点类型树复刻 */
+.tree{padding:6px 0;font-size:12px}
+.tr{display:flex;align-items:center;gap:7px;padding:2.5px 12px;white-space:nowrap}
+.tr.on{background:var(--ide-sel)}
+.tr.ind{padding-left:33px}
+.cb{width:11px;height:11px;border:1px solid #6B7079;border-radius:2px;flex:none;position:relative;background:var(--ide-2)}
+.cb.y{background:#3574F0;border-color:#3574F0}
+.cb.y::after{content:"";position:absolute;left:3px;top:.5px;width:3px;height:6px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(42deg)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ide-red);flex:none}
+.bolt{color:var(--ide-red);font-size:11px}
+.dim{color:var(--ide-dim)}
+
+/* Parallel Stacks 复刻 */
+.ps{padding:16px 12px;display:flex;gap:14px;align-items:flex-end;flex-wrap:nowrap}
+.psn{border:1px solid var(--ide-3);border-radius:3px;background:var(--ide-2);min-width:172px}
+.psn.on{border-color:#3574F0;box-shadow:0 0 0 1px #3574F0}
+.psh{padding:3px 9px;color:var(--ide-dim);border-bottom:1px solid var(--ide-3);font-size:11px}
+.psh.cnt{color:var(--ide-blue)}
+.psr{padding:3px 9px;border-bottom:1px solid var(--ide-3);font-size:11px;white-space:nowrap}
+.psr:last-child{border-bottom:none}
+.psr.cur{color:var(--ide-fg)}
+.psarrow{align-self:center;color:var(--ide-dim);font-size:15px;padding:0 2px}
+
+/* Memory View 复刻 */
+.hex{font-size:11.5px;padding:8px 0}
+.hexr{display:flex;gap:16px;padding:1.5px 12px;white-space:nowrap}
+.hexa{color:var(--ide-dim);flex:none}
+.hexb{flex:none;letter-spacing:.04em}
+.hexc{color:var(--ide-str);flex:none}
+.hexr.on .hexb{background:#2D4A2F;border-radius:2px}
+.hexgo{display:flex;align-items:center;gap:9px;padding:6px 12px;border-bottom:1px solid var(--ide-3);font-size:11.5px}
+.hexin{background:var(--ide-2);border:1px solid #4C5052;border-radius:3px;padding:2px 8px;color:var(--ide-orange)}
+
+/* ---------- 页脚 ---------- */
+.foot{border-top:1px solid var(--rule);padding-top:16px;margin-top:56px;font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.8}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr}
+  .nav{position:static;height:auto;border-right:none;border-bottom:1px solid var(--rule);padding:22px 20px}
+  .nav ol{display:flex;flex-wrap:wrap;gap:2px 4px}
+  .nav .sub{display:none}
+  .doc{padding:26px 20px 72px}
+  .head h1{font-size:27px}
+  .ide-body{grid-template-columns:1fr}
+  .ide-l{border-right:none;border-bottom:1px solid var(--ide-3)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<nav class="nav" aria-label="目录">
+  <div class="nav-brand">Rider · Debug</div>
+  <ol>
+    <li><a href="#s1"><span class="n">01</span>调试器在做什么</a></li>
+    <li><a href="#s2"><span class="n">02</span>工具栏</a></li>
+    <li><a href="#s3"><span class="n">03</span>断点</a></li>
+    <li class="sub"><a href="#s3-type">类型</a></li>
+    <li class="sub"><a href="#s3-prop">属性</a></li>
+    <li><a href="#s4"><span class="n">04</span>Threads &amp; Variables</a></li>
+    <li class="sub"><a href="#s4-frames">栈帧</a></li>
+    <li class="sub"><a href="#s4-vars">Variables</a></li>
+    <li class="sub"><a href="#s4-watch">Watches 与求值</a></li>
+    <li class="sub"><a href="#s4-ps">Parallel Stacks</a></li>
+    <li><a href="#s5"><span class="n">05</span>Console</a></li>
+    <li><a href="#s6"><span class="n">06</span>Memory View</a></li>
+    <li class="sub"><a href="#s6-read">读法</a></li>
+    <li class="sub"><a href="#s6-align">内存对齐</a></li>
+    <li><a href="#s7"><span class="n">07</span>Output 与 Modules</a></li>
+    <li><a href="#s8"><span class="n">08</span>快捷键</a></li>
+  </ol>
+</nav>
+
+<main class="doc">
+
+<header class="head">
+  <div class="eyebrow">参考手册</div>
+  <h1>Rider 调试参考手册</h1>
+</header>
+
+<!-- ============ 01 ============ -->
+<section class="sec" id="s1">
+  <div class="sec-head"><span class="sec-n">01</span><h2>调试器在做什么</h2></div>
+
+  <p>按下 Debug 按钮时，Rider 并非普通地启动程序，而是以<strong>调试身份</strong>创建进程。此后每当进程发生值得汇报的事件——加载模块、创建线程、触发异常、命中断点——操作系统会<strong>冻结该进程的全部线程</strong>，并将事件投递给调试器。</p>
+
+  <p>Debug 窗口里看到的一切，都是在这个"全世界都停住了"的窗口期内，由调试器<strong>反过来读取</strong>目标进程的内存与寄存器得到的。调试器处理完毕后通知系统继续，线程才重新运行。</p>
+
+  <h3>可用调试的三个前提</h3>
+
+  <p>把机器码还原成源代码行、变量名和类型，依赖三样东西，缺一不可。</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>前提</th><th>说明</th><th>缺失时的表现</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">调试信息</td><td>Windows 上是 <code>.pdb</code> 文件，记录机器码地址与源文件行号的映射、变量在栈上的位置、类型布局</td><td>只能看到汇编与裸地址，Variables 中全是问号</td></tr>
+      <tr><td class="nm">未优化的构建</td><td>Debug 配置关闭优化，保证每条语句边界清晰、局部变量落在栈上</td><td>单步乱跳、变量显示 <code>optimized out</code>、内联函数整个消失</td></tr>
+      <tr><td class="nm">二进制与 pdb 匹配</td><td>可执行文件中记录了 pdb 的路径与一组 GUID，加载时逐一核对</td><td>断点显示为空心，提示"不会被命中"</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section class="sec" id="s2">
+  <div class="sec-head"><span class="sec-n">02</span><h2>工具栏</h2></div>
+
+  <figure>
+    <div class="ide"><div class="ide-scroll"><div class="ide-inner" style="min-width:0">
+      <div class="ide-bar">
+        <!-- Restart Debug：C 形环 + 折角箭头（一条连续路径，转角处严格重合）+ 绿色小虫 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M6.3 13.4A5.6 5.6 0 1 1 11.0 4.2L12.1 5.3H8.2M12.1 5.3V1.5"
+                fill="none" stroke="#C3C5CB" stroke-width="1.35"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.3 8.2h2.4v1.5H9.3z" fill="#57965C"/>
+          <rect x="8.0" y="9.2" width="5.0" height="5.6" rx="2.2" fill="#253627" stroke="#57965C" stroke-width="1"/>
+          <path d="M10.5 9.4v5.2" fill="none" stroke="#57965C" stroke-width=".9"/>
+          <path d="M8.0 10.5H6.8M8.0 13.8H6.8M13.0 10.5h1.2M13.0 13.8h1.2"
+                fill="none" stroke="#57965C" stroke-width=".9" stroke-linecap="round"/>
+        </svg>
+        <!-- Stop：红色描边方块，内部深红填充 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="3.4" y="3.4" width="9.2" height="9.2" rx="1.4" fill="#5E3838" stroke="#DB5C5C" stroke-width="1.2"/>
+        </svg>
+        <div class="sep"></div>
+        <!-- Resume：绿色描边竖条 + 三角，内部深绿填充 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="2.9" y="3.3" width="2.5" height="9.4" rx=".5" fill="#253627" stroke="#57965C" stroke-width="1.1"/>
+          <path d="M7.2 3.3 13.3 8l-6.1 4.7z" fill="#253627" stroke="#57965C" stroke-width="1.1" stroke-linejoin="round"/>
+        </svg>
+        <!-- Pause：两根描边竖条，内部不填充 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="4.2" y="3.3" width="2.6" height="9.4" rx=".5" fill="none" stroke="#8A8D93" stroke-width="1.15"/>
+          <rect x="9.2" y="3.3" width="2.6" height="9.4" rx=".5" fill="none" stroke="#8A8D93" stroke-width="1.15"/>
+        </svg>
+        <!-- Step Over：折线跨过，末端向下箭头，下方横线 -->
+        <svg class="ico" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M2.8 7.9 6.9 3.8 10.6 7.7" stroke="#C3C5CB" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10.6 4.7v3.0h-3.0" stroke="#C3C5CB" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3.0 12.6h7.8" stroke="#C3C5CB" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <!-- Step Into：向下箭头，下方横线 -->
+        <svg class="ico" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 3.2v7.1" stroke="#C3C5CB" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M5.3 7.6 8 10.4l2.7-2.8" stroke="#C3C5CB" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4.4 12.7h7.2" stroke="#C3C5CB" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <!-- Step Out：向上箭头，下方横线 -->
+        <svg class="ico" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 10.3V3.2" stroke="#C3C5CB" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M5.3 5.9 8 3.1l2.7 2.8" stroke="#C3C5CB" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4.4 12.7h7.2" stroke="#C3C5CB" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <div class="sep"></div>
+        <!-- View Breakpoints：两个叠在一起的红色断点圆 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="9.8" cy="6.4" r="4.05" fill="#5E3A3B" stroke="#DB5C5C" stroke-width="1.2"/>
+          <circle cx="6.4" cy="9.7" r="4.05" fill="#5E3A3B" stroke="#DB5C5C" stroke-width="1.2"/>
+        </svg>
+        <!-- Mute Breakpoints：红色断点圆 + 浅灰斜杠 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="8" r="4.25" fill="#5E3A3B" stroke="#DB5C5C" stroke-width="1.2"/>
+          <path d="M3.7 12.3 12.3 3.7" stroke="#C3C5CB" stroke-width="1.35" stroke-linecap="round" fill="none"/>
+        </svg>
+        <!-- 更多 -->
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="3.5" r="1.1" fill="#C3C5CB"/>
+          <circle cx="8" cy="8" r="1.1" fill="#C3C5CB"/>
+          <circle cx="8" cy="12.5" r="1.1" fill="#C3C5CB"/>
+        </svg>
+      </div>
+    </div></div></div>
+    <figcaption>Debug 窗口工具栏，自左至右</figcaption>
+  </figure>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>按钮</th><th>作用</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Rerun</td><td>停止当前会话并重新启动</td></tr>
+      <tr><td class="nm">Stop</td><td>终止被调试进程</td></tr>
+      <tr><td class="nm">Resume</td><td>恢复运行，直到下一个断点或程序结束</td></tr>
+      <tr><td class="nm">Pause</td><td>主动打断正在运行的程序。排查死循环与卡死时使用</td></tr>
+      <tr><td class="nm">Step Over</td><td>执行当前行；行内有函数调用时<strong>整体执行完</strong>，不进入</td></tr>
+      <tr><td class="nm">Step Into</td><td>执行当前行；行内有函数调用时<strong>进入其内部</strong>停在第一行</td></tr>
+      <tr><td class="nm">Step Out</td><td>让当前函数剩余部分执行完，返回到调用它的那一行</td></tr>
+      <tr><td class="nm">View Breakpoints</td><td>打开 Breakpoints 窗口，集中查看与配置全部断点</td></tr>
+      <tr><td class="nm">Mute Breakpoints</td><td>一次性停用全部断点，但保留其配置。用于让程序先跑到某个阶段</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note hi">
+    <p>Step Over / Into / Out 的差别只有一句话：<strong>当前行遇到函数调用时，要不要进去，以及现在要不要出来。</strong>当前行没有调用时，Step Over 与 Step Into 行为完全相同。</p>
+  </div>
+
+  <h3>扩展菜单</h3>
+
+  <figure>
+    <div class="menu">
+      <div class="mi"><span>Force Step Over</span><span class="sc">Alt+Shift+F8</span></div>
+      <div class="mi"><span>Force Step Into</span><span class="sc"></span></div>
+      <div class="mi off"><span>Smart Step Into</span><span class="sc">Alt+Shift+F11</span></div>
+      <div class="msep"></div>
+      <div class="mi"><span>Run to Cursor</span><span class="sc">Ctrl+F10</span></div>
+      <div class="mi"><span>Run to Cursor Non-Stop</span><span class="sc">Ctrl+Alt+F9</span></div>
+      <div class="msep"></div>
+      <div class="mi"><span>Show Execution Point</span><span class="sc">Alt+NumPad *</span></div>
+      <div class="mi"><span>Evaluate Expression…</span><span class="sc">Ctrl+Alt+Q</span></div>
+      <div class="msep"></div>
+      <div class="mi"><span>Freeze Other Threads</span><span class="sc"></span></div>
+      <div class="mi"><span>Unfreeze All Threads</span><span class="sc"></span></div>
+      <div class="mi"><span>Freeze Thread</span><span class="sc"></span></div>
+      <div class="mi off"><span>Unfreeze Thread</span><span class="sc"></span></div>
+    </div>
+    <figcaption>Debug 工具扩展菜单</figcaption>
+  </figure>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>菜单项</th><th>作用</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Force Step Into</td><td>强行进入，无视过滤规则。标准库、系统调用、无源码的第三方代码一律进入</td></tr>
+      <tr><td class="nm">Force Step Over</td><td>跨过当前行，且忽略途中会命中的断点</td></tr>
+      <tr><td class="nm">Smart Step Into</td><td>当前行有多个调用时挑选进入其中一个。</td></tr>
+      <tr><td class="nm">Run to Cursor</td><td>直接运行到光标所在行，相当于一次性断点</td></tr>
+      <tr><td class="nm">Run to Cursor Non-Stop</td><td>同上，但忽略途中的其他断点</td></tr>
+      <tr><td class="nm">Show Execution Point</td><td>将编辑器跳回当前暂停的位置</td></tr>
+      <tr><td class="nm">Evaluate Expression…</td><td>打开求值对话框，见 <a href="#s4-watch">Watches 与表达式求值</a></td></tr>
+      <tr><td class="nm">Freeze / Unfreeze Thread</td><td>冻结指定线程。被冻结的线程在 Resume 后仍不运行，用于隔离多线程时序问题</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 03 ============ -->
+<section class="sec" id="s3">
+  <div class="sec-head"><span class="sec-n">03</span><h2>断点</h2></div>
+
+  <p>在编辑器行号左侧的装订线上单击可添加行断点。按 <span class="k">Ctrl+Shift+F8</span>（IntelliJ 键位）或 <span class="k">Ctrl+Alt+B</span>（Visual Studio 键位）打开 Breakpoints 窗口，集中管理全部断点。</p>
+
+  <figure>
+    <div class="ide"><div class="ide-scroll"><div class="ide-inner" style="min-width:640px">
+      <div class="ide-body" style="grid-template-columns:290px 1fr">
+        <div class="ide-l">
+          <div class="tree">
+            <div class="tr"><span class="cb y"></span><span class="dot"></span><span>Line Breakpoints</span></div>
+            <div class="tr ind on"><span class="cb y"></span><span class="dot"></span><span>scenarios.cpp:75</span></div>
+            <div class="tr"><span class="cb y"></span><span class="bolt">⚡</span><span>C++ Exception Breakpoints</span></div>
+            <div class="tr ind"><span class="cb y"></span><span class="bolt">⚡</span><span>When any is thrown</span></div>
+            <div class="tr"><span class="cb y"></span><span class="bolt">⚡</span><span>Low-Level Exception Suppressions</span></div>
+            <div class="tr ind"><span class="cb y"></span><span class="bolt">⚡</span><span>Any SIGBUS</span></div>
+            <div class="tr"><span class="cb"></span><span class="bolt">◆</span><span>Symbolic Breakpoints</span></div>
+            <div class="tr"><span class="cb y"></span><span class="dot"></span><span>Method Breakpoints</span></div>
+            <div class="tr"><span class="cb y"></span><span class="bolt">⚡</span><span class="dim">CLR Exception Breakpoints</span></div>
+            <div class="tr"><span class="cb"></span><span class="bolt">⚡</span><span class="dim">JavaScript / GDScript …</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="tree" style="padding:9px 0">
+            <div class="tr"><span class="cb y"></span><span>Enabled</span></div>
+            <div class="tr"><span class="cb"></span><span>Use file name only</span></div>
+            <div class="tr"><span class="cb y"></span><span>Suspend execution</span></div>
+            <div class="tr"><span class="cb"></span><span>Condition:</span></div>
+            <div class="tr" style="padding-left:33px"><span class="hexin" style="width:88%">i == 42</span></div>
+            <div class="tr"><span class="cb"></span><span>Run configuration</span></div>
+            <div class="tr"><span class="cb"></span><span>Log: "Breakpoint hit"</span><span class="cb"></span><span>Stack trace</span></div>
+            <div class="tr"><span class="cb"></span><span>Evaluate and log:</span></div>
+            <div class="tr"><span class="cb"></span><span>Hit count:</span><span class="hexin">==</span><span class="hexin">10</span></div>
+            <div class="tr"><span class="cb"></span><span>Remove once hit</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div></div>
+    <figcaption>Breakpoints 窗口：左为类型树，右为选中断点的属性</figcaption>
+  </figure>
+
+  <h3 id="s3-type">类型</h3>
+
+  <p>左侧树按类型分组，列出的是 Rider 支持的<strong>全部语言</strong>的断点类别，与当前项目语言无关。</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>类型</th><th>作用</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Line Breakpoints</td><td>行断点。绑定到具体的源代码行，最常用的一类</td></tr>
+      <tr><td class="nm">C++ Exception Breakpoints</td><td>不绑定代码行，绑定"C++ 异常被抛出"这一事件。勾选 <code>When any is thrown</code> 后，程序在 <code>throw</code> 的瞬间暂停</td></tr>
+      <tr><td class="nm">Low-Level Exception<br>Suppressions</td><td><strong>抑制</strong>清单，方向与其他项相反：列出的低层异常调试器<em>不</em>暂停，直接放行</td></tr>
+      <tr><td class="nm">Symbolic Breakpoints</td><td>按符号名（函数名）下断，无需定位到具体文件行</td></tr>
+      <tr><td class="nm">Method Breakpoints</td><td>在函数入口处暂停</td></tr>
+      <tr><td class="nm">CLR / JavaScript /<br>CMake / GDScript</td><td>分别面向 .NET、前端、CMake 构建和 Godot 项目。<strong>在 C++ 项目中不会触发</strong>，默认勾选状态可忽略</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note hi">
+    <p><strong>异常断点的价值在于时机。</strong>它在 <code>throw</code> 发生的一刻暂停，此时调用栈尚未展开，抛出点及其全部上层调用连同各自的局部变量都还在 Frames 中。而在 <code>catch</code> 块里下行断点时，栈已经回退到捕获所在的层，中间的帧连同现场一并消失，只剩一个异常对象。</p>
+  </div>
+
+  <h3 id="s3-prop">属性</h3>
+
+  <p>选中某个断点后，右侧列出它的全部属性。顺序与界面一致。</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>属性</th><th>作用</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Enabled</td><td>总开关。取消后断点保留但不生效，条件与日志配置一并保留</td></tr>
+      <tr><td class="nm">Use file name only</td><td>改变断点与源文件的匹配方式：默认按完整路径匹配，勾选后仅比对文件名。用于二进制在其他机器上编译、pdb 中记录的路径与本地不一致的情况</td></tr>
+      <tr><td class="nm">Suspend execution</td><td>命中时是否暂停程序。取消勾选后断点<strong>仍会触发</strong>——条件照常求值、命中计数照常累加、日志照常输出——只是不停</td></tr>
+      <tr><td class="nm">Condition</td><td>填写 C++ 布尔表达式，仅在其为真时命中。表达式在目标进程中真实求值</td></tr>
+      <tr><td class="nm">Run configuration</td><td>将断点限定到指定的运行配置，支持 <code>*</code> 和 <code>?</code> 通配符</td></tr>
+      <tr><td class="nm">Log: "Breakpoint hit"</td><td>命中时向 Console 输出一行位置信息</td></tr>
+      <tr><td class="nm">Log: Stack trace</td><td>命中时向 Console 输出完整调用栈</td></tr>
+      <tr><td class="nm">Evaluate and log</td><td>命中时求值一个表达式并输出结果，带类型标注</td></tr>
+      <tr><td class="nm">Hit count</td><td>按命中次数决定是否暂停，见下</td></tr>
+      <tr><td class="nm">Remove once hit</td><td>临时断点，命中一次后自动删除</td></tr>
+      <tr><td class="nm">Disable until hitting<br>the following breakpoint</td><td>依赖断点：本断点先处于禁用状态，待指定的主断点命中后才激活。下方 <code>After hit</code> 决定其后是重新禁用还是保持启用</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>日志断点</h4>
+
+  <p>取消 <code>Suspend execution</code>，配合三个 Log 选项，断点即成为纯观测手段：程序全速运行，Console 中留下完整轨迹。三个选项可叠加，输出形如：</p>
+
+<pre><code>Breakpoint reached: scenarios.cpp:94
+i+i = (int) 12
+Stack:
+    Scenario02_Breakpoints() scenarios.cpp:94
+    RunScenario(int) scenarios.cpp:372
+    main(int, char **) main.cpp:58</code></pre>
+
+  <p>调查执行成千上万次的循环，或时序敏感的多线程问题时，这比逐次暂停高效得多，且不会因暂停而改变线程时序。</p>
+
+  <h4>Hit count 的运算符</h4>
+
+  <p>勾选 <code>Hit count</code> 后，左侧是运算符下拉框，右侧填数字。运算符决定语义：</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>运算符</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td class="mn">== 10</td><td>仅在第 10 次命中时暂停一次，其后不再暂停</td></tr>
+      <tr><td class="mn">Is a multiple of 10</td><td>第 10、20、30… 次命中时均暂停</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note hi">
+    <p><strong>Condition 与 Hit count 是串联关系。</strong>命中计数器统计的是「Condition 为真的次数」，而非该行被执行的次数——条件为假时计数器不递增。</p>
+    <p>因此 <code>Condition: i == 42</code> 配合 <code>Hit count: == 10</code> <strong>永远不会命中</strong>：条件在循环中仅为真一次，计数器到不了 10。这不是缺陷，而是两个值组合描述了一个不存在的事件。</p>
+  </div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section class="sec" id="s4">
+  <div class="sec-head"><span class="sec-n">04</span><h2>Threads &amp; Variables</h2></div>
+
+  <p>Debug 窗口的主标签页。左半部分是线程与调用栈，右半部分是变量。</p>
+
+  <figure>
+    <div class="ide"><div class="ide-scroll"><div class="ide-inner" style="min-width:660px">
+      <div class="ide-tabs">
+        <span class="ide-tab on">Threads &amp; Variables</span>
+        <span class="ide-tab">Console</span>
+        <span class="ide-tab">Memory View</span>
+        <span class="ide-tab">Debugger Output (LLDB)</span>
+        <span class="ide-tab">Modules</span>
+      </div>
+      <div class="ide-body">
+        <div class="ide-l">
+          <div class="ide-hdr"><span class="tick">✓</span><span>Thread-1-[Main Thread] (18368)</span></div>
+          <div class="frm sel">Scenario01_Steps() <span class="loc">scenarios.cpp:75</span></div>
+          <div class="frm">RunScenario(int) <span class="loc">scenarios.cpp:435</span></div>
+          <div class="frm">main(int, char **) <span class="loc">main.cpp:58</span></div>
+        </div>
+        <div>
+          <div class="ide-tabs" style="border-bottom:1px solid var(--ide-3)">
+            <span class="ide-tab on">Variables</span>
+            <span class="ide-tab">Parallel Stacks</span>
+          </div>
+          <div class="evalbar">Evaluate expression (Enter) or add a watch (Ctrl+Shift+Enter)</div>
+          <div class="vrow"><span class="vn">mixed</span> = <span class="vt">{int}</span> 34</div>
+          <div class="vrow"><span class="vn">result</span> = <span class="vt">{int}</span> 91</div>
+          <div class="vrow"><span class="vn">seed</span> = <span class="vt">{int}</span> 5</div>
+          <div class="vrow"><span class="dim">›</span> <span class="vn">text</span> = <span class="vt">{std::string}</span> <span class="vs">"91"</span></div>
+        </div>
+      </div>
+    </div></div></div>
+    <figcaption>Threads &amp; Variables：左为线程与 Frames，右为 Variables</figcaption>
+  </figure>
+
+  <h3 id="s4-frames">栈帧（Frames）</h3>
+
+  <p>左侧列表即调用栈，每一行是一个<strong>栈帧</strong>。顶行是当前正在执行的函数，向下依次是它的调用者，最末行通常是 <code>main</code>。它回答的是：<strong>程序是经由怎样的调用路径抵达当前这一行的。</strong></p>
+
+  <h4>原理</h4>
+
+  <p>每个线程拥有一块连续的内存作为调用栈，从高地址向低地址生长。调用一个函数时，返回地址与参数被压入栈，函数在栈上为自己的局部变量划出一块空间——这块空间就是该函数的栈帧。函数返回时，这块空间被释放。</p>
+
+  <p>由此产生两个对调试极为重要的性质：</p>
+
+  <ul>
+    <li><strong>每一帧的局部变量彼此独立。</strong>递归调用中，同一个函数的每一层都持有自己的一份局部变量——它们只是恰好同名，彼此毫无关系。逐帧点击 Frames，Variables 会随之切换到该帧的那一份。</li>
+    <li><strong>调用路径完整保存在栈上。</strong>调试器沿着栈帧逐层回溯，即可重建整条调用链。这就是 Frames 面板内容的来源。</li>
+  </ul>
+
+  <div class="note hi">
+    <p>崩溃或异常发生时，"当前这行代码"往往不是原因，<strong>"谁用什么参数把程序调到这里"</strong>才是。这个答案完整写在 Frames 里，因此它应当是暂停后第一个查看的面板。</p>
+  </div>
+
+  <h4>使用</h4>
+
+  <ul>
+    <li>单击任意一帧，Variables 切换到该帧的局部变量，编辑器同步跳转到对应源码行。<strong>这不改变程序状态</strong>，只是换个视角观察。</li>
+    <li>帧行右侧的灰色斜体 <code>文件:行号</code> 指明该帧当前停在何处。</li>
+    <li>执行 Step Out 后，Variables 顶部会临时出现 <code>Return Value</code> 一项，为刚返回的函数的返回值。</li>
+    <li>顶部的线程下拉框用于切换线程。<strong>切换线程后整个 Frames 列表会完全更换</strong>——每个线程有各自独立的栈。</li>
+  </ul>
+
+  <h3 id="s4-vars">Variables</h3>
+
+  <p>显示当前选中帧中可见的变量。结构体、<code>std::vector</code>、<code>std::map</code>、智能指针均可逐层展开，Rider 对标准库容器做了美化显示，呈现的是元素而非内部节点结构。</p>
+
+  <h4>右键菜单</h4>
+
+  <figure>
+    <div class="menu" style="max-width:300px">
+      <div class="mi"><span>New Watch…</span><span class="sc">Insert</span></div>
+      <div class="mi"><span>Remove All Watches</span><span class="sc"></span></div>
+      <div class="msep"></div>
+      <div class="mi"><span>Set Value…</span><span class="sc">F2</span></div>
+      <div class="mi"><span>Copy Value</span><span class="sc">Ctrl+C</span></div>
+      <div class="mi"><span>Evaluate Expression…</span><span class="sc">Ctrl+Alt+Q</span></div>
+      <div class="mi"><span>Add to Watches</span><span class="sc"></span></div>
+      <div class="mi"><span>Add Data Breakpoint</span><span class="sc"></span></div>
+      <div class="mi"><span>Show in Memory View</span><span class="sc">Ctrl+Enter</span></div>
+      <div class="msep"></div>
+      <div class="mi"><span>Jump To Source</span><span class="sc">F4</span></div>
+      <div class="mi"><span>View as…</span><span class="sc">›</span></div>
+      <div class="mi"><span>Mute Variables</span><span class="sc"></span></div>
+    </div>
+    <figcaption>Variables 面板的变量右键菜单（节选）</figcaption>
+  </figure>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>操作</th><th>作用</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Set Value <span class="k">F2</span></td><td>直接写入目标进程内存，改变变量的值。可用于强制走进某个分支，验证假设无需重新编译</td></tr>
+      <tr><td class="nm">Add to Watches</td><td>把当前选中的节点加入 Watches，表达式由选中项自动生成，含嵌套路径</td></tr>
+      <tr><td class="nm">New Watch <span class="k">Insert</span></td><td>手工输入任意表达式作为 Watch</td></tr>
+      <tr><td class="nm">Add Data Breakpoint</td><td>对该变量所在的内存设置数据断点，见下</td></tr>
+      <tr><td class="nm">Show in Memory View</td><td>在 Memory View 中定位到该变量的地址</td></tr>
+      <tr><td class="nm">Evaluate Expression</td><td>打开求值对话框</td></tr>
+      <tr><td class="nm">View as…</td><td>改变显示方式，例如按数组、按不同进制查看</td></tr>
+      <tr><td class="nm">Mute Variables</td><td>停止自动求值。开启后每次暂停时 Variables 面板不再自动计算并显示变量的值，需要时手动展开取值</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>数据断点</h4>
+
+  <p>普通断点绑定<strong>代码位置</strong>，数据断点绑定<strong>一块内存</strong>——该内存被访问时暂停，不关心是哪一行代码所为。它回答的是"是谁改了我的变量"，对于数组越界、野指针写入这类<em>代码中根本没有任何一行提到被改坏的变量</em>的问题，是唯一有效的手段。</p>
+
+  <p>必须先有具体的变量实例才能设置，因此流程固定为：<strong>先在某个断点暂停 → 在 Variables 中右键该变量 → Add Data Breakpoint</strong>。</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>Access Type</th><th>触发时机</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Write</td><td>写入时触发。<strong>默认值</strong></td></tr>
+      <tr><td class="nm">Read</td><td>读取时触发</td></tr>
+      <tr><td class="nm">Any</td><td>读或写均触发</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <p>默认的 Write 档只认写入，读取被完全忽略。触发时该次写入<strong>已经完成</strong>，因此看到的是新值，而 <strong>Frames 第一行即是执行该次写入的调用</strong>。同时存在的数据断点数量有上限，调查完毕后应及时删除。</p>
+  </div>
+
+  <h3 id="s4-watch">Watches 与表达式求值</h3>
+
+  <p>Variables 显示的是当前帧中恰好存在的局部变量；Watches 显示的是<strong>自行定义的表达式</strong>，每次暂停自动重新求值，并跨越不同的暂停点持续存在。</p>
+
+  <p>它并非变量查看器，而是一个在目标进程中执行的 C++ 表达式求值器。可用的表达式形式包括：</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>表达式</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td class="mn">sizeof(a)/sizeof(a[0])</td><td>数组元素个数</td></tr>
+      <tr><td class="mn">arr[2] + arr[3] + *p</td><td>索引、解引用与算术混合</td></tr>
+      <tr><td class="mn">hp &gt; 50 &amp;&amp; color == Blue</td><td>复合布尔条件，枚举可直接比较</td></tr>
+      <tr><td class="mn">scores.size()</td><td>调用容器成员函数</td></tr>
+      <tr><td class="mn">*(int*)&amp;pattern[0]</td><td>按其他类型重新解释同一段内存</td></tr>
+      <tr><td class="mn">Compute(3, 1)</td><td>调用函数，该函数会真实执行</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note hi">
+    <p><strong>求值只能调用当前模块内的函数。</strong>可执行文件自身的函数可以正常调用并真实执行，而它所依赖的 DLL 中的函数会失败，报错为 <code>Identifier is not available, possibly due to compiler optimizations</code>——该提示具有误导性，实际原因是跨模块，与优化无关。这一限制只属于求值器，程序自身跨模块调用不受影响。</p>
+  </div>
+
+  <div class="note">
+    <p><strong>求值会产生真实副作用。</strong>调用会修改状态的函数，程序状态就真的被改变，且无法撤销。调查问题时应尽量只求值无副作用的表达式。</p>
+    <p>另：Watch 按<strong>当前选中的帧</strong>求值。切换帧后表达式可能变为错误提示，这未必是表达式有误，也可能只是当前帧中不存在该标识符。</p>
+  </div>
+
+  <p>Watch 与断点 <code>Condition</code> 接受相同的表达式语法。调试复杂条件时，宜先在 Watch 中确认表达式返回值符合预期，再复制进 Condition。</p>
+
+  <h3 id="s4-ps">Parallel Stacks</h3>
+
+  <p>Variables 旁边的第二个标签页。Frames 一次只能显示一个线程的调用栈，Parallel Stacks 把<strong>所有线程的调用栈画在同一张图上</strong>。</p>
+
+  <figure>
+    <div class="ide"><div class="ide-scroll"><div class="ide-inner" style="min-width:640px">
+      <div class="ps">
+        <div class="psn on">
+          <div class="psh cnt">2 threads</div>
+          <div class="psr cur">✓ HotLoop(const char *,int)</div>
+          <div class="psr">StageA2(const char *)</div>
+          <div class="psr">StageA1(const char *)</div>
+          <div class="psr">WorkerA(const char *,…)</div>
+        </div>
+        <div class="psn">
+          <div class="psh">Thread-1-[Main Thread]</div>
+          <div class="psr">Scenario06_Threads()</div>
+          <div class="psr">RunScenario(int)</div>
+          <div class="psr">main(int,char **)</div>
+        </div>
+        <div class="psn">
+          <div class="psh">Thread-7-[Lab-Sleeper]</div>
+          <div class="psr">Sleep</div>
+          <div class="psr">DeepChain(int)</div>
+          <div class="psr">DeepChain(int)</div>
+          <div class="psr">SleeperThread(…)</div>
+        </div>
+      </div>
+    </div></div></div>
+    <figcaption>Parallel Stacks：走过相同路径的线程合并为一个节点，标注线程数</figcaption>
+  </figure>
+
+  <p>核心机制是<strong>合并</strong>：调用路径完全相同的多个线程折叠成一个节点，节点顶部标注线程数（如 <code>2 threads</code>）。路径出现分歧的位置即节点分叉处。</p>
+
+  <p>因此这张图直接呈现的是<strong>线程行为的分布</strong>：哪几个线程在做同一件事、哪一个走了不同的路、有没有线程卡在意料之外的位置。线程数一多，逐个切换 Frames 排查的成本极高，而此图一眼可见。带 <span class="k">✓</span> 标记的是当前选中的线程。</p>
+</section>
+
+<!-- ============ 05 ============ -->
+<section class="sec" id="s5">
+  <div class="sec-head"><span class="sec-n">05</span><h2>Console</h2></div>
+
+  <p>被调试程序的标准输入输出。<code>printf</code>、<code>std::cout</code> 的内容在此显示，需要键盘输入的程序也在此输入。</p>
+
+  <p>日志断点的输出同样汇入此处，因此调查过程中 Console 常常同时承载程序自身的输出与调试器的观测记录。</p>
+
+  <div class="note">
+    <p>若程序在断点处暂停时 Console 看不到本应已经打印的内容，通常是标准输出缓冲所致，与调试器无关。控制台程序可在启动时关闭缓冲：</p>
+  </div>
+
+<pre><code>std::setvbuf(stdout, nullptr, _IONBF, 0);</code></pre>
+</section>
+
+<!-- ============ 06 ============ -->
+<section class="sec" id="s6">
+  <div class="sec-head"><span class="sec-n">06</span><h2>Memory View</h2></div>
+
+  <p>按地址显示原始内存。Variables 给出的是「编译器认为这块内存是什么」，Memory View 给出的是「这块内存实际上是什么」。二者不一致时，问题就在其中。</p>
+
+  <p>典型用途：缓冲区越界、结构体对齐、字节序，以及怀疑类型被误用的场合。</p>
+
+  <figure>
+    <div class="ide"><div class="ide-scroll"><div class="ide-inner" style="min-width:560px">
+      <div class="hexgo"><span class="dim">Go to:</span><span class="hexin">&amp;pattern</span><span class="dim">View</span><span>0x000000e087fcf35f</span></div>
+      <div class="hex">
+        <div class="hexr"><span class="hexa">0x000000e087fcf310</span><span class="hexb">cc cc cc cc  cc cc cc cc  cc cc cc cc  cc cc cc cc</span><span class="hexc">················</span></div>
+        <div class="hexr on"><span class="hexa">0x000000e087fcf320</span><span class="hexb">00 01 02 03  04 05 06 07  08 09 0a 0b  0c 0d 0e 0f</span><span class="hexc">················</span></div>
+        <div class="hexr on"><span class="hexa">0x000000e087fcf330</span><span class="hexb">10 11 12 13  14 15 16 17  18 19 1a 1b  1c 1d 1e 1f</span><span class="hexc">················</span></div>
+        <div class="hexr on"><span class="hexa">0x000000e087fcf340</span><span class="hexb">20 21 22 23  24 25 26 27  28 29 2a 2b  2c 2d 2e 2f</span><span class="hexc"> !"#$%&amp;'()*+,-./</span></div>
+        <div class="hexr on"><span class="hexa">0x000000e087fcf350</span><span class="hexb">30 31 32 33  34 35 36 37  38 39 3a 3b  3c 3d 3e 3f</span><span class="hexc">0123456789:;&lt;=&gt;?</span></div>
+      </div>
+    </div></div></div>
+    <figcaption>Memory View。绿色区域为 <code>unsigned char pattern[64]</code>，恰好占满四行</figcaption>
+  </figure>
+
+  <h3 id="s6-read">三栏读法</h3>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>栏</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">地址栏</td><td>每行 16 字节，故行首地址末位恒为 <code>0</code>，相邻两行相差 <code>0x10</code>。行内第 <em>n</em> 个字节的地址等于行首加 <em>n</em></td></tr>
+      <tr><td class="nm">十六进制数据区</td><td>每两个字符为一个字节。其间的空格仅为每四字节分组以便计数，无语义</td></tr>
+      <tr><td class="nm">ASCII 预览</td><td>把每个字节当作字符显示，不可打印者以 <code>·</code> 代替。查看字符串时有用，查看数值时应忽略</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>顶部 <code>Go to</code> 接受表达式，填入 <code>&amp;变量名</code> 即可定位。也可直接粘贴地址。</p>
+
+  <h3>十六进制</h3>
+
+  <p>内存视图一律使用十六进制，原因在于 <strong>16 = 2<sup>4</sup></strong>：一位十六进制恰好对应四位二进制，两位即一个完整字节。用十进制显示会丢失这种对齐关系。</p>
+
+  <p>换算按 16 的幂展开，两位数的快速算法是<strong>左位 × 16 + 右位</strong>：</p>
+
+<pre><code>0x64  =  6 × 16 +  4  =  100
+0xC8  = 12 × 16 +  8  =  200
+0xFF  = 15 × 16 + 15  =  255</code></pre>
+
+  <p>其中 <code>A</code>–<code>F</code> 代表 10–15。与二进制换算则按四位一组直接拆分：<code>1101 1010</code> → <code>D</code> <code>A</code> → <code>0xDA</code>。</p>
+
+  <h3>小端序</h3>
+
+  <p>x86/x64 采用<strong>小端序</strong>：多字节数值的低位字节存放在低地址。因此从内存拼回数值时必须<strong>倒序读取</strong>。</p>
+
+<pre><code>内存顺序（低地址 → 高地址）：  64  54  00  00
+数值顺序（高位 → 低位）：      00  00  54  64  →  0x00005464 = 21604</code></pre>
+
+  <div class="note hi">
+    <p><strong>内存中不存在「类型」，只有字节；类型是编译器施加的解释规则。</strong>同样这四个字节 <code>64 54 00 00</code>：按 32 位整数读是 <code>0x00005464</code>（21604），按两个 16 位整数读是 21604 和 0，按 C 字符串读则是 <code>"dT"</code>（<code>0x64</code>=<code>'d'</code>，<code>0x54</code>=<code>'T'</code>，随后是结束符）。字节未变，变的只是解释方式。</p>
+  </div>
+
+  <p>注意字符数组<strong>不倒序</strong>——它按地址顺序逐字节排列。倒序只发生在多字节的<em>单个</em>数值上。</p>
+
+  <h3 id="s6-align">内存对齐</h3>
+
+  <p>以下结构体四个字段合计仅 14 字节，而 <code>sizeof</code> 为 <strong>24</strong>。多出的 10 字节称为<strong>填充</strong>，由四条规则决定。</p>
+
+<pre><code>struct Padded {
+    char   tag;    // 偏移 0
+    int    id;     // 偏移 4
+    char   flag;   // 偏移 8
+    double value;  // 偏移 16
+};                 // sizeof == 24</code></pre>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>#</th><th>规则</th></tr></thead>
+    <tbody>
+      <tr><td class="mn">1</td><td>每个类型有其<strong>对齐要求</strong>，标量类型通常等于自身大小：<code>char</code> 1、<code>short</code> 2、<code>int</code> 4、<code>double</code> 8、指针 8</td></tr>
+      <tr><td class="mn">2</td><td>每个成员必须置于其对齐值的整数倍偏移上。对不齐则向后跳，跳过的字节成为填充</td></tr>
+      <tr><td class="mn">3</td><td>结构体自身的对齐值等于成员中最大的那个</td></tr>
+      <tr><td class="mn">4</td><td><code>sizeof</code> 必须为结构体对齐值的整数倍，不足则在<strong>尾部</strong>补齐</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>偏移</th><th>内容</th><th>依据</th></tr></thead>
+    <tbody>
+      <tr><td class="mn">0</td><td class="nm">tag</td><td>对齐 1，从头放置</td></tr>
+      <tr><td class="mn">1–3</td><td class="nm">填充 3 字节</td><td>下一成员 <code>int</code> 对齐 4，1/2/3 均非 4 的倍数</td></tr>
+      <tr><td class="mn">4–7</td><td class="nm">id</td><td>4 是 4 的倍数</td></tr>
+      <tr><td class="mn">8</td><td class="nm">flag</td><td>对齐 1，紧接放置</td></tr>
+      <tr><td class="mn">9–15</td><td class="nm">填充 7 字节</td><td>下一成员 <code>double</code> 对齐 8，9 至 15 均非 8 的倍数</td></tr>
+      <tr><td class="mn">16–23</td><td class="nm">value</td><td>16 是 8 的倍数</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note hi">
+    <p><strong>填充永远是为下一个成员（或结尾）服务的，与它前面那个成员无关。</strong><code>flag</code> 后有 7 字节填充，并非 <code>flag</code> 需要，而是其后的 <code>double</code> 必须落在 8 的倍数上。</p>
+  </div>
+
+  <p>由此可得一条实用结论：<strong>调整字段顺序可减少填充</strong>。同样这四个字段，按 <code>double, int, char, char</code> 声明时 <code>sizeof</code> 为 16，比原顺序节省三分之一。经验法则是按对齐要求从大到小声明。</p>
+
+  <div class="note">
+    <p>填充字节从未被写入，其值未定义。因此不可用 <code>memcmp</code> 比较结构体（字段相同的两个对象可能因填充内容不同而判为不等），也不可将结构体按字节直接写入文件或网络包。</p>
+  </div>
+</section>
+
+<!-- ============ 07 ============ -->
+<section class="sec" id="s7">
+  <div class="sec-head"><span class="sec-n">07</span><h2>Debugger Output 与 Modules</h2></div>
+
+  <h3>Debugger Output (LLDB)</h3>
+
+  <p>调试器后端本身的日志，而非被调试程序的输出。Rider 的 C++ 调试基于 LLDB，此处显示 LLDB 的原始消息：符号加载情况、断点解析结果、后端报出的错误等。</p>
+
+  <p>日常调试无需关注。它的价值在于<strong>调试器本身行为异常时</strong>——断点无法绑定、符号加载失败、求值报出难以理解的错误——此处往往有更具体的原因。</p>
+
+  <h3>Modules</h3>
+
+  <p>列出当前进程已加载的全部模块（可执行文件与动态库），并标明各自的<strong>符号加载状态</strong>。</p>
+
+  <p>用途集中于一点：确认某个模块的调试信息是否成功加载。「断点为什么是空心的」「为什么进不去这个函数」，多数能在此处得到答案——若该模块符号未加载，其中的代码便无法按源码级别调试。</p>
+</section>
+
+<!-- ============ 08 ============ -->
+<section class="sec" id="s8">
+  <div class="sec-head"><span class="sec-n">08</span><h2>快捷键</h2></div>
+
+  <p>Rider 提供多套键位方案。使用前请在 <code>Settings → Keymap</code> 顶部下拉框确认当前方案。</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>动作</th><th>Visual Studio</th><th>IntelliJ / Rider 默认</th></tr></thead>
+    <tbody>
+      <tr><td class="nm">Resume</td><td class="mn">F5</td><td class="mn">F9</td></tr>
+      <tr><td class="nm">Stop</td><td class="mn">Shift+F5</td><td class="mn">Ctrl+F2</td></tr>
+      <tr><td class="nm">Step Over</td><td class="mn">F10</td><td class="mn">F8</td></tr>
+      <tr><td class="nm">Step Into</td><td class="mn">F11</td><td class="mn">F7</td></tr>
+      <tr><td class="nm">Step Out</td><td class="mn">Shift+F11</td><td class="mn">Shift+F8</td></tr>
+      <tr><td class="nm">Force Step Into</td><td class="mn">—</td><td class="mn">Alt+Shift+F7</td></tr>
+      <tr><td class="nm">Run to Cursor</td><td class="mn">Ctrl+F10</td><td class="mn">Alt+F9</td></tr>
+      <tr><td class="nm">切换断点</td><td class="mn">F9</td><td class="mn">Ctrl+F8</td></tr>
+      <tr><td class="nm">Breakpoints 窗口</td><td class="mn">Ctrl+Alt+B</td><td class="mn">Ctrl+Shift+F8</td></tr>
+      <tr><td class="nm">Evaluate Expression</td><td class="mn">Ctrl+Alt+Q</td><td class="mn">Alt+F8</td></tr>
+      <tr><td class="nm">加入 Watches</td><td class="mn">Ctrl+Shift+Enter</td><td class="mn">Ctrl+Shift+Enter</td></tr>
+      <tr><td class="nm">修改变量值</td><td class="mn">F2</td><td class="mn">F2</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+</main>
+</div>
+
+</body>
+</html>
