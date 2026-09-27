@@ -217,13 +217,20 @@
   }
 
   function rewriteHtmlCss(value, articlePath) {
+    // One pass, so url() bodies (data URIs included) are never scanned for units.
+    // The frame is sized to its content, so every height-based viewport unit
+    // (vh and its small/large/dynamic and block-axis variants) would resolve
+    // against the whole article and grow along with it. Map them all onto the
+    // real visible height; vmin/vmax mix in the width, which is still correct.
     return String(value || '')
-      .replace(/url\((['"]?)([^'")]+)\1\)/gi, (_match, quote, url) => {
-        return `url(${quote}${resolveResourceUrl(url, articlePath)}${quote})`;
-      })
-      .replace(/(-?\d*\.?\d+)vh\b/g, (_match, amount) => {
+      .replace(/url\((['"]?)([^'")]+)\1\)|(?<![\w.-])(-?\d*\.?\d+)([sld]?v(?:h|b|min|max))\b/gi, (_match, quote, url, amount, unit) => {
+        if (url !== undefined) return `url(${quote}${resolveResourceUrl(url, articlePath)}${quote})`;
         const ratio = Number(amount) / 100;
-        return `calc(var(--wvd-vh, 1vh) * ${ratio})`;
+        const height = 'var(--wvd-vh, 100vh)';
+        const lower = unit.toLowerCase();
+        if (lower.endsWith('min')) return `calc(min(100vw, ${height}) * ${ratio})`;
+        if (lower.endsWith('max')) return `calc(max(100vw, ${height}) * ${ratio})`;
+        return `calc(${height} * ${ratio})`;
       });
   }
 
@@ -387,6 +394,7 @@
   }
 
   function cleanupArticleFrame() {
+    cancelPageScrollAnimation();
     if (state.articleCleanup) {
       state.articleCleanup();
       state.articleCleanup = null;
@@ -590,10 +598,30 @@
     });
   }
 
+  // Fired right after the app itself moves the page, so bridged elements inside
+  // an HTML note can follow in the same frame instead of one frame late.
+  const PAGE_SCROLL_EVENT = 'wvd:page-scroll';
+  let pageScrollAnimation = 0;
+
+  function cancelPageScrollAnimation() {
+    if (!pageScrollAnimation) return;
+    window.cancelAnimationFrame(pageScrollAnimation);
+    pageScrollAnimation = 0;
+  }
+
+  function setPageScrollY(top) {
+    withInstantPageScroll(() => {
+      window.scrollTo(window.scrollX, top);
+    });
+    window.dispatchEvent(new Event(PAGE_SCROLL_EVENT));
+  }
+
   function scrollPageBy(deltaX, deltaY) {
+    cancelPageScrollAnimation();
     withInstantPageScroll(() => {
       window.scrollBy(deltaX, deltaY);
     });
+    window.dispatchEvent(new Event(PAGE_SCROLL_EVENT));
   }
 
   function topbarScrollOffset() {
@@ -605,11 +633,48 @@
 
   function scrollToPageY(top, options = {}) {
     markScrollIntent();
-    window.scrollTo({
-      left: window.scrollX,
-      top: Math.max(0, Math.round(top)),
-      behavior: options.behavior || 'auto'
-    });
+    cancelPageScrollAnimation();
+    const behavior = options.behavior || 'auto';
+
+    if (behavior !== 'smooth') {
+      window.scrollTo({
+        left: window.scrollX,
+        top: Math.max(0, Math.round(top)),
+        behavior
+      });
+      return;
+    }
+
+    const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const target = Math.min(maxTop, Math.max(0, Math.round(top)));
+    if (Math.abs(target - window.scrollY) < 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPageScrollY(target);
+      return;
+    }
+
+    // The browser's own smooth scroll runs off the main thread and moves the
+    // page faster than a tall article (an HTML note's frame in particular) can
+    // be painted, so unpainted strips flash in at the leading edge. Animate with
+    // one main-thread scroll per frame instead — the same path wheel scrolling
+    // over a note takes — so every frame is painted before it is shown. Long
+    // jumps first cut to one screen short of the target and animate only that.
+    let from = window.scrollY;
+    const span = window.innerHeight;
+    if (Math.abs(target - from) > span * 1.5) {
+      from = target - Math.sign(target - from) * span;
+      setPageScrollY(from);
+    }
+
+    const distance = target - from;
+    const duration = Math.min(420, Math.max(220, Math.abs(distance) * 0.45));
+    const startedAt = performance.now();
+    const step = now => {
+      const progress = Math.min(1, Math.max(0, (now - startedAt) / duration));
+      const eased = 1 - (1 - progress) ** 3;
+      setPageScrollY(Math.round(from + distance * eased));
+      pageScrollAnimation = progress < 1 ? window.requestAnimationFrame(step) : 0;
+    };
+    pageScrollAnimation = window.requestAnimationFrame(step);
   }
 
   function scrollElementBelowTopbar(element, options = {}) {
@@ -632,8 +697,14 @@
       || 0;
     const frameTop = window.scrollY + frameRect.top;
     const elementTop = elementRect.top + frameScrollY;
+    // Leave room for the note's own sticky bars, and honor the scroll-padding-top
+    // it declares for exactly that purpose, as native anchor scrolling would.
+    const doc = element.ownerDocument;
+    const scrollPadding = parseFloat(doc?.defaultView?.getComputedStyle(doc.documentElement).scrollPaddingTop) || 0;
+    const stickyCover = doc ? stickyBridgeCover(doc, element) : 0;
+    const inset = Math.max(scrollPadding, stickyCover + gap, gap);
 
-    scrollToPageY(frameTop + elementTop - topbarScrollOffset() - gap, options);
+    scrollToPageY(frameTop + elementTop - topbarScrollOffset() - inset, options);
   }
 
   function hashTarget(root, hash) {
@@ -2173,30 +2244,120 @@
     return relativeLuminance(surface) < 0.42 ? 'dark' : 'light';
   }
 
-  function bridgeHtmlFixedElements(frame, doc, signal) {
-    const records = new Map();
+  function isHtmlFrameScrollContainer(element, doc) {
+    if (element === doc.documentElement || element === doc.body) return false;
+    const style = doc.defaultView?.getComputedStyle(element);
+    return /auto|scroll|hidden/.test(`${style?.overflowY} ${style?.overflowX}`);
+  }
+
+  function hasHtmlFrameScrollAncestor(element, doc) {
+    for (let node = element.parentElement; node; node = node.parentElement) {
+      if (isHtmlFrameScrollContainer(node, doc)) return true;
+    }
+    return false;
+  }
+
+  function stickyBridgeCover(doc, target) {
+    // Height that bridged sticky bars occupy at the top of the visible area
+    // once the page has scrolled to `target`.
+    return $$('[data-wvd-sticky-bridge]', doc).reduce((cover, element) => {
+      const container = element.parentElement;
+      if (!container?.contains(target) || element.contains(target)) return cover;
+      if (!(element.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING)) return cover;
+      const inset = parseFloat(element.dataset.wvdStickyBridge) || 0;
+      return Math.max(cover, inset + element.getBoundingClientRect().height);
+    }, 0);
+  }
+
+  // The frame is sized to its content and never scrolls itself; the outer page
+  // does. That makes the frame's own viewport the whole article, so fixed
+  // elements would sit at its top and sticky elements would never stick. Both are
+  // re-expressed against the part of the frame that is actually visible.
+  function bridgeHtmlViewportElements(frame, doc, signal) {
+    const fixedRecords = new Map();
+    const stickyRecords = new Map();
+    const bridged = element => element.dataset.wvdFixedBridge !== undefined
+      || element.dataset.wvdStickyBridge !== undefined;
     let animationFrame = 0;
+
+    const prepareFixed = (element, style) => {
+      const rect = element.getBoundingClientRect();
+      const top = parseFloat(style.top);
+      const bottom = parseFloat(style.bottom);
+      // An element pinned by both edges (an overlay with `inset: 0`) stretched
+      // across the frame viewport; keep it one visible screen tall instead of
+      // letting it shrink to its content once it is no longer fixed.
+      const frameHeight = doc.defaultView?.innerHeight || 0;
+      const stretched = Number.isFinite(top) && Number.isFinite(bottom)
+        && Math.abs(rect.height - (frameHeight - top - bottom)) < 1;
+      fixedRecords.set(element, { viewportTop: rect.top });
+      element.dataset.wvdFixedBridge = '';
+      element.style.setProperty('position', 'absolute', 'important');
+      element.style.setProperty('bottom', 'auto', 'important');
+      if (stretched) {
+        const boxExtra = style.boxSizing === 'border-box'
+          ? 0
+          : ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+            .reduce((total, key) => total + (parseFloat(style[key]) || 0), 0);
+        element.style.setProperty('height', `max(0px, calc(var(--wvd-vh, 100vh) - ${top + bottom + boxExtra}px))`, 'important');
+      }
+    };
+
+    const prepareSticky = (element, style) => {
+      const inset = parseFloat(style.top);
+      // Only top-sticky elements that stick to the page are bridged; ones inside
+      // their own scroll box already work natively.
+      if (!Number.isFinite(inset) || hasHtmlFrameScrollAncestor(element, doc)) return;
+      stickyRecords.set(element, { inset, offset: 0 });
+      element.dataset.wvdStickyBridge = String(inset);
+      element.style.setProperty('position', 'relative', 'important');
+      element.style.setProperty('top', '0px', 'important');
+      element.style.setProperty('bottom', 'auto', 'important');
+    };
 
     const prepare = () => {
       $$('*', doc).forEach(element => {
-        if (records.has(element) || doc.defaultView?.getComputedStyle(element).position !== 'fixed') return;
+        if (bridged(element)) return;
+        const style = doc.defaultView?.getComputedStyle(element);
+        if (style?.position === 'fixed') prepareFixed(element, style);
+        else if (style?.position === 'sticky') prepareSticky(element, style);
+      });
+    };
+
+    const syncSticky = () => {
+      // Frame coordinates equal document coordinates because the frame never
+      // scrolls; the visible part starts right below the site top bar.
+      const visibleTop = topbarScrollOffset() - frame.getBoundingClientRect().top;
+      stickyRecords.forEach((record, element) => {
+        const container = element.parentElement;
+        const view = doc.defaultView;
+        if (!container || !view) return;
         const rect = element.getBoundingClientRect();
-        records.set(element, { viewportTop: rect.top });
-        element.dataset.wvdFixedBridge = '';
-        element.style.setProperty('position', 'absolute', 'important');
-        element.style.setProperty('bottom', 'auto', 'important');
+        const naturalTop = rect.top - record.offset;
+        const style = view.getComputedStyle(element);
+        const containerStyle = view.getComputedStyle(container);
+        const limit = container.getBoundingClientRect().bottom
+          - (parseFloat(containerStyle.paddingBottom) || 0)
+          - (parseFloat(containerStyle.borderBottomWidth) || 0);
+        const room = limit - (naturalTop + rect.height + (parseFloat(style.marginBottom) || 0));
+        // Unrounded: the frame can sit at a fractional page offset, and rounding
+        // here would make a stuck bar wobble by a pixel as the page scrolls.
+        const offset = Math.max(0, Math.min(visibleTop + record.inset - naturalTop, room));
+        if (Math.abs(offset - record.offset) < 0.01) return;
+        record.offset = offset;
+        element.style.setProperty('top', `${offset}px`, 'important');
       });
     };
 
     const sync = () => {
       animationFrame = 0;
-      records.forEach((record, element) => {
-        if (!element.isConnected) {
-          records.delete(element);
-          return;
-        }
+      [fixedRecords, stickyRecords].forEach(records => records.forEach((_record, element) => {
+        if (!element.isConnected) records.delete(element);
+      }));
+      fixedRecords.forEach((record, element) => {
         element.style.setProperty('top', `${Math.round(window.scrollY + record.viewportTop)}px`, 'important');
       });
+      syncSticky();
     };
 
     const scheduleSync = () => {
@@ -2206,7 +2367,7 @@
 
     const observer = new MutationObserver(mutations => {
       const needsSync = mutations.some(mutation => {
-        return mutation.type === 'childList' || mutation.target.dataset.wvdFixedBridge === undefined;
+        return mutation.type === 'childList' || !bridged(mutation.target);
       });
       if (!needsSync) return;
       prepare();
@@ -2214,12 +2375,27 @@
     });
     observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 
+    // Content that grows or shrinks moves sticky elements' natural positions and
+    // their containers' ends without any outer scroll event.
+    const FrameResizeObserver = doc.defaultView?.ResizeObserver;
+    const resizeObserver = typeof FrameResizeObserver === 'function'
+      ? new FrameResizeObserver(scheduleSync)
+      : null;
+    resizeObserver?.observe(doc.documentElement);
+
+    const syncNow = () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      sync();
+    };
+
     prepare();
     sync();
+    window.addEventListener(PAGE_SCROLL_EVENT, syncNow, { signal });
     window.addEventListener('scroll', scheduleSync, { passive: true, signal });
     window.addEventListener('resize', scheduleSync, { passive: true, signal });
     signal.addEventListener('abort', () => {
       observer.disconnect();
+      resizeObserver?.disconnect();
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
     }, { once: true });
   }
@@ -2533,7 +2709,7 @@
         if (frameHref === 'about:blank') return;
 
         bindHtmlAnchorNavigation(frame, doc, options.articleUrl, controller.signal);
-        bridgeHtmlFixedElements(frame, doc, controller.signal);
+        bridgeHtmlViewportElements(frame, doc, controller.signal);
 
         doc.addEventListener('wheel', event => {
           if (event.ctrlKey || event.metaKey) return;
@@ -2712,6 +2888,9 @@
     document.addEventListener('pointerdown', captureListScrollBeforeArticleNavigation, { capture: true });
     window.addEventListener('wheel', markScrollIntent, { passive: true });
     window.addEventListener('touchmove', markScrollIntent, { passive: true });
+    // The user taking over stops an app-driven scroll instead of fighting it.
+    window.addEventListener('wheel', cancelPageScrollAnimation, { passive: true });
+    window.addEventListener('touchstart', cancelPageScrollAnimation, { passive: true });
     window.addEventListener('scroll', scheduleArticleScrollSave, { passive: true });
     window.addEventListener('pagehide', flushArticleScrollSave);
     document.addEventListener('visibilitychange', () => {
@@ -2721,7 +2900,9 @@
       if (state.route.type === 'article') markScrollIntent();
     }, { capture: true });
     window.addEventListener('keydown', event => {
-      if (isScrollKey(event.key)) markScrollIntent();
+      if (!isScrollKey(event.key)) return;
+      cancelPageScrollAnimation();
+      markScrollIntent();
     });
 
     els.brandLink.addEventListener('click', event => {
