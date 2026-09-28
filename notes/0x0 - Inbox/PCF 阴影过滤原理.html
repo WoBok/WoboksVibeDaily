@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="title" content="PCF 阴影过滤原理">
+<meta name="date" content="2026-09-28">
+<meta name="summary" content="解析 PCF 先比较深度再加权过滤的抗锯齿原理，结合交互演示与 HLSL 代码说明连续核权重、硬件比较采样及 Gather 优化，并讨论性能代价、深度偏移和 PCSS 扩展。">
+<meta name="category" content="Inbox">
+<meta name="tags" content="PCF|阴影贴图|抗锯齿|HLSL|PCSS">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCF（Percentage-Closer Filtering）阴影过滤原理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+:root{
+  --bg:#eef0f3; --surface:#fafbfc; --surface-2:#e3e7ed; --text:#141922; --muted:#5b6372;
+  --line:#d3d8e0; --accent:#a8620a; --accent-soft:#f6e7cc; --code-bg:#e8ebf0; --ok:#2f7d4f; --warn:#a15c00;
+  --bad:#c0392b; --blue:#2f6fb3; --lit:#f3d59b; --shadow:#262d3a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1217; --surface:#161a21; --surface-2:#1f242d; --text:#e5e8ee; --muted:#959dac;
+    --line:#2c323d; --accent:#f0ad48; --accent-soft:#3a2d17; --code-bg:#1b2029; --ok:#6cc08f; --warn:#e0a24a;
+    --bad:#ec7063; --blue:#7fb0e8; --lit:#e9cc8f; --shadow:#2a3140;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1217; --surface:#161a21; --surface-2:#1f242d; --text:#e5e8ee; --muted:#959dac;
+  --line:#2c323d; --accent:#f0ad48; --accent-soft:#3a2d17; --code-bg:#1b2029; --ok:#6cc08f; --warn:#e0a24a;
+  --bad:#ec7063; --blue:#7fb0e8; --lit:#e9cc8f; --shadow:#2a3140;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.8 "Archivo",-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:8px 16px 96px}
+a{color:var(--accent);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 题头：一条从“点采样台阶”过渡到“PCF 软边”的阴影带 */
+.hero{position:relative}
+#hero-cv{display:block;width:100%;height:clamp(180px,30vw,300px);background:var(--shadow)}
+.hero-title{max-width:860px;margin:-60px auto 0;padding:0 16px;position:relative}
+.hero-title h1{display:inline-block;margin:0 0 0 -20px;padding:18px 32px 4px 20px;background:var(--bg);line-height:1}
+.h-abbr{display:block;font-family:"Archivo",sans-serif;font-stretch:125%;font-weight:900;
+  font-size:clamp(3.6rem,12vw,6.6rem);line-height:.88;letter-spacing:-.01em}
+.h-en{display:block;font-family:"JetBrains Mono",Consolas,monospace;font-weight:600;font-size:clamp(.78rem,2.3vw,1rem);
+  letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-top:14px}
+.h-zh{display:block;font-size:clamp(1.3rem,4.2vw,1.95rem);font-weight:700;margin-top:10px;letter-spacing:.02em}
+
+/* 节标题：编号是一个“texel”，后面拖一条半影 */
+h2{display:flex;align-items:center;gap:14px;font-size:1.5rem;line-height:1.35;margin:80px 0 14px}
+h2::after{content:"";flex:1;min-width:24px;height:2px;background:linear-gradient(90deg,var(--shadow),var(--lit) 60%,transparent)}
+h2 .n{flex:none;display:grid;place-items:center;width:1.9em;height:1.9em;background:var(--shadow);color:var(--lit);
+  font:600 .82em/1 "JetBrains Mono",Consolas,monospace}
+h3{font-size:1.13rem;margin:40px 0 8px;padding-left:12px;border-left:3px solid var(--lit)}
+p{margin:10px 0}
+b{font-weight:700}
+code{font-family:"JetBrains Mono","Cascadia Code",Consolas,monospace;font-size:.85em;background:var(--code-bg);padding:1px 5px;border-radius:3px}
+pre{background:var(--code-bg);border:1px solid var(--line);border-left:3px solid var(--shadow);border-radius:4px;
+  padding:14px 16px;overflow-x:auto;font-size:.9rem;line-height:1.65}
+pre code{background:none;padding:0}
+.box{border-radius:4px;padding:12px 16px;margin:16px 0;border:1px solid var(--line);background:var(--surface)}
+.box.key{border-left:4px solid var(--accent)}
+.box.note{border-left:4px solid var(--warn)}
+.box b.t{display:block;margin-bottom:4px;font-size:1rem}
+.formula{font-size:1.1rem;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:4px;
+  padding:14px 12px;margin:16px 0;overflow-x:auto;box-shadow:inset 3px 0 0 var(--accent)}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:.9rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+th{font-weight:600;background:var(--surface-2);border-bottom:2px solid var(--shadow);white-space:nowrap}
+tr:first-child th:first-child,tr:first-child td:first-child{border-top-left-radius:4px}
+.demo{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 16px 16px;margin:22px 0;overflow:hidden}
+.demo::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--shadow),var(--lit))}
+.demo .row{display:flex;flex-wrap:wrap;gap:16px}
+.demo canvas{width:100%;max-width:400px;aspect-ratio:1;border-radius:4px;border:1px solid var(--line);image-rendering:auto}
+.ctl{flex:1;min-width:220px;font-size:.9rem}
+.ctl label,.wctl label{display:block;margin:8px 0 2px;color:var(--muted);font-size:.86rem}
+.ctl select,.ctl input[type=range],.wctl input[type=range]{width:100%}
+input[type=range]{accent-color:var(--accent)}
+select{font:inherit;font-size:.88rem;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px 6px}
+.ctl .chk{display:flex;gap:6px;align-items:center;color:var(--text)}
+.ctl .chk input{margin:0;accent-color:var(--accent)}
+.wctl{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:.9rem}
+.wctl > div{flex:1;min-width:200px}
+.wctl select{width:100%}
+.readout{font-family:"JetBrains Mono",Consolas,monospace;font-size:.86rem;background:var(--code-bg);border-radius:4px;padding:10px 12px;margin-top:12px;white-space:pre-wrap;overflow-x:auto}
+figure{margin:22px 0}
+figcaption{font-size:.82rem;color:var(--muted);text-align:center;margin-top:8px}
+svg text{font-family:"JetBrains Mono",Consolas,"Microsoft YaHei",monospace}
+.small{font-size:.86rem;color:var(--muted)}
+ul,ol{padding-left:22px}
+li{margin:5px 0}
+li::marker{color:var(--accent)}
+@media (max-width:560px){
+  h2{font-size:1.28rem;margin-top:64px}
+  .hero-title{margin-top:-48px}
+}
+/* 图示与交互共用的 SVG 样式 */
+.clit{fill:var(--lit);stroke:var(--line)} .cshd{fill:var(--shadow);stroke:var(--line)}
+.cell{fill:var(--surface-2);stroke:var(--muted)}
+.wt{fill:#1d1c1a;font-size:12px} .wtl{fill:#e8e6e1;font-size:12px}
+.win{fill:var(--accent);fill-opacity:.13;stroke:var(--accent);stroke-width:2;stroke-dasharray:6 4}
+.nav{fill:none;stroke:var(--blue);stroke-width:3}
+.mk{stroke:var(--text);stroke-width:1.5}
+.ax{stroke:var(--muted);stroke-width:1;fill:none}
+.cc{fill:none;stroke:var(--accent);stroke-width:2.5} .cn{fill:none;stroke:var(--blue);stroke-width:2.5}
+.cb{fill:none;stroke:var(--bad);stroke-width:2.5} .cg{fill:none;stroke:var(--ok);stroke-width:2.5}
+.wm{fill:var(--muted);font-size:11px} .wa{fill:var(--accent);font-size:11px} .wb{fill:var(--blue);font-size:11px}
+.tx{fill:var(--text);font-size:13px} .txm{fill:var(--muted);font-size:12px}
+.txbad{fill:var(--bad);font-size:13px;font-weight:bold} .txok{fill:var(--ok);font-size:13px;font-weight:bold}
+.occ{fill:var(--muted)} .txo{fill:var(--bg);font-size:12px}
+.gnd{stroke:var(--text);stroke-width:2}
+.ray{stroke:var(--warn);stroke-width:1.5}
+.fake{stroke:var(--bad);stroke-width:2;stroke-dasharray:6 4}
+.guide{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
+.rb{fill:var(--surface);stroke:var(--line)}
+.dot{fill:var(--accent)}
+.cmp2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:640px;margin:12px auto 0}
+.cmpc{border:1px solid var(--line);border-radius:4px;padding:10px 14px;background:var(--surface)}
+.cmpc>div{margin-top:6px}
+.cmpc .bad{color:var(--bad)} .cmpc .ok{color:var(--ok)}
+.tex-fallback{font-family:Consolas,monospace;font-size:.9rem}
+</style>
+</head>
+<body>
+<header class="hero">
+  <canvas id="hero-cv" aria-hidden="true"></canvas>
+  <div class="hero-title">
+    <h1><span class="h-abbr">PCF</span><span class="h-en">Percentage-Closer Filtering</span><span class="h-zh">阴影贴图的百分比渐近过滤</span></h1>
+  </div>
+</header>
+
+<div class="wrap">
+
+
+<!-- 1 -->
+<h2 id="s1"><span class="n">1</span>阴影贴图是怎么判定阴影的</h2>
+<h3>1.1 阴影贴图的基本流程</h3>
+<p>阴影贴图（Shadow Map）算法由两个阶段组成：</p>
+<ol>
+  <li><b>从光源看场景</b>，只写深度。得到一张纹理，每个 texel 对应从光源射出的一条光线，存的是<b>这条光线碰到的第一个表面</b>离光源有多远，记作 <span class="tex">z</span>。光线被遮挡物挡住，存的就是遮挡物的深度；没有东西挡、一路照到地面，存的就是地面的深度。</li>
+  <li><b>从相机渲染时</b>，对每个要着色的点 <span class="tex">p</span>，把它变换到光源空间（见 1.2），得到它在阴影贴图上的 UV 和它自己到光源的深度 <span class="tex">d_p</span>。然后查表比较：</li>
+</ol>
+<div class="formula"><span class="tex">\mathrm{lit}(p) = \begin{cases} 1 &amp; d_p \le z(uv) \\ 0 &amp; d_p &gt; z(uv) \end{cases}</span></div>
+<p>也就是：如果 <span class="tex">p</span> 比“光源在这个方向上看到的第一个表面”还远，说明中间有东西挡着，<span class="tex">p</span> 在阴影里。</p>
+<p>这一步本质上是一个<b>阶跃函数</b>（Heaviside）：输出只有 0 或 1。</p>
+
+<h3>1.2 光源空间与它的原点</h3>
+<p>“光源空间”就是<b>从光源看出去的那台虚拟相机</b>的观察空间：朝向是光的方向，投影方式取决于光源类型，原点放在哪里也按光源类型来定。点光源、聚光灯本身有位置，原点就在灯上；方向光只有方向没有位置，沿光方向平移原点不会改变正交投影的结果，所以原点可以放在任何方便的地方，一般放在需要覆盖阴影的区域中心。</p>
+<table>
+  <tr><th>阴影类型</th><th>投影方式</th><th>光源空间原点</th></tr>
+  <tr><td>聚光灯</td><td>透视</td><td>灯的位置</td></tr>
+  <tr><td>点光源</td><td>透视（立方体 6 个面各一个视锥）</td><td>灯的位置，6 个面共用</td></tr>
+  <tr><td>面光源（如矩形光）</td><td>透视</td><td>灯的位置</td></tr>
+  <tr><td>方向光·整场景 / 级联阴影</td><td>正交</td><td>每一级联要覆盖的区域中心（通常是该级联包围球的球心），并对齐到 texel 网格</td></tr>
+  <tr><td>方向光·逐物体阴影</td><td>正交</td><td>被投影物体包围盒的中心</td></tr>
+  <tr><td>局部光·逐物体阴影</td><td>透视</td><td>灯的位置；灯离物体太近时沿光线往后推，让物体能放进视锥</td></tr>
+</table>
+<p>关于原点的选取，有以下几点说明：</p>
+<ul>
+  <li><b>方向光的原点在区域中间，而不是“光那一头”</b>。站在原点与光源之间的遮挡物在光源空间里深度为负，所以方向光的深度范围通常会朝光源方向拉得很远，让远处的山体也能投下阴影。</li>
+  <li><b>对齐到 texel 网格</b>：相机移动时级联区域跟着动，如果原点以非整 texel 的量移动，每个 texel 覆盖的世界位置就会变，阴影边缘会闪烁（shimmering）。把原点在阴影贴图空间里吸附到 texel 的整数倍即可消除。</li>
+  <li><b>为什么不直接用世界原点</b>：先把世界坐标平移到以光源空间原点为中心，坐标就都是“相对原点的小数值”，在大世界中远离世界原点时也不会丢浮点精度。</li>
+</ul>
+
+<h3>1.3 采样点：连续的坐标，离散的格子</h3>
+<p>变换到光源空间后得到的 UV 是 0~1 之间的<b>连续值</b>。把它乘以阴影贴图分辨率，就得到以 texel 为单位的坐标。例如分辨率 1024、<span class="tex">u = 0.005176</span>，则</p>
+<div class="formula"><span class="tex">u_{\text{texel}} = 0.005176 \times 1024 \approx 5.3</span></div>
+<p>这个位置称为<b>采样点</b>。把阴影贴图想象成一张方格纸，采样点就是纸上的一个小圆点，它可以落在格子里的任何位置：</p>
+<ul>
+  <li><b>整数部分 5</b>：采样点落在第 5 号 texel 里（本文约定第 <span class="tex">k</span> 号 texel 占据区间 <span class="tex">[k,\ k+1)</span>）；</li>
+  <li><b>小数部分 0.3</b>：采样点在这个 texel 内部、离左边界 0.3 格的位置。</li>
+</ul>
+<p>场景中的点 <span class="tex">p</span> 位置是连续的，所以采样点几乎不会恰好落在格子中心。后面会看到，PCF 能否得到平滑的阴影边缘，关键就在于有没有用上这个小数部分。</p>
+
+<!-- 2 -->
+<h2 id="s2"><span class="n">2</span>问题：二值比较带来的锯齿</h2>
+<p>阴影贴图的分辨率有限，通常远低于屏幕在这片区域的像素密度。一个 texel 投到地面上，可能覆盖屏幕上几十个像素。这些像素的采样点都落在<b>同一个 texel</b> 里，查到同一个 <span class="tex">z</span>，比较结果完全一样，所以阴影边缘会呈现出 texel 形状的“台阶”。</p>
+<p>很自然的想法是“模糊一下”。但模糊什么？这就是 PCF 要回答的问题。</p>
+
+<!-- 3 -->
+<h2 id="s3"><span class="n">3</span>PCF 的核心思想：过滤“比较结果”，而不是过滤深度</h2>
+<h3>3.1 错误的做法：先模糊深度，再比较</h3>
+<p>普通颜色纹理可以直接开双线性过滤。如果对深度图也这样做，会得到一个插值后的深度 <span class="tex">\tilde z</span>，然后再比较 <span class="tex">d_p \le \tilde z</span>。</p>
+<p>问题出在遮挡物边缘。深度图记录的是“每条光线碰到的第一个表面”，所以在遮挡物边缘，相邻两个 texel 一个存的是遮挡物的深度（近），另一个存的是旁边地面的深度（远）。下图中光从正上方照下，一块悬空的遮挡物深度为 2，地面深度为 10，地面上的点 <span class="tex">p</span> 恰好投影到 texel C 与 D 之间：</p>
+
+<figure>
+<svg viewBox="0 0 640 356" width="100%" style="max-width:640px;display:block;margin:0 auto" role="img" aria-label="先插值深度再比较的错误示意">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/>
+    </marker>
+  </defs>
+  <text x="20" y="22" class="txm">阴影贴图的一行 texel（每格存该光线碰到的第一个表面的深度）</text>
+  <rect x="120" y="32" width="80" height="32" class="cell"/><text x="160" y="53" class="tx" text-anchor="middle">A：2</text>
+  <rect x="200" y="32" width="80" height="32" class="cell"/><text x="240" y="53" class="tx" text-anchor="middle">B：2</text>
+  <rect x="280" y="32" width="80" height="32" class="cell"/><text x="320" y="53" class="tx" text-anchor="middle">C：2</text>
+  <rect x="360" y="32" width="80" height="32" class="cell"/><text x="400" y="53" class="tx" text-anchor="middle">D：10</text>
+  <rect x="440" y="32" width="80" height="32" class="cell"/><text x="480" y="53" class="tx" text-anchor="middle">E：10</text>
+  <!-- depth axis: y = 70 + depth*25 -->
+  <line x1="56" y1="70" x2="56" y2="320" class="ax"/>
+  <text x="48" y="74" class="txm" text-anchor="end">0</text>
+  <text x="48" y="124" class="txm" text-anchor="end">2</text>
+  <text x="48" y="224" class="txm" text-anchor="end">6</text>
+  <text x="48" y="324" class="txm" text-anchor="end">10</text>
+  <text x="62" y="84" class="txm">深度</text>
+  <!-- rays -->
+  <line x1="160" y1="66" x2="160" y2="118" class="ray" marker-end="url(#arr)"/>
+  <line x1="240" y1="66" x2="240" y2="118" class="ray" marker-end="url(#arr)"/>
+  <line x1="320" y1="66" x2="320" y2="118" class="ray" marker-end="url(#arr)"/>
+  <line x1="400" y1="66" x2="400" y2="318" class="ray" marker-end="url(#arr)"/>
+  <line x1="480" y1="66" x2="480" y2="318" class="ray" marker-end="url(#arr)"/>
+  <!-- occluder -->
+  <rect x="100" y="120" width="260" height="20" class="occ"/>
+  <text x="230" y="135" class="txo" text-anchor="middle">遮挡物（深度 2）</text>
+  <!-- ground -->
+  <rect x="100" y="320" width="260" height="8" class="cshd"/>
+  <line x1="60" y1="320" x2="620" y2="320" class="gnd"/>
+  <text x="530" y="344" class="txm">地面（深度 10）</text>
+  <!-- guide from p -->
+  <line x1="360" y1="64" x2="360" y2="316" class="guide"/>
+  <!-- fake depth -->
+  <line x1="290" y1="220" x2="430" y2="220" class="fake"/>
+  <text x="438" y="216" class="txbad">插值深度 z̃ = 6</text>
+  <text x="438" y="236" class="txm">这个深度上没有任何表面</text>
+  <!-- p -->
+  <circle cx="360" cy="320" r="6" class="dot"/>
+  <text x="300" y="346" class="tx">p：dₚ = 10</text>
+</svg>
+<div class="cmp2">
+  <div class="cmpc"><b class="bad">✗ 先插值深度，再比较</b>
+    <div><span class="tex">\tilde z = \tfrac{2 + 10}{2} = 6</span></div>
+    <div><span class="tex">d_p = 10 > \tilde z = 6 \;\Rightarrow\; 0</span>（完全在阴影里）</div>
+    <div class="small">比较后仍然只有 0 或 1</div></div>
+  <div class="cmpc"><b class="ok">✓ PCF：先比较，再平均</b>
+    <div><span class="tex">C:\ H(2 - 10) = 0,\quad D:\ H(10 - 10) = 1</span></div>
+    <div><span class="tex">V = \tfrac{0 + 1}{2} = 0.5</span></div>
+    <div class="small">得到 0 和 1 之间的半影值</div></div>
+</div>
+<figcaption>图 1　遮挡物边缘处，插值把“遮挡物深度”和“地面深度”混成了一个不存在的深度</figcaption>
+</figure>
+
+<p>从图里可以看出两个问题：</p>
+<ol>
+  <li><b>插值出来的深度没有物理意义。</b><span class="tex">\tilde z = 6</span> 既不是遮挡物的深度，也不是地面的深度，它只是两个无关表面的深度凑出来的数，场景里在这个深度上什么都没有。拿 <span class="tex">p</span> 去和一个不存在的表面比较，结论自然也不可靠。</li>
+  <li><b>比较之后仍然是 0 或 1。</b>插值发生在比较之前，而比较会把任何深度值压回 0/1。所以边缘不会变软，只是阴影边界的位置被挪动了。</li>
+</ol>
+<p>第 2 点可以再看得具体一些。让 <span class="tex">p</span> 沿地面从 C 的中心走到 D 的中心（记位置为 <span class="tex">t</span>，<span class="tex">t</span> 从 0 变到 1），两种做法得到的可见度 <span class="tex">V</span> 如下：</p>
+
+<figure>
+<svg viewBox="0 0 640 210" width="100%" style="max-width:640px;display:block;margin:0 auto" role="img" aria-label="沿地面移动时两种做法的可见度曲线">
+  <line x1="80" y1="170" x2="600" y2="170" class="ax"/>
+  <line x1="80" y1="40" x2="80" y2="170" class="ax"/>
+  <text x="72" y="54" class="txm" text-anchor="end">V=1</text>
+  <text x="72" y="174" class="txm" text-anchor="end">V=0</text>
+  <line x1="120" y1="170" x2="120" y2="176" class="ax"/><text x="120" y="192" class="txm" text-anchor="middle">C 中心（t=0）</text>
+  <line x1="520" y1="170" x2="520" y2="176" class="ax"/><text x="520" y="192" class="txm" text-anchor="middle">D 中心（t=1）</text>
+  <polyline points="80,170 120,170 520,50 600,50" class="cg"/>
+  <polyline points="80,170 520,170 520,50 600,50" class="cb" stroke-dasharray="7 5"/>
+  <line x1="300" y1="22" x2="330" y2="22" class="cb" stroke-dasharray="7 5"/><text x="336" y="26" class="tx">先插值深度：一直是 0，到 D 中心才跳到 1</text>
+  <line x1="300" y1="40" x2="330" y2="40" class="cg"/><text x="336" y="44" class="tx">PCF（2×2）：从 0 线性升到 1</text>
+</svg>
+<figcaption>图 2　先插值深度时，<span class="tex">\tilde z = 2 + 8t</span> 只有在 <span class="tex">t = 1</span> 时才不小于 10，边界从遮挡物边缘挪到了 D 的中心，仍是硬边</figcaption>
+</figure>
+
+<h3>3.2 正确的做法：先比较，再平均</h3>
+<p>Reeves 等人在 1987 年提出 Percentage-Closer Filtering，翻译过来就是“求<b>更近者所占的百分比</b>”：在采样点周围取一组 texel，<b>每个 texel 单独和 <span class="tex">d_p</span> 做一次深度比较</b>，然后对这些 0/1 结果做加权平均：</p>
+<div class="formula"><span class="tex">V(p) = \frac{\displaystyle\sum_i w_i \, H(z_i - d_p)}{\displaystyle\sum_i w_i}, \qquad H(x) = \begin{cases} 1 &amp; x \ge 0 \\ 0 &amp; x &lt; 0 \end{cases}</span></div>
+
+<table>
+  <tr><th>符号</th><th>含义</th></tr>
+  <tr><td><span class="tex">p</span></td><td>当前要着色的点</td></tr>
+  <tr><td><span class="tex">d_p</span></td><td><span class="tex">p</span> 到光源的深度，即 <span class="tex">p</span> 在光源空间里的 <span class="tex">z</span></td></tr>
+  <tr><td><span class="tex">i</span></td><td>采样点附近参与计算的第 <span class="tex">i</span> 个 texel</td></tr>
+  <tr><td><span class="tex">z_i</span></td><td>第 <span class="tex">i</span> 个 texel 存的深度，即那条光线碰到的第一个表面的深度</td></tr>
+  <tr><td><span class="tex">H(z_i - d_p)</span></td><td>用第 <span class="tex">i</span> 个 texel 做一次普通的阴影判断：<span class="tex">z_i \ge d_p</span> 表示光线在到达 <span class="tex">p</span> 之前没碰到别的东西，为 1（亮）；<span class="tex">z_i &lt; d_p</span> 表示中途被挡住，为 0（暗）。这正是 1.1 节的 <span class="tex">\mathrm{lit}(p)</span>，只是换成了第 <span class="tex">i</span> 个 texel</td></tr>
+  <tr><td><span class="tex">w_i</span></td><td>第 <span class="tex">i</span> 个 texel 的权重，即它在过滤核里占多大分量</td></tr>
+  <tr><td><span class="tex">V(p)</span></td><td>可见度，0 为全暗，1 为全亮</td></tr>
+</table>
+
+<p>公式可以分三步读：</p>
+<ol>
+  <li><b>逐个比较</b>：<span class="tex">H(z_i - d_p)</span> 让每个 texel 各投一票，票面只有 0 或 1。</li>
+  <li><b>加权求和</b>：<span class="tex">\sum_i w_i\,H(z_i - d_p)</span> 把票数乘上各自的权重相加。</li>
+  <li><b>归一化</b>：除以 <span class="tex">\sum_i w_i</span>，把结果压到 0~1。权重全相等时退化为 <span class="tex">V = \dfrac{\text{判为亮的样本数}}{\text{样本总数}}</span>。</li>
+</ol>
+<p>结果的含义很直白：<b>周围这片区域里，有百分之多少的 texel 认为 <span class="tex">p</span> 是亮的</b>。被平均的是“是否被遮挡”的结论，每个结论本身都有明确含义，所以平均出来的比例才能当作“被照亮的程度”。</p>
+
+<p>下面用一行 texel 实际代入：左侧 6 格是遮挡物（<span class="tex">z = 2</span>），右侧是地面（<span class="tex">z = 10</span>），<span class="tex">p</span> 在地面上（<span class="tex">d_p = 10</span>）。虚线框是宽 <span class="tex">K</span> 个 texel 的过滤核，中心就是采样点；每个 texel 的权重 <span class="tex">w_i</span> 等于它被虚线框覆盖的长度。拖动滑块，观察每一项怎么参与求和：</p>
+
+<div class="demo" id="wa">
+  <div class="wctl">
+    <div><label for="wa-u">采样点位置 u（texel 坐标）：<span id="wa-uv"></span></label>
+      <input id="wa-u" type="range" min="3" max="8.5" step="0.01" value="5.8"></div>
+    <div><label for="wa-k">核宽 K</label>
+      <select id="wa-k"><option value="1">1（2×2 双线性 PCF 的一维情形）</option><option value="3" selected>3</option><option value="5">5</option></select></div>
+  </div>
+  <svg id="wa-svg" viewBox="0 0 640 250" width="100%" role="img" aria-label="PCF 公式逐项演示"></svg>
+  <div class="readout" id="wa-ro"></div>
+</div>
+<p class="small">格子颜色即 <span class="tex">H(z_i-d_p)</span>：暗色格为 0，亮色格为 1。下方曲线是 <span class="tex">V</span> 随采样点位置的变化，圆点是当前位置。</p>
+
+<div class="box key">比较是非线性操作，过滤是线性操作，两者不能交换顺序。PCF = 先对每个样本做比较，再对比较结果做过滤。</div>
+
+<h3>3.3 PCF 得到的“软边”是什么</h3>
+<p>要注意：PCF 的软边<b>不是物理半影</b>。它的宽度只取决于过滤核的大小（以 texel 为单位），跟光源大小、遮挡物离地面多远都无关。它本质上是<b>抗锯齿</b>：把 texel 的台阶磨平。真实的“离遮挡物越远越虚”需要借助 PCSS 这类可变核宽的方法才能得到。</p>
+
+<!-- 4 -->
+<h2 id="s4"><span class="n">4</span>交互演示：对比各种过滤方式</h2>
+<p>下面用一张很低分辨率的阴影贴图（遮挡物是一个斜放的方块和一个圆），在高分辨率画布上重建阴影。每个画布像素都执行一次对应的过滤。</p>
+
+<div class="demo">
+  <div class="row">
+    <canvas id="cv" width="400" height="400" aria-label="PCF 演示画布"></canvas>
+    <div class="ctl">
+      <label for="mode">过滤方式</label>
+      <select id="mode">
+        <option value="none">无过滤（点采样）</option>
+        <option value="depthlerp">错误做法：先双线性深度再比较</option>
+        <option value="naive3">朴素 3×3（整数对齐，不连续）</option>
+        <option value="k1">PCF 2×2 双线性</option>
+        <option value="k3" selected>PCF 3×3（连续核）</option>
+        <option value="k5">PCF 5×5（连续核）</option>
+      </select>
+      <label for="res">阴影贴图分辨率：<span id="resv"></span></label>
+      <input id="res" type="range" min="0" max="3" step="1" value="1">
+      <label class="chk"><input id="grid" type="checkbox" checked> 显示 texel 网格</label>
+      <div class="readout" id="ro"></div>
+    </div>
+  </div>
+</div>
+<p>各过滤方式的表现与前文的分析一一对应：</p>
+<ul>
+  <li><b>无过滤</b>：每个画布像素只做一次二值比较，同一个 texel 覆盖的像素结果完全相同，边缘呈 texel 形状的台阶。</li>
+  <li><b>先双线性深度再比较</b>：插值只改变了深度值，比较后仍是 0 或 1，边缘依旧是硬的，只是边界位置相对无过滤时发生了偏移。</li>
+  <li><b>朴素 3×3</b>：边缘出现了中间灰度，但同一个 texel 内的像素取到的是同一组 texel，颜色相同，阶梯仍以 texel 为单位出现，只是由两级变成了多级。</li>
+  <li><b>连续核 PCF</b>：权重随采样点的小数部分连续变化，边缘平滑过渡；软边宽度等于核宽，因此 2×2、3×3、5×5 的软边依次变宽，每像素的读取次数也依次增加。</li>
+  <li><b>分辨率</b>：texel 越大，同样核宽对应的软边在画布上越宽，台阶也越明显；提高分辨率会让所有方式的边缘都变窄。</li>
+</ul>
+
+<!-- 5 -->
+<h2 id="s5"><span class="n">5</span>从 2×2 到 N×N：连续平移的核</h2>
+<h3>5.1 最小的 PCF：硬件 2×2</h3>
+<p>GPU 为此专门提供了<b>比较采样器</b>（HLSL 的 <code>SamplerComparisonState</code> + <code>SampleCmp</code>，GLSL 的 <code>sampler2DShadow</code>）。开启线性过滤时，硬件会取采样点周围 2×2 个 texel，<b>先各自比较，再按双线性权重混合</b>，一条指令就完成了一次 2×2 PCF。</p>
+<p>设采样点相对这 2×2 个 texel 中心的小数位置为 <span class="tex">(f_x,\ f_y)</span>，四个比较结果按位置排成 <span class="tex">\begin{bmatrix} a &amp; b \\ c &amp; d \end{bmatrix}</span>（上行 <span class="tex">a, b</span>，下行 <span class="tex">c, d</span>），那么：</p>
+<div class="formula"><span class="tex">V = \mathrm{lerp}\big(\mathrm{lerp}(a, b, f_x),\ \mathrm{lerp}(c, d, f_x),\ f_y\big)</span></div>
+<p>2×2 的软边只有 1 个 texel 宽。想要更宽的软边，就得把核做大。</p>
+
+<h3>5.2 朴素的 3×3 为什么还有阶梯</h3>
+<p>最直接的 3×3 PCF 是：把采样点坐标取整，找到它所在的 texel，取这个 texel 和周围 8 个，各自比较后平均。问题出在“取整”这一步。</p>
+<p><b>采样点在 texel 内部滑动。</b>1.3 节说过，采样点坐标是连续的，而 texel 是离散的格子。一个 texel 投到屏幕上往往覆盖很多像素，所以屏幕上相邻的一排像素，对应的采样点在阴影贴图上是一小步一小步往前挪的，前几步都还在同一个格子里：</p>
+<table>
+  <tr><th>屏幕像素</th><th>#1</th><th>#2</th><th>#3</th><th>#4</th><th>#5</th><th>#6</th><th>#7</th></tr>
+  <tr><td>采样点 <span class="tex">u</span></td><td>5.1</td><td>5.3</td><td>5.5</td><td>5.7</td><td>5.9</td><td>6.1</td><td>6.3</td></tr>
+  <tr><td>所在 texel（取整）</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td><td>6</td><td>6</td></tr>
+  <tr><td>朴素 3×3 用到的列</td><td colspan="5">4、5、6</td><td colspan="2">5、6、7</td></tr>
+</table>
+<p><b>参与的 9 个 texel 完全不变。</b>取整后 5.1 和 5.9 没有区别，小数部分被丢掉了。所以 #1 到 #5 取到的是同一组 texel（二维就是同样的 <span class="tex">3 \times 3 = 9</span> 个），每个 texel 权重都是 <span class="tex">1/9</span>，算出来的 <span class="tex">V</span> 完全相同，屏幕上这 5 个像素颜色一样。</p>
+<p><b>跨过 texel 边界时整组突然换掉。</b>从 #5（<span class="tex">u = 5.9</span>）到 #6（<span class="tex">u = 6.1</span>），采样点越过了 <span class="tex">u = 6</span> 这条格线，取整结果从 5 变成 6，参与的列从 <span class="tex">\{4, 5, 6\}</span> 一下子变成 <span class="tex">\{5, 6, 7\}</span>：第 4 列整列出去，第 7 列整列进来，<span class="tex">V</span> 在这一刻突变。</p>
+<p>代入深度看效果。设第 3~5 列是遮挡物（<span class="tex">z = 2</span>），第 6 列起是地面（<span class="tex">z = 10</span>），<span class="tex">p</span> 在地面上（<span class="tex">d_p = 10</span>），只看一维：</p>
+<table>
+  <tr><th>采样点 <span class="tex">u</span></th><th>参与的列</th><th>判为亮的个数</th><th><span class="tex">V</span></th></tr>
+  <tr><td>5.00 ~ 5.99</td><td>4、5、6</td><td>1</td><td>0.33</td></tr>
+  <tr><td>6.00 ~ 6.99</td><td>5、6、7</td><td>2</td><td>0.67</td></tr>
+  <tr><td>7.00 ~ 7.99</td><td>6、7、8</td><td>3</td><td>1.00</td></tr>
+</table>
+<p><span class="tex">V</span> 的变化是 <span class="tex">0.33 \to 0.67 \to 1</span>，一整格一个台阶，台阶宽度正好是一个 texel。所以阴影边缘虽然比二值比较时模糊了，但仍能看出 texel 形状的阶梯，只是从“黑白两级”变成了“多级灰”。</p>
+
+<p>下面的演示中，蓝色实线框是朴素 3×3 取到的 3 列，橙色虚线框是 5.3 节的连续核。拖动采样点，注意蓝框只在跨过格线时才跳动，而橙框随采样点平滑移动：</p>
+<div class="demo" id="wb">
+  <div class="wctl">
+    <div><label for="wb-u">采样点位置 u（相当于屏幕上从左到右逐个像素）：<span id="wb-uv"></span></label>
+      <input id="wb-u" type="range" min="3.5" max="8.5" step="0.01" value="5.3"></div>
+  </div>
+  <svg id="wb-svg" viewBox="0 0 640 260" width="100%" role="img" aria-label="朴素 3x3 与连续 3x3 的对比"></svg>
+  <div class="readout" id="wb-ro"></div>
+</div>
+
+<h3>5.3 解决办法：让核随采样点连续平移</h3>
+<p>问题的根源是取整丢掉了小数部分，所以解决办法就是把小数部分用起来：把过滤核看成一个宽 3 个 texel 的<b>盒子</b>，盒子中心就是采样点，采样点挪多少盒子就挪多少。每个 texel 的权重等于它<b>被盒子覆盖的长度</b>。</p>
+<p>中心在任意位置时，这个盒子会<b>完整覆盖</b>中间 2 个 texel，<b>部分覆盖</b>两边各 1 个 texel。盒子的左右边缘恰好跨过格线的时刻，是采样点位于 texel 中心的时刻，所以小数部分要<b>从 texel 中心开始量</b>：</p>
+<div class="formula"><span class="tex">f = \mathrm{frac}(u - 0.5), \qquad w = [\,1-f,\ 1,\ 1,\ f\,], \qquad \textstyle\sum w = 3</span></div>
+<p>四个权重对应的四列从哪里开始，同样由 <span class="tex">u - 0.5</span> 决定：</p>
+<div class="formula"><span class="tex">b = \lfloor u - 0.5 \rfloor, \qquad \text{参与的 4 列} = b-1,\ b,\ b+1,\ b+2</span></div>
+<p>以 <span class="tex">u = 5.3</span> 为例：盒子覆盖 <span class="tex">[3.8,\ 6.8]</span>，<span class="tex">u - 0.5 = 4.8</span>，所以 <span class="tex">b = 4</span>、<span class="tex">f = 0.8</span>，参与的是第 3、4、5、6 列：第 3 列被覆盖 <span class="tex">0.2 = 1-f</span>，第 4、5 列各 1，第 6 列被覆盖 <span class="tex">0.8 = f</span>。</p>
+<p>下面的交互把这个过程画出来：蓝色实线框是由 <span class="tex">b</span> 确定的 4 列，橙色虚线框是宽 3 个 texel 的盒子；格子下方标出每列的编号和权重，灰色短线从第 <span class="tex">b</span> 列的中心量到采样点，长度就是 <span class="tex">f</span>。拖动采样点，观察蓝框只在采样点经过 texel 中心时才换组，而框内两端两列的权重随 <span class="tex">f</span> 连续变化：</p>
+<div class="demo" id="wc">
+  <div class="wctl">
+    <div><label for="wc-u">采样点位置 u（texel 坐标）：<span id="wc-uv"></span></label>
+      <input id="wc-u" type="range" min="3.5" max="8.5" step="0.01" value="5.3"></div>
+  </div>
+  <svg id="wc-svg" viewBox="0 0 640 290" width="100%" role="img" aria-label="连续 3x3 核使用 4 个 texel 的滑动演示"></svg>
+  <div class="readout" id="wc-ro"></div>
+</div>
+
+<p><b>采样点滑动时这 4 列怎样变化。</b>沿用 5.2 节的场景（第 3~5 列是遮挡物，第 6 列起是地面，<span class="tex">d_p = 10</span>），让屏幕上同样的 7 个像素依次采样：</p>
+<table>
+  <tr><th>屏幕像素</th><th>采样点 <span class="tex">u</span></th><th><span class="tex">u-0.5</span></th><th><span class="tex">b</span></th><th><span class="tex">f</span></th><th>参与的 4 列及权重</th><th><span class="tex">V</span></th></tr>
+  <tr><td>#1</td><td>5.1</td><td>4.6</td><td>4</td><td>0.6</td><td><span class="tex">3{:}\,0.4\quad 4{:}\,1\quad 5{:}\,1\quad 6{:}\,0.6</span></td><td><span class="tex">0.6/3 = 0.200</span></td></tr>
+  <tr><td>#2</td><td>5.3</td><td>4.8</td><td>4</td><td>0.8</td><td><span class="tex">3{:}\,0.2\quad 4{:}\,1\quad 5{:}\,1\quad 6{:}\,0.8</span></td><td><span class="tex">0.8/3 = 0.267</span></td></tr>
+  <tr><td>#3</td><td>5.5</td><td>5.0</td><td>5</td><td>0.0</td><td><span class="tex">4{:}\,1\quad 5{:}\,1\quad 6{:}\,1\quad 7{:}\,0</span></td><td><span class="tex">1.0/3 = 0.333</span></td></tr>
+  <tr><td>#4</td><td>5.7</td><td>5.2</td><td>5</td><td>0.2</td><td><span class="tex">4{:}\,0.8\quad 5{:}\,1\quad 6{:}\,1\quad 7{:}\,0.2</span></td><td><span class="tex">1.2/3 = 0.400</span></td></tr>
+  <tr><td>#5</td><td>5.9</td><td>5.4</td><td>5</td><td>0.4</td><td><span class="tex">4{:}\,0.6\quad 5{:}\,1\quad 6{:}\,1\quad 7{:}\,0.4</span></td><td><span class="tex">1.4/3 = 0.467</span></td></tr>
+  <tr><td>#6</td><td>6.1</td><td>5.6</td><td>5</td><td>0.6</td><td><span class="tex">4{:}\,0.4\quad 5{:}\,1\quad 6{:}\,1\quad 7{:}\,0.6</span></td><td><span class="tex">1.6/3 = 0.533</span></td></tr>
+  <tr><td>#7</td><td>6.3</td><td>5.8</td><td>5</td><td>0.8</td><td><span class="tex">4{:}\,0.2\quad 5{:}\,1\quad 6{:}\,1\quad 7{:}\,0.8</span></td><td><span class="tex">1.8/3 = 0.600</span></td></tr>
+</table>
+<p>对照 5.2 节的朴素 3×3（#1~#5 全是 0.33，#6、#7 突变为 0.67），可以看到三点：</p>
+<ul>
+  <li><b>在一组 4 列内部滑动时，列不变，权重在变。</b>#1、#2 用的都是第 3~6 列，但 <span class="tex">f</span> 从 0.6 变到 0.8，左端列的权重 <span class="tex">1-f</span> 减小，右端列的权重 <span class="tex">f</span> 增大；亮的第 6 列占比变大，<span class="tex">V</span> 随之增大。朴素做法把小数部分丢掉了，这里则把它变成了两端的权重。</li>
+  <li><b>换组发生在 texel 中心，而不是格线上。</b>4 列的起点由 <span class="tex">\lfloor u - 0.5 \rfloor</span> 决定，所以换组发生在 <span class="tex">u = 5.5</span>（第 5 列的中心），此时盒子的左右边缘正好落在格线 4 和 7 上。</li>
+  <li><b>换组的那一刻结果不跳。</b><span class="tex">u \to 5.5^-</span> 时旧组权重趋于 <span class="tex">[0,1,1,1]</span>（第 3~6 列），<span class="tex">u = 5.5</span> 时新组权重为 <span class="tex">[1,1,1,0]</span>（第 4~7 列）：两边真正起作用的都是第 4、5、6 列，各占 1。被移出的列和新移入的列在换组时刻权重都是 0，所以 <span class="tex">V</span> 连续。</li>
+</ul>
+<p>表中的 <span class="tex">V</span> 每一步都增加 <span class="tex">0.2/3 \approx 0.067</span>，是一条斜线而不是台阶，这正是 5.2 节交互中橙色曲线的形状。二维时两个方向的权重相乘：</p>
+<div class="formula"><span class="tex">w_{ij} = w_x(i)\, w_y(j), \qquad \sum_{i,j} w_{ij} = 3 \times 3 = 9</span></div>
+<p>一共涉及 <b><span class="tex">4 \times 4 = 16</span> 个 texel</b>，权重总和为 9，所以最后除以 9。可以把它理解为：一个 3×3 texel 大小的方形窗口，中心在采样点上、随采样点连续平移；边缘一圈的 texel 只被窗口覆盖了一部分，就按覆盖比例计权。同理可推广到任意奇数核宽 <span class="tex">K</span>：</p>
+<table>
+  <tr><th>核宽 <span class="tex">K</span>（texel）</th><th>实际读取 texel</th><th>一维权重</th><th>归一化</th></tr>
+  <tr><td>1</td><td><span class="tex">2 \times 2 = 4</span></td><td><span class="tex">1-f,\ f</span></td><td><span class="tex">\div 1</span>（就是 5.1 节的双线性 PCF）</td></tr>
+  <tr><td>3</td><td><span class="tex">4 \times 4 = 16</span></td><td><span class="tex">1-f,\ 1,\ 1,\ f</span></td><td><span class="tex">\div 9</span></td></tr>
+  <tr><td>5</td><td><span class="tex">6 \times 6 = 36</span></td><td><span class="tex">1-f,\ 1,\ 1,\ 1,\ 1,\ f</span></td><td><span class="tex">\div 25</span></td></tr>
+</table>
+
+<figure>
+<svg viewBox="0 0 540 300" width="100%" style="max-width:540px;display:block;margin:0 auto" role="img" aria-label="3x3 PCF 的 4x4 texel 权重示意">
+  <style>
+    .g{fill:var(--surface);stroke:var(--line)} .gz{stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:5 4}
+    .t{fill:var(--text);font-size:11px} .m{fill:var(--muted);font-size:11px} .a{fill:var(--accent);font-size:12px}
+    .q1{fill:#c7703f;fill-opacity:.16} .q2{fill:#3f78c7;fill-opacity:.16} .q3{fill:#3fa06a;fill-opacity:.16} .q4{fill:#9a5fc4;fill-opacity:.16}
+  </style>
+  <rect x="40" y="30" width="120" height="120" class="q1"/>
+  <rect x="160" y="30" width="120" height="120" class="q2"/>
+  <rect x="40" y="150" width="120" height="120" class="q3"/>
+  <rect x="160" y="150" width="120" height="120" class="q4"/>
+  <g id="cells"></g>
+  <rect x="61" y="51" width="180" height="180" class="gz"/>
+  <text x="300" y="44" class="a">虚线框 = 宽 3 texel 的盒状核</text>
+  <text x="300" y="62" class="m">中心随采样点连续移动（此处 f = 0.35）</text>
+  <text x="300" y="96" class="t">格中数字 = 该 texel 的权重 wx × wy</text>
+  <text x="300" y="114" class="m">wx = wy = [1−f, 1, 1, f]，总和 3 × 3 = 9</text>
+  <text x="300" y="150" class="t">底色 = 取数分组（与权重无关）</text>
+  <text x="300" y="168" class="m">同色的 2×2 格由同一次 Gather 取回，</text>
+  <text x="300" y="186" class="m">4 种底色 = 4 次 Gather 取回 16 个深度</text>
+</svg>
+<figcaption>图 3　3×3 连续核读取的 4×4 texel：数字是权重，底色是取数分组</figcaption>
+</figure>
+
+<h3>5.4 Gather：一次取 4 个深度</h3>
+<p>3×3 连续核要读 16 个深度。普通采样指令一次只返回一个值，就得发 16 次采样。<code>Texture.Gather()</code>（HLSL，DX11 起；GLSL 为 <code>textureGather</code>）一次返回采样位置周围 <b>2×2 共 4 个 texel 的原始值</b>，打包成一个 <code>float4</code>。这 4 个 texel 正是双线性过滤会用到的那 4 个，但 Gather 不做插值，把原值原样交出来。</p>
+<p>这一点对 PCF 很重要：PCF 必须先拿到每个 texel 的原始深度，单独比较之后再平均；如果先插值，就又回到了 3.1 节的错误做法。</p>
+<p>于是把 4×4 网格切成 4 块 2×2，每块一次 Gather，这就是图 3 中 4 种底色的含义。每块内部 4 个分量的位置如图 4 所示：</p>
+<figure>
+<svg viewBox="0 0 600 330" width="100%" style="max-width:600px;display:block;margin:0 auto" role="img" aria-label="4 次 Gather 覆盖 4x4 texel 的分块与分量">
+  <style>
+    .gc{stroke:var(--line);stroke-width:1}
+    .gb{fill:none;stroke:var(--text);stroke-width:1.6}
+    .q1{fill:#c7703f;fill-opacity:.16} .q2{fill:#3f78c7;fill-opacity:.16} .q3{fill:#3fa06a;fill-opacity:.16} .q4{fill:#9a5fc4;fill-opacity:.16}
+    .gt{fill:var(--text);font-size:12px;font-family:Consolas,monospace} .gm{fill:var(--muted);font-size:11px} .gl{fill:var(--text);font-size:12px}
+  </style>
+  <g id="gcells"></g>
+  <text x="358" y="42" class="gl">Gather0：偏移 (−1, −1)，左上 2×2</text>
+  <text x="358" y="62" class="gl">Gather1：偏移 (+1, −1)，右上 2×2</text>
+  <text x="358" y="82" class="gl">Gather2：偏移 (−1, +1)，左下 2×2</text>
+  <text x="358" y="102" class="gl">Gather3：偏移 (+1, +1)，右下 2×2</text>
+  <rect x="342" y="32" width="10" height="12" class="q1"/><rect x="342" y="52" width="10" height="12" class="q2"/>
+  <rect x="342" y="72" width="10" height="12" class="q3"/><rect x="342" y="92" width="10" height="12" class="q4"/>
+  <text x="342" y="140" class="gm">格中 gN.x/y/z/w = 该 texel 在第 N 次</text>
+  <text x="342" y="156" class="gm">Gather 返回值里的分量</text>
+  <text x="342" y="186" class="gm">每块内部：w 左上、z 右上</text>
+  <text x="342" y="202" class="gm">　　　　　x 左下、y 右下</text>
+  <text x="342" y="232" class="gm">中心圆点 c = 4 块的公共角点，</text>
+  <text x="342" y="248" class="gm">偏移以 texel 为单位从 c 算起</text>
+</svg>
+<figcaption>图 4　4×4 texel 切成 4 块 2×2，每块一次 Gather；底色与图 3 一致</figcaption>
+</figure>
+<p>需要分清两种“次数”：</p>
+<table>
+  <tr><th>步骤</th><th>3×3 连续核的次数</th></tr>
+  <tr><td>纹理采样指令（Gather）</td><td>4</td></tr>
+  <tr><td>单个深度的比较 <span class="tex">H(z_i-d_p)</span></td><td>16（每次 Gather 回来的 <code>float4</code> 一次比较 4 个）</td></tr>
+  <tr><td>乘权重并累加</td><td>16</td></tr>
+</table>
+<p>现代 GPU 上 <code>float4</code> 运算通常也被拆成标量指令执行，所以比较和累加的运算量并没有减少。真正省下的是<b>纹理采样指令</b>：从 16 次减到 4 次，5×5 核则从 36 次减到 9 次。采样指令要访问纹理缓存，比几次乘加贵得多，这才是用 Gather 的收益。</p>
+<p>Gather 返回的 4 个分量不是“从左到右、从上到下”排列的。按 DX11 规范，以纹理 v 轴向下为准：<code>x</code> = 左下，<code>y</code> = 右下，<code>z</code> = 右上，<code>w</code> = 左上。写代码时要按这个顺序把分量拼回行列（见 6.3 节）。</p>
+
+<!-- 6 -->
+<h2 id="s6"><span class="n">6</span>PCF 的核心代码实现</h2>
+<p>以下是 HLSL 写法。约定：阴影贴图存的是线性或非线性深度均可，但 <span class="tex">d_p</span> 必须和它处于同一空间；深度越大离光源越远（若使用 Reversed-Z，比较方向要反过来）。</p>
+
+<h3>6.1 通用 K×K 连续核：点采样 + 手动比较</h3>
+<p>这一版与第 3、5 节的公式一一对应，最适合对照理解：</p>
+<pre><code>// K 为奇数：1、3、5 ...
+// uv           : 采样点在阴影贴图上的 UV（0~1）
+// receiverDepth: d_p，已减去深度偏移
+// mapSize      : 阴影贴图分辨率（texel）
+float PCF_KxK(Texture2D&lt;float&gt; ShadowMap, SamplerState PointClamp,
+              float2 uv, float receiverDepth, float2 mapSize, int K)
+{
+    float2 texelPos = uv * mapSize - 0.5;   // 以 texel 中心为整数点：f 从中心开始量
+    float2 base     = floor(texelPos);
+    float2 f        = texelPos - base;      // 小数部分，决定边缘两列/两行的权重
+    int    r        = (K - 1) / 2;
+
+    float sum = 0;
+    for (int j = 0; j &lt;= K; ++j)            // 共 K+1 行
+    {
+        float wy = (j == 0) ? 1 - f.y : (j == K ? f.y : 1);
+        for (int i = 0; i &lt;= K; ++i)        // 共 K+1 列
+        {
+            float wx = (i == 0) ? 1 - f.x : (i == K ? f.x : 1);
+            float2 texel  = base + float2(i - r, j - r);                // 第 i 列、第 j 行的 texel 索引
+            float  z      = ShadowMap.SampleLevel(PointClamp, (texel + 0.5) / mapSize, 0);
+            float  h      = (receiverDepth &lt;= z) ? 1.0 : 0.0;           // H(z_i - d_p)
+            sum += wx * wy * h;                                         // w_i · H
+        }
+    }
+    return sum / (K * K);                   // 除以 Σw_i = K×K
+}</code></pre>
+<p><span class="tex">K = 1</span> 时它就退化为 2×2 双线性 PCF；<span class="tex">K = 3</span> 时读 16 个 texel、除以 9。</p>
+
+<h3>6.2 硬件比较采样器：一条指令的 2×2 PCF</h3>
+<pre><code>// 采样器状态：Filter = COMPARISON_MIN_MAG_LINEAR_MIP_POINT
+//            ComparisonFunc = LESS_EQUAL   （receiverDepth &lt;= texel 深度 时为 1）
+SamplerComparisonState ShadowCmpSampler;
+
+float PCF_2x2_Hardware(Texture2D&lt;float&gt; ShadowMap, float2 uv, float receiverDepth)
+{
+    // 硬件取 2×2 个 texel，逐个与 receiverDepth 比较，再按双线性权重混合
+    return ShadowMap.SampleCmpLevelZero(ShadowCmpSampler, uv, receiverDepth);
+}</code></pre>
+<p>硬件比较采样器也可以作为更大核的“积木”：在采样点周围按固定偏移调用若干次 <code>SampleCmp</code> 再平均。但它的比较函数只能是硬件支持的几种二值比较，如果想把比较换成别的函数（例如带过渡带的软比较），就只能像 6.1、6.3 那样取原始深度自己比较。</p>
+
+<h3>6.3 3×3 连续核的 Gather 版本</h3>
+<pre><code>float PCF_3x3_Gather(Texture2D&lt;float&gt; ShadowMap, SamplerState PointClamp,
+                     float2 uv, float receiverDepth, float2 mapSize)
+{
+    float2 texelPos = uv * mapSize - 0.5;
+    float2 base     = floor(texelPos);
+    float2 f        = texelPos - base;
+
+    // 4×4 块覆盖 texel base-1 … base+2。
+    // 它的正中心（4 个 2×2 块的公共角点）在 (base + 1) 处，
+    // 再用整数偏移把 Gather 位置挪到每个 2×2 块的中心。
+    float2 c  = (base + 1.0) / mapSize;
+    float4 g0 = ShadowMap.Gather(PointClamp, c, int2(-1, -1));  // 左上 2×2
+    float4 g1 = ShadowMap.Gather(PointClamp, c, int2( 1, -1));  // 右上 2×2
+    float4 g2 = ShadowMap.Gather(PointClamp, c, int2(-1,  1));  // 左下 2×2
+    float4 g3 = ShadowMap.Gather(PointClamp, c, int2( 1,  1));  // 右下 2×2
+
+    // 先比较：step(d, z) = (z &gt;= d) ? 1 : 0，即 H(z - d_p)，一次处理 4 个
+    float4 h0 = step(receiverDepth, g0);
+    float4 h1 = step(receiverDepth, g1);
+    float4 h2 = step(receiverDepth, g2);
+    float4 h3 = step(receiverDepth, g3);
+
+    // 再过滤：Gather 分量顺序 x=左下 y=右下 z=右上 w=左上，按行重新拼好
+    float4 wx = float4(1 - f.x, 1, 1, f.x);
+    float4 wy = float4(1 - f.y, 1, 1, f.y);
+    float4 rows;
+    rows.x = dot(float4(h0.w, h0.z, h1.w, h1.z), wx);  // 第 0 行
+    rows.y = dot(float4(h0.x, h0.y, h1.x, h1.y), wx);  // 第 1 行
+    rows.z = dot(float4(h2.w, h2.z, h3.w, h3.z), wx);  // 第 2 行
+    rows.w = dot(float4(h2.x, h2.y, h3.x, h3.y), wx);  // 第 3 行
+    return dot(rows, wy) / 9.0;                        // 先横向、后纵向：可分离滤波
+}</code></pre>
+<p>它和 6.1 在 <span class="tex">K = 3</span> 时的结果完全相同，只是把 16 次采样压缩成 4 次 Gather。5×5 同理：9 次 Gather 覆盖 6×6 texel，权重换成 <span class="tex">[\,1-f,\ 1,\ 1,\ 1,\ 1,\ f\,]</span>，最后除以 25。</p>
+
+<h3>6.4 实现要点</h3>
+<ul>
+  <li><b>深度偏移</b>：<span class="tex">d_p</span> 要先减去一个偏移（常数偏移 + 与斜率相关的偏移，或沿法线外推接收点），否则会出现自阴影（shadow acne）。核越大，偏移通常要越大，原因见第 7 节。</li>
+  <li><b>未写入的区域</b>：阴影贴图清屏值一般是最远深度，把 <span class="tex">d_p</span> 截到略小于它，可以保证贴图中没有画到的区域总是判为亮。</li>
+  <li><b>图集与边界</b>：多个阴影共用一张图集时，4×4 或 6×6 的读取范围会越过当前阴影的边界，需要在每个阴影周围留出至少半个核宽的边框。</li>
+  <li><b>比较函数可以替换</b>：代码结构是“对每个样本求一个函数值，再加权平均”。把 <span class="tex">H</span> 换成带过渡带的斜坡，或换成按遮挡厚度计算的透射率，过滤部分完全不用改。</li>
+</ul>
+
+<!-- 7 -->
+<h2 id="s7"><span class="n">7</span>PCF 的代价与固有问题</h2>
+<ul>
+  <li><b>代价随核宽平方增长</b>：3×3 读 16 个 texel，5×5 读 36 个。每个屏幕像素、对每个投影阴影各执行一次。一个像素如果同时被几盏投影灯照到，或者落在级联阴影两级之间的过渡带里，就要做多次 PCF。</li>
+  <li><b>半影宽度固定</b>：<span class="tex">\text{软边宽度} = \text{核宽} \times \text{texel 的世界尺寸}</span>。阴影贴图分辨率变化（例如级联阴影的远近级联）时，软边宽度也跟着变。</li>
+  <li><b>自阴影（shadow acne）加剧</b>：核越大，参与比较的 texel 离采样点越远。对于倾斜的接收面，远处 texel 对应的表面深度和 <span class="tex">d_p</span> 差得更多，更容易“自己挡自己”，需要更大的深度偏移。常见对策包括随斜率增大的偏移、按样本离中心的距离增加偏移、接收面平面深度偏移（receiver plane depth bias），以及用软比较代替二值比较。</li>
+  <li><b>不能预过滤</b>：因为比较依赖于每个像素自己的 <span class="tex">d_p</span>，没法像方差阴影贴图（Variance Shadow Maps）或指数阴影贴图（ESM）那样提前把阴影贴图模糊好或生成 mipmap。</li>
+</ul>
+
+<!-- 8 -->
+<h2 id="s8"><span class="n">8</span>进阶：PCSS —— 可变核宽的 PCF</h2>
+<p>PCF 的软边宽度固定。真实阴影里，遮挡物离接收面越远、光源越大，半影越宽。PCSS（Percentage-Closer Soft Shadows，Fernando 2005）的思路是：<b>先估算半影宽度，再用这个宽度做 PCF</b>。</p>
+<ol>
+  <li><b>遮挡物搜索</b>：在一个搜索半径内采样阴影贴图，只统计比接收者更近的样本，求平均遮挡深度 <span class="tex">d_{\text{blocker}}</span>。没有遮挡物时直接返回 1。</li>
+  <li><b>估算半影</b>：由相似三角形，
+    <div class="formula"><span class="tex">w_{\text{penumbra}} = \frac{(d_p - d_{\text{blocker}})\cdot w_{\text{light}}}{d_{\text{blocker}}}</span></div>
+    方向光（光源在无穷远）简化为 <span class="tex">\tan(\theta/2)\cdot(d_p - d_{\text{blocker}})</span>，<span class="tex">\theta</span> 为光源的张角。</li>
+  <li><b>PCF</b>：用上一步的宽度作为核半径做 PCF，样本通常改为圆盘上的泊松或低差异序列分布。</li>
+</ol>
+<div class="box key"><b class="t">PCF 与 PCSS 的关系</b>
+PCSS 不是 PCF 的替代品，而是 PCF 的“前置估算器”：最后一步仍然是 PCF，只是核宽由每个像素的遮挡物距离决定，而不是固定的 3 或 5 个 texel。</div>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  function mk(tag, attrs, parent, text){
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const r2 = x => (Math.round(x*100)/100).toString();
+
+  // ---- KaTeX ----
+  // 先记下 TeX 源码；渲染只做一次，失败时退回显示源码
+  document.querySelectorAll('.tex').forEach(e => { e.dataset.src = e.textContent; });
+  function renderTex(){
+    document.querySelectorAll('.tex').forEach(e => {
+      if (e.dataset.done) return;
+      if (!window.katex){ e.classList.add('tex-fallback'); return; }
+      try {
+        katex.render(e.dataset.src, e, {displayMode: !!e.closest('.formula'), throwOnError:true});
+        e.dataset.done = '1'; e.classList.remove('tex-fallback');
+      } catch(err){ e.textContent = e.dataset.src; e.classList.add('tex-fallback'); }
+    });
+  }
+  window.addEventListener('load', () => { renderTex(); if (window.redrawReadouts) window.redrawReadouts(); });
+  // 读数区：文字中夹带 TeX，[[...]] 内为 TeX
+  function setMath(el, lines){
+    el.innerHTML = '';
+    lines.forEach(line => {
+      const div = document.createElement('div');
+      line.split(/\[\[|\]\]/).forEach((seg, k) => {
+        if (k % 2 === 0){ div.appendChild(document.createTextNode(seg)); return; }
+        const sp = document.createElement('span');
+        if (window.katex){ try { katex.render(seg, sp, {throwOnError:true}); } catch(err){ sp.textContent = seg; } }
+        else sp.textContent = seg;
+        div.appendChild(sp);
+      });
+      el.appendChild(div);
+    });
+  }
+  if (document.readyState === 'complete') renderTex();
+
+  // ---- 题头：左侧点采样的 texel 台阶，向右核宽逐渐增大为 PCF 软边 ----
+  function hex(c){ c = c.trim().replace('#',''); return [0,2,4].map(i => parseInt(c.substr(i,2),16)); }
+  function drawHero(){
+    const cv = $('hero-cv'); if (!cv) return;
+    const W = Math.max(1, Math.round(cv.clientWidth)), H = Math.max(1, Math.round(cv.clientHeight));
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d'), cs = getComputedStyle(document.documentElement);
+    const L = hex(cs.getPropertyValue('--lit')), S = hex(cs.getPropertyValue('--shadow')), G = hex(cs.getPropertyValue('--line'));
+    const T = H / 12;                                                 // texel 边长（像素）
+    const edge = x => H * (0.1 + 0.62 * Math.sqrt(Math.max(0, x) / W)); // 遮挡物在光源空间的轮廓
+    const nx = Math.ceil(W / T) + 8, ny = Math.ceil(H / T) + 8, lit = new Uint8Array(nx * ny);
+    for (let j=0;j<ny;j++) for (let i=0;i<nx;i++){ const cx = (i-4+0.5)*T, cy = (j-4+0.5)*T; lit[j*nx+i] = cy < edge(cx) ? 1 : 0; }
+    const at = (i,j) => lit[Math.min(ny-1,Math.max(0,j+4))*nx + Math.min(nx-1,Math.max(0,i+4))];
+    const img = ctx.createImageData(W, H), d = img.data;
+    const wts = (lo, hi) => { const r = []; for (let k=Math.floor(lo); k<Math.ceil(hi); k++){ const o = Math.min(hi,k+1)-Math.max(lo,k); if (o>0) r.push([k,o]); } return r; };
+    for (let x=0;x<W;x++){
+      const t = Math.min(1, Math.max(0, (x/W - 0.18) / 0.62)), K = 5 * t * t * (3 - 2 * t);
+      const u = x / T; const wx = K < 0.02 ? [[Math.floor(u),1]] : wts(u - K/2, u + K/2);
+      for (let y=0;y<H;y++){
+        const v = y / T; const wy = K < 0.02 ? [[Math.floor(v),1]] : wts(v - K/2, v + K/2);
+        let s = 0, w = 0;
+        for (const [j,oy] of wy) for (const [i,ox] of wx){ s += ox*oy*at(i,j); w += ox*oy; }
+        const V = s / w, p = (y*W + x) * 4;
+        for (let c=0;c<3;c++) d[p+c] = S[c] + (L[c]-S[c]) * V;
+        d[p+3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    // texel 网格：只在左侧可见，向右淡出
+    for (let i=0;i*T<W;i++){
+      const a = Math.max(0, 0.35 * (1 - (i*T/W) / 0.45)); if (a <= 0) break;
+      ctx.strokeStyle = 'rgba(' + G.join(',') + ',' + a + ')'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(Math.round(i*T)+0.5, 0); ctx.lineTo(Math.round(i*T)+0.5, H); ctx.stroke();
+    }
+    for (let j=0;j*T<H;j++){
+      const grad = ctx.createLinearGradient(0,0,W*0.45,0);
+      grad.addColorStop(0,'rgba(' + G.join(',') + ',0.35)'); grad.addColorStop(1,'rgba(' + G.join(',') + ',0)');
+      ctx.strokeStyle = grad; ctx.beginPath(); ctx.moveTo(0, Math.round(j*T)+0.5); ctx.lineTo(W*0.45, Math.round(j*T)+0.5); ctx.stroke();
+    }
+  }
+  drawHero();
+  let heroTimer = 0;
+  window.addEventListener('resize', () => { clearTimeout(heroTimer); heroTimer = setTimeout(drawHero, 150); });
+  if (window.matchMedia){ try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawHero); } catch(e){} }
+
+  // ---- 图 3：4×4 权重格 ----
+  const cells = $('cells');
+  if (cells){
+    const f = 0.35, w = [1-f,1,1,f];
+    for (let j=0;j<4;j++) for (let i=0;i<4;i++){
+      mk('rect',{x:40+i*60,y:30+j*60,width:60,height:60,class:'g','fill-opacity':'0'},cells);
+      mk('text',{x:40+i*60+30,y:30+j*60+35,'text-anchor':'middle',class:'t'},cells,
+         (w[i]*w[j]).toFixed(2).replace(/0+$/,'').replace(/\.$/,''));
+    }
+  }
+
+  // ---- 图 4：Gather 分块 ----
+  const gcells = $('gcells');
+  if (gcells){
+    const CS = 72, GAP = 8, OX = 16, OY = 16, cls = ['q1','q2','q3','q4'];
+    const comp = [['w','z'],['x','y']];                      // 块内 [行][列]
+    for (let gy=0; gy<2; gy++) for (let gx=0; gx<2; gx++){
+      const n = gy*2 + gx, bx = OX + gx*(2*CS+GAP), by = OY + gy*(2*CS+GAP);
+      for (let r=0;r<2;r++) for (let c=0;c<2;c++){
+        mk('rect',{x:bx+c*CS,y:by+r*CS,width:CS,height:CS,class:'gc '+cls[n]},gcells);
+        mk('text',{x:bx+c*CS+CS/2,y:by+r*CS+CS/2+4,'text-anchor':'middle',class:'gt'},gcells,'g'+n+'.'+comp[r][c]);
+      }
+      mk('rect',{x:bx,y:by,width:2*CS,height:2*CS,class:'gb'},gcells);
+    }
+    const cx = OX + 2*CS + GAP/2, cy = OY + 2*CS + GAP/2;
+    mk('circle',{cx:cx,cy:cy,r:5,class:'dot'},gcells);
+    mk('text',{x:cx+8,y:cy-6,class:'gl'},gcells,'c');
+  }
+
+  // ---- 一维 texel 行（交互 A、B 共用）----
+  const ROW = [2,2,2,2,2,2,10,10,10,10,10], DP = 10, NT = ROW.length;
+  const Hs = z => z >= DP ? 1 : 0;
+  const ov = (k, lo, hi) => Math.max(0, Math.min(hi, k+1) - Math.max(lo, k));
+  const zAt = k => ROW[Math.min(NT-1, Math.max(0, k))];
+  function Vcont(u, K){
+    const lo = u-K/2, hi = u+K/2; let s=0, w=0;
+    for (let k=Math.floor(lo); k<=Math.ceil(hi); k++){ const o = ov(k,lo,hi); if (o>0){ s += o*Hs(zAt(k)); w += o; } }
+    return s/w;
+  }
+  function Vnaive(u){ const b = Math.floor(u); let s=0; for (let k=b-1;k<=b+1;k++) s += Hs(zAt(k)); return s/3; }
+  const CW = 600/NT, X = t => 20 + t*CW;
+
+  function drawRow(svg, y0){
+    for (let k=0;k<NT;k++){
+      const h = Hs(ROW[k]);
+      mk('text',{x:X(k+0.5),y:y0-8,class:'wm','text-anchor':'middle'},svg,String(k));
+      mk('rect',{x:X(k),y:y0,width:CW,height:44,class:h?'clit':'cshd'},svg);
+      mk('text',{x:X(k+0.5),y:y0+20,class:h?'wt':'wtl','text-anchor':'middle'},svg,'z='+ROW[k]);
+      mk('text',{x:X(k+0.5),y:y0+36,class:h?'wt':'wtl','text-anchor':'middle'},svg,'H='+h);
+    }
+  }
+  function drawPlot(svg, y0, y1, u0, u1, fns, u){
+    mk('line',{x1:X(u0),y1:y1,x2:X(u1),y2:y1,class:'ax'},svg);
+    mk('line',{x1:X(u0),y1:y0,x2:X(u0),y2:y1,class:'ax'},svg);
+    mk('text',{x:X(u0)-4,y:y0+4,class:'wm','text-anchor':'end'},svg,'1');
+    mk('text',{x:X(u0)-4,y:y1+4,class:'wm','text-anchor':'end'},svg,'0');
+    for (let k=Math.ceil(u0);k<=u1;k++) mk('line',{x1:X(k),y1:y1,x2:X(k),y2:y1+4,class:'ax'},svg);
+    fns.forEach(fn => {
+      let pts = [];
+      for (let t=u0; t<=u1+1e-9; t+=0.01) pts.push(X(t).toFixed(1)+','+(y1-(y1-y0)*fn.f(t)).toFixed(1));
+      mk('polyline',{points:pts.join(' '),class:fn.cls},svg);
+      mk('circle',{cx:X(u),cy:y1-(y1-y0)*fn.f(u),r:5,class:'dot',style:fn.dot||''},svg);
+    });
+  }
+
+  // ---- 交互 A：公式逐项 ----
+  function drawA(){
+    const u = +$('wa-u').value, K = +$('wa-k').value, svg = $('wa-svg');
+    $('wa-uv').textContent = u.toFixed(2);
+    svg.innerHTML = '';
+    drawRow(svg, 30);
+    const lo = u-K/2, hi = u+K/2;
+    mk('rect',{x:X(lo),y:22,width:K*CW,height:60,class:'win'},svg);
+    mk('line',{x1:X(u),y1:18,x2:X(u),y2:88,class:'mk'},svg);
+    mk('text',{x:X(u),y:14,class:'tx','text-anchor':'middle'},svg,'u');
+    const terms = []; let s=0, w=0;
+    for (let k=Math.floor(lo); k<=Math.ceil(hi); k++){
+      const o = ov(k,lo,hi); if (o<=1e-6) continue;
+      const h = Hs(zAt(k)); s += o*h; w += o;
+      mk('text',{x:X(k+0.5),y:102,class:'wa','text-anchor':'middle'},svg,'w='+r2(o));
+      terms.push(r2(o)+'\\times '+h);
+    }
+    mk('text',{x:20,y:140,class:'txm'},svg,'V(u)');
+    drawPlot(svg, 150, 228, 3, 8.5, [{f:t=>Vcont(t,K), cls:'cc'}], u);
+    setMath($('wa-ro'), [
+      '[[d_p = 10]]，只有 [[z_i = 10]] 的格子 [[H(z_i - d_p) = 1]]',
+      '加权求和：[[\\textstyle\\sum_i w_i\\,H = ' + terms.join(' + ') + ' = ' + r2(s) + ']]',
+      '权重之和：[[\\textstyle\\sum_i w_i = ' + r2(w) + ']]',
+      '可见度：[[V = ' + r2(s) + ' / ' + r2(w) + ' = ' + (s/w).toFixed(3) + ']]'
+    ]);
+  }
+
+  // ---- 交互 B：朴素 vs 连续 ----
+  function drawB(){
+    const u = +$('wb-u').value, svg = $('wb-svg');
+    $('wb-uv').textContent = u.toFixed(2);
+    svg.innerHTML = '';
+    drawRow(svg, 30);
+    const b = Math.floor(u);
+    mk('rect',{x:X(b-1),y:27,width:3*CW,height:50,class:'nav'},svg);
+    mk('rect',{x:X(u-1.5),y:22,width:3*CW,height:60,class:'win'},svg);
+    mk('line',{x1:X(u),y1:18,x2:X(u),y2:88,class:'mk'},svg);
+    mk('text',{x:X(u),y:14,class:'tx','text-anchor':'middle'},svg,'u');
+    mk('line',{x1:30,y1:112,x2:56,y2:112,class:'nav'},svg); mk('text',{x:62,y:116,class:'tx'},svg,'朴素 3×3（取整后取 3 列）');
+    mk('line',{x1:300,y1:112,x2:326,y2:112,class:'cc'},svg); mk('text',{x:332,y:116,class:'tx'},svg,'连续 3×3（盒子随 u 平移）');
+    drawPlot(svg, 140, 236, 3.5, 8.5, [{f:Vnaive, cls:'cn', dot:'fill:var(--blue)'},{f:t=>Vcont(t,3), cls:'cc'}], u);
+    const lo = u-1.5, hi = u+1.5, parts=[];
+    for (let k=Math.floor(lo); k<=Math.ceil(hi); k++){ const o=ov(k,lo,hi); if (o>1e-6) parts.push('列 '+k+' 权重 '+r2(o)); }
+    const fr = u - b;
+    const bb = Math.floor(u - 0.5), ff = u - 0.5 - bb;
+    setMath($('wb-ro'), [
+      '[[u = ' + u.toFixed(2) + ']]：整数部分 ' + b + '，落在第 ' + b + ' 号 texel；小数部分 ' + fr.toFixed(2),
+      '朴素 3×3：列 [[\\{' + (b-1) + ',' + b + ',' + (b+1) + '\\}]]，[[V = ' + Vnaive(u).toFixed(3) + ']]（[[u \\in [' + b + ',\\ ' + (b+1) + ')]] 内都一样）',
+      '连续 3×3：[[b = \\lfloor u - 0.5 \\rfloor = ' + bb + ',\\ f = ' + ff.toFixed(2) + ']]，盒子覆盖 [[[' + lo.toFixed(2) + ',\\ ' + hi.toFixed(2) + ']]]',
+      '各列权重：' + parts.join('，') + '，[[V = ' + Vcont(u,3).toFixed(3) + ']]'
+    ]);
+  }
+
+  if ($('wa')){ ['wa-u','wa-k'].forEach(id => $(id).addEventListener('input', drawA)); drawA(); }
+  if ($('wb')){ $('wb-u').addEventListener('input', drawB); drawB(); }
+
+  // ---- 交互 C：连续 3×3 用到的 4 个 texel ----
+  function drawC(){
+    const u = +$('wc-u').value, svg = $('wc-svg');
+    $('wc-uv').textContent = u.toFixed(2);
+    svg.innerHTML = '';
+    drawRow(svg, 30);
+    const b = Math.floor(u - 0.5), f = u - 0.5 - b;
+    mk('rect',{x:X(b-1),y:27,width:4*CW,height:50,class:'nav'},svg);
+    mk('rect',{x:X(u-1.5),y:22,width:3*CW,height:60,class:'win'},svg);
+    mk('line',{x1:X(u),y1:18,x2:X(u),y2:88,class:'mk'},svg);
+    mk('line',{x1:X(u),y1:128,x2:X(u),y2:148,class:'mk'},svg);
+    mk('text',{x:X(u),y:14,class:'tx','text-anchor':'middle'},svg,'u');
+    const names = ['b−1','b','b+1','b+2'], ws = [1-f,1,1,f];
+    let s = 0;
+    for (let k=0;k<4;k++){
+      const col = b-1+k, h = Hs(zAt(col));
+      s += ws[k]*h;
+      mk('text',{x:X(col+0.5),y:100,class:'wb','text-anchor':'middle'},svg,names[k]+' = '+col);
+      const lab = k===0 ? '1−f = '+r2(ws[k]) : (k===3 ? 'f = '+r2(ws[k]) : '1');
+      mk('text',{x:X(col+0.5),y:118,class:'wa','text-anchor':'middle'},svg,lab);
+    }
+    // f：从第 b 列中心量到采样点
+    mk('circle',{cx:X(b+0.5),cy:140,r:3.5,style:'fill:var(--muted)'},svg);
+    mk('line',{x1:X(b+0.5),y1:140,x2:X(u),y2:140,style:'stroke:var(--muted);stroke-width:3'},svg);
+    mk('text',{x:(X(b+0.5)+X(u))/2,y:156,class:'wm','text-anchor':'middle'},svg,'f');
+    mk('text',{x:20,y:176,class:'txm'},svg,'V(u)');
+    drawPlot(svg, 190, 270, 3.5, 8.5, [{f:t=>Vcont(t,3), cls:'cc'}], u);
+    setMath($('wc-ro'), [
+      '[[u - 0.5 = ' + (u-0.5).toFixed(2) + ']]，[[b = \\lfloor u - 0.5 \\rfloor = ' + b + ']]，[[f = ' + f.toFixed(2) + ']]',
+      '参与的 4 列：' + (b-1) + '、' + b + '、' + (b+1) + '、' + (b+2) + '，权重 ' + r2(1-f) + '、1、1、' + r2(f) + '，[[\\textstyle\\sum w = 3]]',
+      '可见度：[[V = ' + r2(s) + ' / 3 = ' + (s/3).toFixed(3) + ']]'
+    ]);
+  }
+  if ($('wc')){ $('wc-u').addEventListener('input', drawC); drawC(); }
+  window.redrawReadouts = () => { if ($('wa')) drawA(); if ($('wb')) drawB(); if ($('wc')) drawC(); if (window.redrawDemo) window.redrawDemo(); };
+
+  // ---- 二维交互演示 ----
+  const cv = $('cv'); if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, Hh = cv.height;
+  const RES = [12, 24, 48, 96];
+  const RECV = 0.8, OCC = 0.3;
+  const ang = 25*Math.PI/180, ca = Math.cos(ang), sa = Math.sin(ang);
+  function occ(x,y){
+    const dx=x-0.42, dy=y-0.55;
+    const rx= ca*dx+sa*dy, ry=-sa*dx+ca*dy;
+    if (Math.abs(rx)<0.2 && Math.abs(ry)<0.14) return true;
+    const cx=x-0.72, cy=y-0.28;
+    return cx*cx+cy*cy < 0.11*0.11;
+  }
+  let N=24, depth=null;
+  function buildMap(){
+    depth = new Float32Array(N*N);
+    for (let j=0;j<N;j++) for (let i=0;i<N;i++)
+      depth[j*N+i] = occ((i+0.5)/N,(j+0.5)/N) ? OCC : RECV + 0.2;
+  }
+  const tex = (i,j)=>{ i=Math.min(N-1,Math.max(0,i)); j=Math.min(N-1,Math.max(0,j)); return depth[j*N+i]; };
+  const cmp = z => z >= RECV ? 1 : 0;
+  function pcf(u,v,K){
+    const tx=u*N-0.5, ty=v*N-0.5;
+    const bx=Math.floor(tx), by=Math.floor(ty), fx=tx-bx, fy=ty-by, off=(K-1)/2;
+    let s=0;
+    for (let j=0;j<=K;j++){
+      const wy = j===0 ? 1-fy : (j===K ? fy : 1);
+      for (let i=0;i<=K;i++){
+        const wx = i===0 ? 1-fx : (i===K ? fx : 1);
+        s += wx*wy*cmp(tex(bx-off+i, by-off+j));
+      }
+    }
+    return s/(K*K);
+  }
+  function naive3(u,v){
+    const bx=Math.floor(u*N), by=Math.floor(v*N); let s=0;
+    for (let j=-1;j<=1;j++) for (let i=-1;i<=1;i++) s += cmp(tex(bx+i,by+j));
+    return s/9;
+  }
+  function depthLerp(u,v){
+    const tx=u*N-0.5, ty=v*N-0.5;
+    const bx=Math.floor(tx), by=Math.floor(ty), fx=tx-bx, fy=ty-by;
+    const a=tex(bx,by), b=tex(bx+1,by), c=tex(bx,by+1), d=tex(bx+1,by+1);
+    return cmp((a*(1-fx)+b*fx)*(1-fy)+(c*(1-fx)+d*fx)*fy);
+  }
+  const none = (u,v) => cmp(tex(Math.floor(u*N),Math.floor(v*N)));
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const hex2rgb = h => { h=h.replace('#',''); return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]; };
+
+  function draw(){
+    N = RES[+$('res').value];
+    $('resv').textContent = N+' × '+N+'（画布每 texel ≈ '+(W/N).toFixed(1)+' px）';
+    buildMap();
+    const mode = $('mode').value;
+    const L = hex2rgb(css('--lit')||'#f2d9a6'), S = hex2rgb(css('--shadow')||'#2b3140');
+    const img = ctx.createImageData(W,Hh), d = img.data;
+    const K = mode==='k1'?1: mode==='k3'?3: mode==='k5'?5:0;
+    let partial=0;
+    for (let y=0;y<Hh;y++) for (let x=0;x<W;x++){
+      const u=(x+0.5)/W, v=(y+0.5)/Hh;
+      const s = mode==='none'? none(u,v) : mode==='depthlerp'? depthLerp(u,v) : mode==='naive3'? naive3(u,v) : pcf(u,v,K);
+      if (s>0.001 && s<0.999) partial++;
+      const k=(y*W+x)*4;
+      d[k]=S[0]+(L[0]-S[0])*s; d[k+1]=S[1]+(L[1]-S[1])*s; d[k+2]=S[2]+(L[2]-S[2])*s; d[k+3]=255;
+    }
+    ctx.putImageData(img,0,0);
+    if ($('grid').checked){
+      ctx.strokeStyle='rgba(128,128,128,0.35)'; ctx.lineWidth=1; ctx.beginPath();
+      for (let i=0;i<=N;i++){ const p=Math.round(i*W/N)+0.5; ctx.moveTo(p,0); ctx.lineTo(p,Hh); ctx.moveTo(0,p); ctx.lineTo(W,p); }
+      ctx.stroke();
+    }
+    const taps = {none:'1 次点采样', depthlerp:'2×2 深度插值后比较 1 次', naive3:'9 texel，各 [[1/9]]，不用小数部分',
+      k1:'2×2 texel（1 次 Gather）', k3:'16 texel（4 次 Gather），[[\\div 9]]', k5:'36 texel（9 次 Gather），[[\\div 25]]'}[mode];
+    setMath($('ro'), ['每像素读取：'+taps, '处于半影 [[0<V<1]] 的像素：'+(100*partial/(W*Hh)).toFixed(1)+'%']);
+  }
+  ['mode','res','grid'].forEach(id=>$(id).addEventListener('input',draw));
+  window.redrawDemo = draw;
+  if (window.matchMedia){ try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw); } catch(e){} }
+  draw();
+})();
+</script>
+</body>
+</html>
